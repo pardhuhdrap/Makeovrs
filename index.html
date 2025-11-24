@@ -1895,7 +1895,7 @@ async function createPdfBlobFromQuotation(q){
     return "Rs. " + indianFormat(n);
   }
 
-  // White box that sits over the background image (centered content)
+    // White box that sits over the background image (centered content)
   let html = `
     <div style="
       position: absolute;
@@ -1903,7 +1903,7 @@ async function createPdfBlobFromQuotation(q){
       left: 30px;
       right: 30px;
       padding: 20px 25px;
-      background: transparent;
+      background: transparent; /* Transparent white overlay */
       border-radius: 6px;
     ">
   `;
@@ -2020,74 +2020,28 @@ async function createPdfBlobFromQuotation(q){
   html += `</table>`;
   html += `</div>`; // end inner white box
 
-    // ---- NEW: attach content + stable off-screen capture & multi-page slicing ----
+  // Attach content over the background
   const contentWrapper = document.createElement("div");
   contentWrapper.style.position = "relative";
   contentWrapper.style.zIndex   = "1";
-  contentWrapper.innerHTML      = html;
+  html += '</div>';
+  contentWrapper.innerHTML = html;
   wrapper.appendChild(contentWrapper);
 
-  // Append wrapper to DOM so fonts/images/layout can settle
+  // ===== Render via html2canvas & slice into A4 PDF =====
   document.body.appendChild(wrapper);
 
   try {
-    // 1) Ensure wrapper height matches full content so capture includes everything
-    try {
-      await new Promise((r) => requestAnimationFrame(r));
-      const contentHeight =
-        contentWrapper.scrollHeight ||
-        contentWrapper.offsetHeight ||
-        contentWrapper.getBoundingClientRect().height;
-
-      const extraPad     = 24;
-      const minBase      = parseInt(wrapper.style.minHeight, 10) || 1123;
-      const fullHeightPx = Math.max(contentHeight + extraPad, minBase);
-
-      wrapper.style.height    = fullHeightPx + "px";
-      wrapper.style.minHeight = fullHeightPx + "px";
-      wrapper.style.overflow  = "visible";
-
-      await new Promise((r) => setTimeout(r, 60));
-      console.log("[PDF DEBUG] contentHeight:", contentHeight, "wrapper.height:", wrapper.style.height);
-    } catch (e) {
-      console.warn("PDF height adjust failed:", e);
-    }
-
-    // 2) Clone + off-screen capture: this avoids viewport scaling issues (GitHub vs localhost)
-    const clone = wrapper.cloneNode(true);
-    clone.style.position = "absolute";
-    clone.style.left     = "-99999px";
-    clone.style.top      = "0";
-    clone.style.width    = wrapper.style.width || "794px";
-    clone.style.height   = wrapper.style.height || wrapper.style.minHeight || "1123px";
-    clone.style.overflow = "visible";
-    document.body.appendChild(clone);
-
-    await new Promise((r) => requestAnimationFrame(r));
-    await new Promise((r) => setTimeout(r, 80));
-
-    if (typeof html2canvas !== "function") {
-      clone.remove();
-      wrapper.remove();
-      throw new Error("html2canvas is not loaded.");
-    }
-
-    const HTML2CANVAS_SCALE = 2;
-
-    const canvas = await html2canvas(clone, {
-      scale:          HTML2CANVAS_SCALE,
-      useCORS:        true,
-      allowTaint:     true,
-      logging:        false,
-      backgroundColor: null   // keep transparent pixels so letterhead image shows cleanly
+    const canvas = await html2canvas(wrapper, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      logging: false,
+      backgroundColor: null
     });
 
-    // remove clone asap
-    clone.remove();
-
-    // 3) Prepare PDF + common sizing vars
     const { jsPDF } = window.jspdf;
-    const pdf       = new jsPDF("p", "pt", "a4");
+    const pdf = new jsPDF("p","pt","a4");
 
     const pageWidthPt       = pdf.internal.pageSize.getWidth();
     const pageHeightPt      = pdf.internal.pageSize.getHeight();
@@ -2103,107 +2057,52 @@ async function createPdfBlobFromQuotation(q){
     const pxPerPt           = imgPixelHeight / imgHeightPt;
     const pageImageHeightPt = pageHeightPt - marginPt * 2;
 
-    // 4) Preload letterhead image once (quotation / invoice layout)
-    // 4) Preload letterhead image once (kept so we can draw header on every page)
-let bgImg = null;
-if (layoutData) {
-  bgImg = new Image();
-  bgImg.crossOrigin = "anonymous";
-  await new Promise((resolve) => {
-    bgImg.onload  = () => resolve();
-    bgImg.onerror = () => resolve();
-    bgImg.src     = layoutData;
-  });
-}
+    let sy    = 0;
+    let first = true;
 
-// 5) Slicing loop:
-//    - Reserve header space (letterhead) at the top of each page
-//    - Only draw the CONTENT part of the big canvas (no second header)
-const TOP_GAP_CSS_PX   = 265;                 // white box top in CSS px
-// MUST match the scale you passed into html2canvas(...)
-const contentTopPx     = Math.round(TOP_GAP_CSS_PX * HTML2CANVAS_SCALE);
+    while (sy < imgPixelHeight) {
+      const slicePx = Math.min(
+        imgPixelHeight - sy,
+        Math.round(pageImageHeightPt * pxPerPt)
+      );
 
-// full page height in *canvas* pixels
-const pagePixelHeight  = Math.max(
-  1,
-  Math.round(pageImageHeightPt * pxPerPt)
-);
+      const tempCanvas  = document.createElement("canvas");
+      tempCanvas.width  = imgPixelWidth;
+      tempCanvas.height = slicePx;
+      const tctx = tempCanvas.getContext("2d");
+      tctx.drawImage(
+        canvas,
+        0, sy, imgPixelWidth, slicePx,
+        0, 0, imgPixelWidth, slicePx
+      );
 
-// how many pixels per page are available for content,
-// after leaving header gap `contentTopPx`
-const contentAreaPx    = pagePixelHeight - contentTopPx;
+      const sliceData     = tempCanvas.toDataURL("image/jpeg", 0.95);
+      const sliceHeightPt = slicePx / pxPerPt;
 
-// start reading from the big canvas *below* the header
-let sy    = contentTopPx;
-let first = true;
+      if (!first) pdf.addPage();
+      pdf.addImage(
+        sliceData,
+        "JPEG",
+        marginPt,
+        marginPt,
+        imgWidthPt,
+        sliceHeightPt
+      );
 
-while (sy < imgPixelHeight) {
-  const slicePx = Math.min(contentAreaPx, imgPixelHeight - sy);
-
-  // Full page canvas (header + content slice)
-  const pageCanvas  = document.createElement("canvas");
-  pageCanvas.width  = imgPixelWidth;
-  pageCanvas.height = pagePixelHeight;
-  const pctx        = pageCanvas.getContext("2d");
-
-  // Draw letterhead once per page
-  if (bgImg && bgImg.src) {
-    try {
-      pctx.drawImage(bgImg, 0, 0, pageCanvas.width, pageCanvas.height);
-    } catch (e) {
-      pctx.fillStyle = "#ffffff";
-      pctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+      first = false;
+      sy   += slicePx;
     }
-  } else {
-    pctx.fillStyle = "#ffffff";
-    pctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-  }
 
-  // Take a slice from the big canvas that contains only the tables/content
-  const sliceCanvas  = document.createElement("canvas");
-  sliceCanvas.width  = imgPixelWidth;
-  sliceCanvas.height = slicePx;
-  const sctx         = sliceCanvas.getContext("2d");
-
-  sctx.drawImage(
-    canvas,
-    0, sy, imgPixelWidth, slicePx,   // source (big canvas)
-    0, 0, imgPixelWidth, slicePx     // dest   (sliceCanvas)
-  );
-
-  // Draw that slice starting just below the header gap
-  pctx.drawImage(sliceCanvas, 0, contentTopPx);
-
-  // Add page image to PDF
-  const finalData     = pageCanvas.toDataURL("image/jpeg", 0.95);
-  const sliceHeightPt = pageCanvas.height / pxPerPt;
-
-  if (!first) pdf.addPage();
-  pdf.addImage(
-    finalData,
-    "JPEG",
-    marginPt,
-    marginPt,
-    imgWidthPt,
-    sliceHeightPt
-  );
-
-  first = false;
-  sy   += slicePx;
-}
-
-// cleanup wrapper after success
-try { wrapper.remove(); } catch (e) {}
-
-const blob = pdf.output("blob");
-return blob;
+    wrapper.remove();
+    const blob = pdf.output("blob");
+    return blob;
   } catch (err) {
-    // ensure wrapper removed on error
-    try { wrapper.remove(); } catch (e) {}
+    try { wrapper.remove(); } catch(e) {}
     console.error("createPdfBlobFromQuotation error:", err);
     throw err;
   }
 }
+
 
 
 
