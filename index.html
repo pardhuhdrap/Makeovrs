@@ -1373,6 +1373,10 @@ function openCalendarDatePopup(dateISO){
       // Re-render popup and calendar to reflect new states
       openCalendarDatePopup(dateISO);
       renderCalendar();
+       // 🔁 Auto-save to Drive (if signed in)
+  if (typeof autoSaveDrive === 'function') {
+    autoSaveDrive('calendar booking changed');
+  }
     });
   });
 
@@ -1542,8 +1546,10 @@ function saveQuotationMultiEvent(){
   showMessage('Quotation saved locally in your browser storage.', 'Saved');
   renderCalendar();
 
-   // NEW: auto-save quotation changes to Drive
-  scheduleAutoSave('quotation saved');
+   // 🔁 Auto-save to Drive (if signed in)
+  if (typeof autoSaveDrive === 'function') {
+    autoSaveDrive('quotation saved');
+  }
 }
 
 /* -------------------------
@@ -2200,6 +2206,11 @@ async function handleFileAction(id, action) {
       renderFilesList();
       showMessage("Invoice generated and saved to Files → Invoices.");
       switchFilesTab("invoices");
+
+      // 🔁 Auto-save to Drive (if signed in)
+      if (typeof autoSaveDrive === 'function') {
+        autoSaveDrive('invoice generated from files');
+      }
 
     } catch (err) {
       console.error(err);
@@ -3966,8 +3977,10 @@ if (typeof updateInvoiceSummaryUI === 'function') {
     switchFilesTab('invoices');
     renderFilesList();
 
-    // NEW: auto-save invoice changes to Drive
-scheduleAutoSave('invoice saved');
+    // 🔁 Auto-save to Drive (if signed in)
+  if (typeof autoSaveDrive === 'function') {
+    autoSaveDrive('invoice saved from invoice screen');
+  }
   });
 
 
@@ -4351,8 +4364,29 @@ async function saveToDrive(){
   // Show the Contact Admin error bar
   const bar = document.getElementById("contactDevBar");
   if (bar) bar.style.display = "block";
+ }
 }
+
+let autoSaveTimer = null;
+function autoSaveDrive(reason) {
+  if (!accessToken) {
+    // Not signed in → just keep local changes, nothing to sync.
+    return;
+  }
+
+  try {
+    // Debounce a little so multiple quick actions don't spam Drive
+    if (autoSaveTimer) clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(() => {
+      autoSaveTimer = null;
+      console.log('Auto-saving to Drive:', reason || '(no reason)');
+      saveToDrive();
+    }, 1500);
+  } catch (e) {
+    console.warn('autoSaveDrive failed', e);
+  }
 }
+
 
 async function loadFromDrive(){
   if (!accessToken) { alert('Please sign in first'); return; }
