@@ -115,12 +115,12 @@ html, body {
   padding: 0;
 }
 
-/* 🖥 Each screen scrolls independently */
-.screen {
+.screen,
+.screen-container {
   height: 100%;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;  /* vertical scroll only */
+  touch-action: pan-y;  /* vertical scroll only: prevents sideways swipe navigation */
 }
 </style>
 </head>
