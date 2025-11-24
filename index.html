@@ -3190,8 +3190,6 @@ function attachFieldClearOnInput(panel) {
 /* simple validate for update button */
 function validateEventPanel(panel){
 
-   attachFieldClearOnInput(panel);
-   
   const name = (panel.querySelector('.event-eventNameMaster')?.value 
              || panel.querySelector('.event-eventNameManual')?.value 
              || '').trim();
@@ -3205,18 +3203,21 @@ function validateEventPanel(panel){
   if (!name)  {
     const f = panel.querySelector('.event-eventNameMaster') || panel.querySelector('.event-eventNameManual');
     if (f) f.classList.add('field-error-red');
+    attachFieldClearOnInput(panel);
     return { valid:false, message:'Event name required' };
   }
 
   if (!date)  {
     const f = panel.querySelector('.event-eventDate');
     if (f) f.classList.add('field-error-red');
+    attachFieldClearOnInput(panel);
     return { valid:false, message:'Event date required' };
   }
 
   if (!(parseFloat(pkgPrice) > 0)) {
     const f = panel.querySelector('.event-packagePrice') || panel.querySelector('.event-packageManualPrice');
     if (f) f.classList.add('field-error-red');
+    attachFieldClearOnInput(panel);
     return { valid:false, message:'Package price must be > 0' };
   }
 
@@ -3230,6 +3231,7 @@ function validateEventPanel(panel){
 
   if (transportPrice > 0 && !locationVal) {
     if (locationInput) locationInput.classList.add('field-error-red');
+    attachFieldClearOnInput(panel);
     return { valid:false, message:'Location details not entered' };
   }
 
@@ -3247,6 +3249,7 @@ function validateEventPanel(panel){
   // Case 1: details present but price invalid
   if (addonDetails && addonPrice <= 0) {
     if (addonPriceInput) addonPriceInput.classList.add('field-error-red');
+    attachFieldClearOnInput(panel);
     return {
       valid:false,
       message:'Add-on price is required for entered add-on details'
@@ -3256,6 +3259,7 @@ function validateEventPanel(panel){
   // Case 2: price present but no details
   if (addonPrice > 0 && !addonDetails) {
     if (addonDetailsInput) addonDetailsInput.classList.add('field-error-red');
+    attachFieldClearOnInput(panel);
     return {
       valid:false,
       message:'Add-on details are required when add-on price is entered'
