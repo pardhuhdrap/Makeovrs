@@ -4369,6 +4369,57 @@ if (!payload || !payload.data) {
   return;
 }
 
+async function autoSyncFromDrive() {
+  if (!accessToken) return;
+
+  try {
+    const fileId = await findFileId(APP_FILENAME);
+    if (!fileId) {
+      // nothing saved yet -> nothing to sync
+      return;
+    }
+
+    const r = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+      { headers: { Authorization: 'Bearer ' + accessToken } }
+    );
+
+    if (!r.ok) {
+      console.warn('Auto-sync download failed:', await r.text());
+      return;
+    }
+
+    const payload = await r.json();
+    if (!payload || !payload.data) return;
+
+    // Same merge logic as loadFromDrive, but no alerts
+    Object.keys(payload.data).forEach(k => {
+      const v = payload.data[k];
+      if (typeof v === 'string') {
+        try { localStorage.setItem(k, v); } catch (e) {}
+      } else {
+        try { localStorage.setItem(k, JSON.stringify(v)); }
+        catch (e) { localStorage.setItem(k, String(v)); }
+      }
+    });
+
+    try {
+      if (typeof applySettings === 'function') applySettings();
+      if (typeof renderFilesList === 'function') renderFilesList();
+      if (typeof renderCalendar === 'function') renderCalendar();
+      if (typeof updateSummaryUI === 'function') updateSummaryUI();
+      if (typeof updateInvoiceSummaryUI === 'function') updateInvoiceSummaryUI();
+    } catch (e) {
+      console.warn('Auto-sync UI refresh failed', e);
+    }
+
+    console.log('Auto-synced from Drive at', new Date().toISOString());
+  } catch (e) {
+    console.warn('Auto-sync from Drive failed:', e);
+  }
+}
+
+
 // ===== FIX: store strings as plain strings, stringify objects only =====
 Object.keys(payload.data).forEach(k => {
   const v = payload.data[k];
@@ -4439,6 +4490,10 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch (e) {
     console.warn('Silent refresh check failed:', e);
   }
+   // 🔁 NEW: periodic auto-sync every 60s (silent)
+  setInterval(() => {
+      if (accessToken) autoSyncFromDrive();
+  }, 60000);
 
   // ... rest of init ...
    updateProfileIcon();  // keep avatar in sync on first load
