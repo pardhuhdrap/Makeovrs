@@ -108,19 +108,9 @@ header {
   display: none !important;
 }
 
-html, body {
-  height: 100%;
-  overflow: hidden;      /* disable scrolling between screens */
-  margin: 0;
-  padding: 0;
-}
-
-.screen,
 .screen-container {
-  height: 100%;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;  /* vertical scroll only: prevents sideways swipe navigation */
+  overflow-x: hidden;          /* no horizontal scrollbar */
+  touch-action: pan-y;         /* gestures treated as vertical inside */
 }
 </style>
 </head>
