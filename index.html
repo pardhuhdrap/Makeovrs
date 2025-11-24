@@ -107,6 +107,21 @@ header {
 #destinationDropdown {
   display: none !important;
 }
+
+html, body {
+  height: 100%;
+  overflow: hidden;      /* disable scrolling between screens */
+  margin: 0;
+  padding: 0;
+}
+
+/* 🖥 Each screen scrolls independently */
+.screen {
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;  /* vertical scroll only */
+}
 </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center font-sans">
