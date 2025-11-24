@@ -834,7 +834,21 @@ function uid(prefix='id'){ return prefix + '_' + Date.now() + '_' + Math.floor(M
 function loadFromLS(k, fallback){ try{ const v = localStorage.getItem(k); if(!v) return fallback; return JSON.parse(v); }catch(e){ return fallback; } }
 function saveToLS(k, v){ localStorage.setItem(k, JSON.stringify(v)); }
 
+// === Auto-save to Google Drive (simple debounce) ===
+let autoSaveDriveTimer = null;
 
+function scheduleAutoSave(reason = '') {
+  // Only try if Drive is signed in and saveToDrive exists
+  if (!window.accessToken || typeof saveToDrive !== 'function') return;
+
+  // Debounce: if many changes happen quickly, we save once after 1s
+  clearTimeout(autoSaveDriveTimer);
+  autoSaveDriveTimer = setTimeout(() => {
+    console.log('Auto-saving to Drive because:', reason);
+    // Uses your existing saveToDrive (shows same status + alerts)
+    saveToDrive();
+  }, 1000);
+}
 
 /* -------------------------
    Ensure existing saved quotations have eventId for each event
@@ -1137,11 +1151,17 @@ function setQuotationBookings(quotationId, booked=true){
   if(!q) return;
   (q.events || []).forEach(ev=>{ if(ev.eventId){ if(booked) bookings[ev.eventId] = true; else delete bookings[ev.eventId]; }});
   saveToLS(BOOKED_EVENTS_KEY, bookings);
+
+  // NEW: auto-save this change to Drive
+  scheduleAutoSave('calendar quotation booking change');
 }
 function setSingleEventBooking(eventId, booked=true){
   const bookings = loadFromLS(BOOKED_EVENTS_KEY, {});
   if(booked) bookings[eventId] = true; else delete bookings[eventId];
   saveToLS(BOOKED_EVENTS_KEY, bookings);
+
+  // NEW: auto-save this change to Drive
+  scheduleAutoSave('calendar single event booking change');
 }
 
 /* -------------------------
@@ -1521,6 +1541,9 @@ function saveQuotationMultiEvent(){
   CURRENT_EDIT_QUOTATION_ID = null;
   showMessage('Quotation saved locally in your browser storage.', 'Saved');
   renderCalendar();
+
+   // NEW: auto-save quotation changes to Drive
+  scheduleAutoSave('quotation saved');
 }
 
 /* -------------------------
@@ -3942,6 +3965,9 @@ if (typeof updateInvoiceSummaryUI === 'function') {
     showMessage('Invoice saved to Files → Invoices', 'Saved');
     switchFilesTab('invoices');
     renderFilesList();
+
+    // NEW: auto-save invoice changes to Drive
+scheduleAutoSave('invoice saved');
   });
 
 
