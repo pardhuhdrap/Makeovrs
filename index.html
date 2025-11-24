@@ -3207,6 +3207,21 @@ function validateEventPanel(panel){
     return { valid:false, message:'Location details not entered' };
   }
 
+  // 🔴 ADD-ON DETAILS ↔ PRICE (Option C)
+  const addonDetails = (panel.querySelector('.event-addonDetails')?.value || '').trim();
+  const addonPriceRaw = panel.querySelector('.event-addOnPrice')?.value;
+  const addonPrice = addonPriceRaw === '' ? 0 : parseFloat(addonPriceRaw);
+
+  // A) details → price required
+  if (addonDetails && addonPrice <= 0) {
+    return { valid:false, message:'Add-on price is required for entered add-on details' };
+  }
+
+  // B) price → details required
+  if (addonPrice > 0 && !addonDetails) {
+    return { valid:false, message:'Add-on details are required when add-on price is entered' };
+  }
+
   return { valid:true };
 }
 
