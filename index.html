@@ -112,6 +112,12 @@ header {
   overflow-x: hidden;          /* no horizontal scrollbar */
   touch-action: pan-y;         /* gestures treated as vertical inside */
 }
+
+.field-error-red {
+  border: 2px solid red !important;
+  background: #ffe6e6 !important;
+}
+
 </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center font-sans">
@@ -1944,12 +1950,14 @@ const tdPriceStyle = "border:1px solid #000;padding:6px 8px;width:25%;vertical-a
       </td>
       <td style="${tdPriceStyle}">${fmtPriceForDetailRow(transportPrice)}</td>
     </tr>`;
-    html += `<tr>
-      <td style="${tdLabelStyle}">Location</td>
-      <td colspan="2" style="${tdValueStyle}">
-        ${eLocation.replace(/</g,"&lt;")}
-      </td>
-    </tr>`;
+    if (eLocation.trim() !== "") {
+  html += `<tr>
+    <td style="${tdLabelStyle}">Location</td>
+    <td colspan="2" style="${tdValueStyle}">
+      ${eLocation.replace(/</g,"&lt;")}
+    </td>
+  </tr>`;
+}
 
     if (addonData || addOnPrice) {
       html += `<tr>
@@ -2401,6 +2409,31 @@ msg += `</div>`;
     msg += `<i>(No events saved in this quotation)</i>`;
   } else {
     events.forEach((ev, idx) => {
+
+      // ------------------ REQUIRED VALIDATION ------------------
+const locField = panel.querySelector('.event-eventLocationManual');
+const transportField = panel.querySelector('.event-transportPrice');
+
+const locValue = (locField?.value || "").trim();
+const transportValue = Number(transportField?.value || 0);
+
+// If transport price is entered BUT location is empty → throw error
+if (transportValue > 0 && locValue === "") {
+
+    // highlight field in RED
+    if (locField) {
+        locField.classList.add('field-error-red');
+        locField.style.border = "2px solid red";
+    }
+
+    showMessage(
+        `Location details not entered for Event ${idx + 1}`,
+        "Input Error"
+    );
+
+    // Stop quotation creation immediately
+    throw new Error("Quotation validation failed: missing location for transport");
+}
       
       msg += `<div style="margin:8px 0; padding:6px 8px; border:1px solid #ddd; border-radius:6px; background:#fafafa;">`;
 
