@@ -3682,6 +3682,11 @@ quotationLayoutInput?.addEventListener('change', async (ev) => {
       const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
       localStorage.setItem(QUOTATION_LAYOUT_KEY, dataUrl);
       applySettings();
+
+      // 🔁 NEW: save this new layout to Drive, if signed in
+      if (typeof autoSaveDrive === 'function') {
+        autoSaveDrive('quotation layout updated');
+      }
     };
 
     fr.readAsDataURL(file);
@@ -3694,7 +3699,13 @@ quotationLayoutInput?.addEventListener('change', async (ev) => {
 document.getElementById("removeQuotationLayoutBtn")?.addEventListener("click", () => {
   localStorage.removeItem(QUOTATION_LAYOUT_KEY);
   applySettings();
+
+  // 🔁 NEW: reflect removal in Drive too
+  if (typeof autoSaveDrive === 'function') {
+    autoSaveDrive('quotation layout removed');
+  }
 });
+
 
 
 const invoiceLayoutInput = document.getElementById('invoiceLetterheadInput');
@@ -3721,6 +3732,11 @@ invoiceLayoutInput?.addEventListener('change', async (ev) => {
       const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
       localStorage.setItem(INVOICE_LAYOUT_KEY, dataUrl);
       applySettings();
+
+      // 🔁 NEW: save this new layout to Drive, if signed in
+      if (typeof autoSaveDrive === 'function') {
+        autoSaveDrive('invoice layout updated');
+      }
     };
 
     fr.readAsDataURL(file);
@@ -3733,10 +3749,48 @@ invoiceLayoutInput?.addEventListener('change', async (ev) => {
 document.getElementById("removeInvoiceLayoutBtn")?.addEventListener("click", () => {
   localStorage.removeItem(INVOICE_LAYOUT_KEY);
   applySettings();
+
+  // 🔁 NEW: reflect removal in Drive too
+  if (typeof autoSaveDrive === 'function') {
+    autoSaveDrive('invoice layout removed');
+  }
 });
 
  
-  document.getElementById('resetSettingsBtn')?.addEventListener('click', ()=>{ localStorage.removeItem(APP_NAME_KEY); localStorage.removeItem(APP_COLOR_KEY); localStorage.removeItem(APP_LOGO_KEY); localStorage.removeItem(QUOTATION_LAYOUT_KEY); localStorage.removeItem(INVOICE_LAYOUT_KEY); localStorage.removeItem(APP_FONT_KEY); applySettings(); });
+  document.getElementById('resetSettingsBtn')?.addEventListener('click', () => {
+
+  // 🔔 Warning popup before resetting settings
+  const confirmed = confirm(
+    "Are you sure you want to reset all settings?\n\n" +
+    "- App Name\n" +
+    "- App Color\n" +
+    "- App Logo\n" +
+    "- Quotation Layout\n" +
+    "- Invoice Layout\n" +
+    "- Font Size\n\n" +
+    "This action cannot be undone."
+  );
+
+  if (!confirmed) return;  // ❌ Cancel clicked → do nothing
+
+  // ✅ OK clicked → proceed with reset
+  localStorage.removeItem(APP_NAME_KEY);
+  localStorage.removeItem(APP_COLOR_KEY);
+  localStorage.removeItem(APP_LOGO_KEY);
+  localStorage.removeItem(QUOTATION_LAYOUT_KEY);
+  localStorage.removeItem(INVOICE_LAYOUT_KEY);
+  localStorage.removeItem(APP_FONT_KEY);
+
+  applySettings();
+
+  // 🔁 Sync reset to Drive as well
+  if (typeof autoSaveDrive === 'function') {
+    autoSaveDrive('settings reset (including layouts)');
+  }
+
+  showMessage("All settings have been reset.", "Saved");
+});
+
 
   // Files search
   document.getElementById('filesSearch')?.addEventListener('input', renderFilesList);
