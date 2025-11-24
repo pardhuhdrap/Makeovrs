@@ -2104,7 +2104,7 @@ async function createPdfBlobFromQuotation(q){
     const pageImageHeightPt = pageHeightPt - marginPt * 2;
 
     // 4) Preload letterhead image once (quotation / invoice layout)
-    let bgImg = null;
+    let bgImg = new Image();;
     if (layoutData) {
       bgImg = new Image();
       bgImg.crossOrigin = "anonymous";
@@ -2118,7 +2118,7 @@ async function createPdfBlobFromQuotation(q){
     // 5) Slicing loop:
     //    - Reserve the header area (letterhead) using top gap in CSS pixels.
     //    - Then fill the content area page by page.
-    let sy    = contentTopPx;
+    let sy    = 0;
     let first = true;
 
     // This should match how far below the header your white box starts.
