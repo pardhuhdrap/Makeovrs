@@ -3207,19 +3207,37 @@ function validateEventPanel(panel){
     return { valid:false, message:'Location details not entered' };
   }
 
-  // 🔴 ADD-ON DETAILS ↔ PRICE (Option C)
-  const addonDetails = (panel.querySelector('.event-addonDetails')?.value || '').trim();
-  const addonPriceRaw = panel.querySelector('.event-addOnPrice')?.value;
-  const addonPrice = addonPriceRaw === '' ? 0 : parseFloat(addonPriceRaw);
+   // --- Add-on consistency checks ---
+  const addonDetails = (
+    panel.querySelector('.event-addon-manual')?.value ||
+    panel.querySelector('.event-addon-display')?.textContent ||
+    ''
+  ).trim();
 
-  // A) details → price required
+  const addonPriceInput = panel.querySelector('.event-addOnPrice');
+  const addonPrice = parseFloat(addonPriceInput?.value || '0') || 0;
+
+  // Case 1: details present but price is empty/0
   if (addonDetails && addonPrice <= 0) {
-    return { valid:false, message:'Add-on price is required for entered add-on details' };
+    if (addonPriceInput) {
+      addonPriceInput.classList.add('field-error-red');
+    }
+    return {
+      valid: false,
+      message: 'Add-on price is required for entered add-on details'
+    };
   }
 
-  // B) price → details required
+  // Case 2: price present but no details
   if (addonPrice > 0 && !addonDetails) {
-    return { valid:false, message:'Add-on details are required when add-on price is entered' };
+    const addonTextArea = panel.querySelector('.event-addon-manual');
+    if (addonTextArea) {
+      addonTextArea.classList.add('field-error-red');
+    }
+    return {
+      valid: false,
+      message: 'Add-on details are required when add-on price is entered'
+    };
   }
 
   return { valid:true };
