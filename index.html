@@ -2118,7 +2118,7 @@ async function createPdfBlobFromQuotation(q){
     // 5) Slicing loop:
     //    - Reserve the header area (letterhead) using top gap in CSS pixels.
     //    - Then fill the content area page by page.
-    let sy    = 0;
+    let sy    = contentTopPx;
     let first = true;
 
     // This should match how far below the header your white box starts.
