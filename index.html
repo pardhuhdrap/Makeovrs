@@ -3178,9 +3178,20 @@ function updateInvoiceSummaryUI() {
   if (finalEl)  finalEl.textContent  = `₹${final.toFixed(2)}`;
 }
 
+/* clear red fields after input */
+function attachFieldClearOnInput(panel) {
+  panel.querySelectorAll('.field-error-red').forEach(el => {
+    el.addEventListener('input', () => {
+      el.classList.remove('field-error-red');
+    }, { once: true });
+  });
+}
 
 /* simple validate for update button */
 function validateEventPanel(panel){
+
+   attachFieldClearOnInput(panel);
+   
   const name = (panel.querySelector('.event-eventNameMaster')?.value 
              || panel.querySelector('.event-eventNameManual')?.value 
              || '').trim();
