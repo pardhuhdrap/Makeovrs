@@ -3181,14 +3181,35 @@ function updateInvoiceSummaryUI() {
 
 /* simple validate for update button */
 function validateEventPanel(panel){
-  const name = (panel.querySelector('.event-eventNameMaster')?.value || panel.querySelector('.event-eventNameManual')?.value || '').trim();
+  const name = (panel.querySelector('.event-eventNameMaster')?.value 
+             || panel.querySelector('.event-eventNameManual')?.value 
+             || '').trim();
+
   const date = panel.querySelector('.event-eventDate')?.value || '';
-  const pkgPrice = panel.querySelector('.event-packagePrice')?.value || panel.querySelector('.event-packageManualPrice')?.value || 0;
-  if(!name) return { valid:false, message:'Event name required' };
-  if(!date) return { valid:false, message:'Event date required' };
-  if(!(parseFloat(pkgPrice) > 0)) return { valid:false, message:'Package price must be > 0' };
+
+  const pkgPrice = panel.querySelector('.event-packagePrice')?.value 
+                || panel.querySelector('.event-packageManualPrice')?.value 
+                || 0;
+
+  if (!name)  return { valid:false, message:'Event name required' };
+  if (!date)  return { valid:false, message:'Event date required' };
+  if (!(parseFloat(pkgPrice) > 0)) 
+    return { valid:false, message:'Package price must be > 0' };
+
+  // 🔴 NEW: transport → requires location
+  const locationVal = (panel.querySelector('.event-eventLocationManual')?.value || '').trim();
+  const transportRaw = panel.querySelector('.event-transportPrice')?.value;
+  const transportPrice = transportRaw === '' || transportRaw == null
+    ? 0
+    : parseFloat(transportRaw);
+
+  if (transportPrice > 0 && !locationVal) {
+    return { valid:false, message:'Location details not entered' };
+  }
+
   return { valid:true };
 }
+
 
 /* -------------------------
    Maps: real Google Maps + Places autocomplete + Directions
