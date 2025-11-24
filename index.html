@@ -2065,8 +2065,23 @@ wrapper.style.boxSizing = "border-box";
   // ===== Render via html2canvas & slice into A4 PDF =====
   document.body.appendChild(wrapper);
 
+  // 🔧 Normalize wrapper width so zoom / scaling differences don't affect PDF
+  const expectedWidthPx = parseFloat(wrapper.style.width) || 794;
+  let rect = wrapper.getBoundingClientRect();
+  const currentWidthPx = rect.width || expectedWidthPx;
+  const scaleFix = expectedWidthPx / currentWidthPx;
+
+  if (Math.abs(scaleFix - 1) > 0.01) {
+    // Apply a compensating scale so the effective width becomes ~794px
+    wrapper.style.transformOrigin = "top left";
+    wrapper.style.transform = `scale(${scaleFix})`;
+    // re-measure if you want to debug:
+    rect = wrapper.getBoundingClientRect();
+    console.log("[PDF DEBUG] applied scaleFix", { scaleFix, rectWidth: rect.width });
+  }
+
     // 🔍 DEBUG: log sizes before rendering
-  const rect = wrapper.getBoundingClientRect();
+  rect = wrapper.getBoundingClientRect();
   console.log("[PDF DEBUG] wrapper.style", {
     width:  wrapper.style.width,
     height: wrapper.style.height
