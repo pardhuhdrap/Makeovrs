@@ -1847,8 +1847,9 @@ wrapper.style.boxSizing = "border-box";
   bg.style.width = "100%";
   bg.style.height = "100%";
   bg.style.backgroundImage = `url(${layoutData})`;
-  bg.style.backgroundSize = "cover";       // ensures full fill
-  bg.style.backgroundPosition = "center";  // prevents cropping at top
+  bg.style.backgroundSize = "100% 100%";   // stretch to full page size
+  bg.style.backgroundRepeat = "no-repeat";
+  bg.style.backgroundPosition = "top left";  // prevents cropping at top
   bg.style.opacity = "1";                  // your image already faint
   wrapper.appendChild(bg);
 }
