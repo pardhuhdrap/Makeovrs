@@ -1844,17 +1844,16 @@ async function createPdfBlobFromQuotation(q){
   wrapper.style.transform      = "none";
   wrapper.style.overflow       = "hidden";
   wrapper.style.display        = "block";
-  wrapper.style.background     = "#ffffff";
+  wrapper.style.background     = "transparent";
   wrapper.style.boxSizing      = "border-box";
 
   
 
   // ===== TABLE STYLES =====
-  const tableStyle   = "width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:14px;font-size:13px;";
-  const thFullStyle  = "border:1px solid #000;padding:6px 8px;font-weight:bold;background:transparent;text-align:left;";
-  const tdLabelStyle = "border:1px solid #000;padding:6px 8px;width:28%;vertical-align:top;word-wrap:break-word;white-space:normal;text-align:left;";
-  const tdValueStyle = "border:1px solid #000;padding:6px 8px;width:47%;vertical-align:middle;word-wrap:break-word;white-space:normal;text-align:center;";
-  const tdPriceStyle = "border:1px solid #000;padding:6px 8px;width:25%;vertical-align:middle;word-wrap:break-word;white-space:normal;text-align:right;font-weight:bold;";
+ const tableStyle = "width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:14px;font-size:13px;background:transparent;";
+const tdLabelStyle = "border:1px solid #000;padding:6px 8px;width:28%;vertical-align:top;word-wrap:break-word;white-space:normal;text-align:left;background:transparent;";
+const tdValueStyle = "border:1px solid #000;padding:6px 8px;width:47%;vertical-align:middle;word-wrap:break-word;white-space:normal;text-align:center;background:transparent;";
+const tdPriceStyle = "border:1px solid #000;padding:6px 8px;width:25%;vertical-align:middle;word-wrap:break-word;white-space:normal;text-align:right;font-weight:bold;background:transparent;";
 
   // Indian number formatting (1,25,000 instead of 125000)
   function indianFormat(num) {
