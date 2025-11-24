@@ -4542,11 +4542,6 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch (e) {
     console.warn('Silent refresh check failed:', e);
   }
-   // 🔁 NEW: periodic auto-sync every 60s (silent)
-  setInterval(() => {
-      if (accessToken) autoSyncFromDrive();
-  }, 60000);
-
   // ... rest of init ...
    updateProfileIcon();  // keep avatar in sync on first load
 });
