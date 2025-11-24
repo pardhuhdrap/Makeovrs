@@ -3191,57 +3191,69 @@ function validateEventPanel(panel){
                 || panel.querySelector('.event-packageManualPrice')?.value 
                 || 0;
 
-  if (!name)  return { valid:false, message:'Event name required' };
-  if (!date)  return { valid:false, message:'Event date required' };
-  if (!(parseFloat(pkgPrice) > 0)) 
+  if (!name)  {
+    const f = panel.querySelector('.event-eventNameMaster') || panel.querySelector('.event-eventNameManual');
+    if (f) f.classList.add('field-error-red');
+    return { valid:false, message:'Event name required' };
+  }
+
+  if (!date)  {
+    const f = panel.querySelector('.event-eventDate');
+    if (f) f.classList.add('field-error-red');
+    return { valid:false, message:'Event date required' };
+  }
+
+  if (!(parseFloat(pkgPrice) > 0)) {
+    const f = panel.querySelector('.event-packagePrice') || panel.querySelector('.event-packageManualPrice');
+    if (f) f.classList.add('field-error-red');
     return { valid:false, message:'Package price must be > 0' };
+  }
 
   // 🔴 NEW: transport → requires location
-  const locationVal = (panel.querySelector('.event-eventLocationManual')?.value || '').trim();
+  const locationInput = panel.querySelector('.event-eventLocationManual');
+  const locationVal = (locationInput?.value || '').trim();
   const transportRaw = panel.querySelector('.event-transportPrice')?.value;
   const transportPrice = transportRaw === '' || transportRaw == null
     ? 0
     : parseFloat(transportRaw);
 
   if (transportPrice > 0 && !locationVal) {
+    if (locationInput) locationInput.classList.add('field-error-red');
     return { valid:false, message:'Location details not entered' };
   }
 
-   // --- Add-on consistency checks ---
-  const addonDetails = (
-    panel.querySelector('.event-addon-manual')?.value ||
-    panel.querySelector('.event-addon-display')?.textContent ||
-    ''
-  ).trim();
+  // --- Add-on consistency checks (Option C) ---
+  const addonDetailsInput =
+    panel.querySelector('.event-addon-manual') ||
+    panel.querySelector('.event-addon-display');
+
+  const addonDetails = (addonDetailsInput?.value || addonDetailsInput?.textContent || "").trim();
 
   const addonPriceInput = panel.querySelector('.event-addOnPrice');
-  const addonPrice = parseFloat(addonPriceInput?.value || '0') || 0;
+  const addonPriceRaw = addonPriceInput?.value;
+  const addonPrice = addonPriceRaw === '' || addonPriceRaw == null ? 0 : parseFloat(addonPriceRaw);
 
-  // Case 1: details present but price is empty/0
+  // Case 1: details present but price invalid
   if (addonDetails && addonPrice <= 0) {
-    if (addonPriceInput) {
-      addonPriceInput.classList.add('field-error-red');
-    }
+    if (addonPriceInput) addonPriceInput.classList.add('field-error-red');
     return {
-      valid: false,
-      message: 'Add-on price is required for entered add-on details'
+      valid:false,
+      message:'Add-on price is required for entered add-on details'
     };
   }
 
   // Case 2: price present but no details
   if (addonPrice > 0 && !addonDetails) {
-    const addonTextArea = panel.querySelector('.event-addon-manual');
-    if (addonTextArea) {
-      addonTextArea.classList.add('field-error-red');
-    }
+    if (addonDetailsInput) addonDetailsInput.classList.add('field-error-red');
     return {
-      valid: false,
-      message: 'Add-on details are required when add-on price is entered'
+      valid:false,
+      message:'Add-on details are required when add-on price is entered'
     };
   }
 
   return { valid:true };
 }
+
 
 
 /* -------------------------
