@@ -1847,20 +1847,7 @@ async function createPdfBlobFromQuotation(q){
   wrapper.style.background     = "#ffffff";
   wrapper.style.boxSizing      = "border-box";
 
-  // Full-page background = your letterhead (quotation / invoice layout)
-  if (layoutData) {
-    const bg = document.createElement("div");
-    bg.style.position         = "absolute";
-    bg.style.top              = "0";
-    bg.style.left             = "0";
-    bg.style.width            = "100%";
-    bg.style.height           = "100%";
-    bg.style.backgroundImage  = `url(${layoutData})`;
-    bg.style.backgroundSize   = "cover";
-    bg.style.backgroundPosition = "center";
-    bg.style.opacity          = "1";
-    wrapper.appendChild(bg);
-  }
+  
 
   // ===== TABLE STYLES =====
   const tableStyle   = "width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:14px;font-size:13px;";
