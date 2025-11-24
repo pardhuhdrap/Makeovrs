@@ -1821,8 +1821,10 @@ function getShortMonth(m) {
 // --- NEW table-style PDF generator: real boxes, 3 columns ---
 // --- NEW table-style PDF generator with centered white box over letterhead ---
 async function createPdfBlobFromQuotation(q){
-  // choose correct layout key: invoice vs quotation
-  const layoutKey = q && (q.invoiceId || q.invoiceId === 0)
+  if (!q) throw new Error("No quotation data");
+
+  // Decide which letterhead to use
+  const layoutKey = (q && (q.invoiceId || q.invoiceId === 0))
     ? INVOICE_LAYOUT_KEY
     : QUOTATION_LAYOUT_KEY;
 
@@ -1830,34 +1832,37 @@ async function createPdfBlobFromQuotation(q){
 
   // Wrapper that html2canvas will capture
   const wrapper = document.createElement("div");
-wrapper.style.width = "794px";   // exact A4 width in px @96dpi
-wrapper.style.height = "1123px"; // exact A4 height in px @96dpi
-wrapper.style.position = "relative";
-wrapper.style.overflow = "hidden";
-wrapper.style.display = "block";
-wrapper.style.background = "#ffffff";
-wrapper.style.boxSizing = "border-box";
+  wrapper.style.width  = "794px";   // exact A4 width in px @96dpi
+  wrapper.style.height = "1123px";  // exact A4 height in px @96dpi
+
+  // IMPORTANT: take it out of the app layout so flex/scale can't touch it
+  wrapper.style.position       = "fixed";
+  wrapper.style.left           = "-9999px";   // off-screen
+  wrapper.style.top            = "0";
+  wrapper.style.zIndex         = "999999";
+  wrapper.style.pointerEvents  = "none";
+  wrapper.style.transform      = "none";
+  wrapper.style.overflow       = "hidden";
+  wrapper.style.display        = "block";
+  wrapper.style.background     = "#ffffff";
+  wrapper.style.boxSizing      = "border-box";
 
   // Full-page background = your letterhead (quotation / invoice layout)
   if (layoutData) {
-  const bg = document.createElement("div");
-  bg.style.position = "absolute";
-  bg.style.top = "0";
-  bg.style.left = "0";
-  bg.style.width = "100%";
-  bg.style.height = "100%";
-  bg.style.backgroundImage = `url(${layoutData})`;
-  bg.style.backgroundSize = "cover";       // ensures full fill
-  bg.style.backgroundPosition = "center";  // prevents cropping at top
-  bg.style.opacity = "1";                  // your image already faint
-  wrapper.appendChild(bg);
-}
+    const bg = document.createElement("div");
+    bg.style.position         = "absolute";
+    bg.style.top              = "0";
+    bg.style.left             = "0";
+    bg.style.width            = "100%";
+    bg.style.height           = "100%";
+    bg.style.backgroundImage  = `url(${layoutData})`;
+    bg.style.backgroundSize   = "cover";
+    bg.style.backgroundPosition = "center";
+    bg.style.opacity          = "1";
+    wrapper.appendChild(bg);
+  }
 
-
-  // How far below the header the white box starts
-  const FIRST_PAGE_TOP_OFFSET = 260; // adjust if you want it lower/higher
-
-  // ===== TABLE HTML (REAL BOXES) =====
+  // ===== TABLE STYLES =====
   const tableStyle   = "width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:14px;font-size:13px;";
   const thFullStyle  = "border:1px solid #000;padding:6px 8px;font-weight:bold;background:transparent;text-align:left;";
   const tdLabelStyle = "border:1px solid #000;padding:6px 8px;width:28%;vertical-align:top;word-wrap:break-word;white-space:normal;text-align:left;";
@@ -1891,17 +1896,17 @@ wrapper.style.boxSizing = "border-box";
   }
 
   // White box that sits over the background image (centered content)
- let html = `
-  <div style="
-    position: absolute;
-    top: 265px;               /* Move tables lower below heading */
-    left: 30px;
-    right: 30px;
-    padding: 20px 25px;
-    background: transparent; /* Transparent white overlay */
-    border-radius: 6px;
-  ">
-`;
+  let html = `
+    <div style="
+      position: absolute;
+      top: 265px;               /* Move tables lower below heading */
+      left: 30px;
+      right: 30px;
+      padding: 20px 25px;
+      background: transparent;
+      border-radius: 6px;
+    ">
+  `;
 
   // ---------- 1) CLIENT DETAILS TABLE ----------
   html += `<table style="${tableStyle}">`;
@@ -1928,7 +1933,7 @@ wrapper.style.boxSizing = "border-box";
   events.forEach((ev, index) => {
     const eName       = (ev.name        || "").toString();
     const eDate       = (ev.date        || "").toString();
-    const displayDate = formatDateShortMonth(eDate); // already defined globally
+    const displayDate = formatDateShortMonth(eDate);
     const eTime       = (ev.time        || "").toString();
     const eLocation   = (ev.location    || "").toString();
     const eNotes      = (ev.notes       || "").toString();
@@ -1941,68 +1946,35 @@ wrapper.style.boxSizing = "border-box";
 
     html += `<div style="font-weight:bold; font-size:15px; margin:10px 0 6px 2px;">Event - ${index + 1}</div>`;
     html += `<table style="${tableStyle}">`;
-
-    // Event Name
     html += `<tr>
       <td style="${tdLabelStyle}">Event Name</td>
-      <td style="${tdValueStyle}">
-        ${eName.replace(/</g,"&lt;")}
-      </td>
-      <td style="${tdPriceStyle}"></td>
+      <td style="${tdValueStyle}">${eName.replace(/</g,"&lt;")}</td>
+      <td style="${tdPriceStyle}">${fmtPriceForDetailRow(pkgPrice)}</td>
     </tr>`;
-
-    // Event Date
     html += `<tr>
-      <td style="${tdLabelStyle}">Event Date</td>
+      <td style="${tdLabelStyle}">Date & Time</td>
       <td style="${tdValueStyle}">
-        ${displayDate}
+        ${displayDate || "-"} ${eTime ? (" | " + eTime.replace(/</g,"&lt;")) : ""}
       </td>
-      <td style="${tdPriceStyle}"></td>
+      <td style="${tdPriceStyle}">${fmtPriceForDetailRow(transportPrice)}</td>
+    </tr>`;
+    html += `<tr>
+      <td style="${tdLabelStyle}">Location</td>
+      <td colspan="2" style="${tdValueStyle}">
+        ${eLocation.replace(/</g,"&lt;")}
+      </td>
     </tr>`;
 
-    // Event Time (optional)
-    if (eTime.trim() !== "") {
+    if (addonData || addOnPrice) {
       html += `<tr>
-        <td style="${tdLabelStyle}">Event Time</td>
+        <td style="${tdLabelStyle}">Add-ons</td>
         <td style="${tdValueStyle}">
-          ${eTime.replace(/</g,"&lt;")}
+          ${addonData.replace(/</g,"&lt;")}
         </td>
-        <td style="${tdPriceStyle}"></td>
-      </tr>`;
-    }
-
-    // Package Selected
-    if (pkgName.trim() !== "" || pkgPrice > 0) {
-      html += `<tr>
-        <td style="${tdLabelStyle}">Package Selected</td>
-        <td style="${tdValueStyle}">${pkgName.replace(/</g,"&lt;")}</td>
-        <td style="${tdPriceStyle}">${fmtPriceForDetailRow(pkgPrice)}</td>
-      </tr>`;
-    }
-
-    // Event Location + Transport
-    if (eLocation.trim() !== "" || transportPrice > 0) {
-      html += `<tr>
-        <td style="${tdLabelStyle}">Event Location</td>
-        <td style="${tdValueStyle}">
-          ${eLocation.replace(/</g,"&lt;")}
-        </td>
-        <td style="${tdPriceStyle}">
-          ${transportPrice ? fmtPriceForDetailRow(transportPrice) : ""}
-        </td>
-      </tr>`;
-    }
-
-    // Add-on
-    if (addonData.trim() !== "" || addOnPrice > 0) {
-      html += `<tr>
-        <td style="${tdLabelStyle}">Add-On</td>
-        <td style="${tdValueStyle}">${addonData}</td>
         <td style="${tdPriceStyle}">${fmtPriceForDetailRow(addOnPrice)}</td>
       </tr>`;
     }
 
-    // Notes & Complimentary
     if (eNotes.trim() !== "") {
       html += `<tr>
         <td style="${tdLabelStyle}">Notes &amp; Complimentary</td>
@@ -2026,17 +1998,12 @@ wrapper.style.boxSizing = "border-box";
   </div>`;
   html += `<table style="${tableStyle}">`;
 
-  // Actual Price (only when discount used)
   if (discount > 0) {
     html += `<tr>
       <td style="${tdLabelStyle}">Actual Price</td>
       <td style="${tdValueStyle}"></td>
       <td style="${tdPriceStyle}">${fmtPrice(actual)}</td>
     </tr>`;
-  }
-
-  // Discount (if any)
-  if (discount > 0) {
     html += `<tr>
       <td style="${tdLabelStyle}">Discount</td>
       <td style="${tdValueStyle}"></td>
@@ -2044,7 +2011,6 @@ wrapper.style.boxSizing = "border-box";
     </tr>`;
   }
 
-  // Final Price (always)
   html += `<tr>
     <td style="${tdLabelStyle}">Final Price</td>
     <td style="${tdValueStyle}"></td>
@@ -2065,24 +2031,7 @@ wrapper.style.boxSizing = "border-box";
   // ===== Render via html2canvas & slice into A4 PDF =====
   document.body.appendChild(wrapper);
 
-  
-    // 🔍 DEBUG: log sizes before rendering
-  const rect = wrapper.getBoundingClientRect();
-  console.log("[PDF DEBUG] wrapper.style", {
-    width:  wrapper.style.width,
-    height: wrapper.style.height
-  });
-  console.log("[PDF DEBUG] wrapper.rect", {
-    width:  rect.width,
-    height: rect.height
-  });
-  console.log("[PDF DEBUG] env", {
-    devicePixelRatio: window.devicePixelRatio,
-    innerWidth: window.innerWidth,
-    innerHeight: window.innerHeight
-  });
-  
-   try {
+  try {
     const canvas = await html2canvas(wrapper, {
       scale: 2,
       useCORS: true,
@@ -2152,6 +2101,8 @@ wrapper.style.boxSizing = "border-box";
     throw err;
   }
 }
+
+
 
 async function exportQuotationPDF(q){ try{ const blob = await createPdfBlobFromQuotation(q); const a = document.createElement('a'); const url = URL.createObjectURL(blob); a.href = url; a.download = `${(q.clientName|| (q.invoiceId ? 'invoice' : 'quotation')).replace(/\s+/g,'_')}_${q.id || q.invoiceId || Date.now()}.pdf`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }catch(e){ console.error(e); showMessage('Failed to create PDF.'); } }
 
