@@ -2104,94 +2104,99 @@ async function createPdfBlobFromQuotation(q){
     const pageImageHeightPt = pageHeightPt - marginPt * 2;
 
     // 4) Preload letterhead image once (quotation / invoice layout)
-    let bgImg = new Image();;
-    if (layoutData) {
-      bgImg = new Image();
-      bgImg.crossOrigin = "anonymous";
-      await new Promise((resolve) => {
-        bgImg.onload  = () => resolve();
-        bgImg.onerror = () => resolve();
-        bgImg.src     = layoutData;
-      });
+    // 4) Preload letterhead image once (kept so we can draw header on every page)
+let bgImg = null;
+if (layoutData) {
+  bgImg = new Image();
+  bgImg.crossOrigin = "anonymous";
+  await new Promise((resolve) => {
+    bgImg.onload  = () => resolve();
+    bgImg.onerror = () => resolve();
+    bgImg.src     = layoutData;
+  });
+}
+
+// 5) Slicing loop:
+//    - Reserve header space (letterhead) at the top of each page
+//    - Only draw the CONTENT part of the big canvas (no second header)
+const TOP_GAP_CSS_PX   = 265;                 // white box top in CSS px
+// MUST match the scale you passed into html2canvas(...)
+const contentTopPx     = Math.round(TOP_GAP_CSS_PX * HTML2CANVAS_SCALE);
+
+// full page height in *canvas* pixels
+const pagePixelHeight  = Math.max(
+  1,
+  Math.round(pageImageHeightPt * pxPerPt)
+);
+
+// how many pixels per page are available for content,
+// after leaving header gap `contentTopPx`
+const contentAreaPx    = pagePixelHeight - contentTopPx;
+
+// start reading from the big canvas *below* the header
+let sy    = contentTopPx;
+let first = true;
+
+while (sy < imgPixelHeight) {
+  const slicePx = Math.min(contentAreaPx, imgPixelHeight - sy);
+
+  // Full page canvas (header + content slice)
+  const pageCanvas  = document.createElement("canvas");
+  pageCanvas.width  = imgPixelWidth;
+  pageCanvas.height = pagePixelHeight;
+  const pctx        = pageCanvas.getContext("2d");
+
+  // Draw letterhead once per page
+  if (bgImg && bgImg.src) {
+    try {
+      pctx.drawImage(bgImg, 0, 0, pageCanvas.width, pageCanvas.height);
+    } catch (e) {
+      pctx.fillStyle = "#ffffff";
+      pctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
     }
+  } else {
+    pctx.fillStyle = "#ffffff";
+    pctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+  }
 
-    // 5) Slicing loop:
-    //    - Reserve the header area (letterhead) using top gap in CSS pixels.
-    //    - Then fill the content area page by page.
-    let sy    = 0;
-    let first = true;
+  // Take a slice from the big canvas that contains only the tables/content
+  const sliceCanvas  = document.createElement("canvas");
+  sliceCanvas.width  = imgPixelWidth;
+  sliceCanvas.height = slicePx;
+  const sctx         = sliceCanvas.getContext("2d");
 
-    // This should match how far below the header your white box starts.
-    // Your current HTML uses "top: 265px" for that white box:
-    const TOP_GAP_CSS_PX = 265;
-    const contentTopPx   = Math.round(TOP_GAP_CSS_PX * HTML2CANVAS_SCALE);
+  sctx.drawImage(
+    canvas,
+    0, sy, imgPixelWidth, slicePx,   // source (big canvas)
+    0, 0, imgPixelWidth, slicePx     // dest   (sliceCanvas)
+  );
 
-    const pagePixelHeight = Math.max(
-      1,
-      Math.round(pageImageHeightPt * pxPerPt)
-    );
-    const contentAreaPx = pagePixelHeight - contentTopPx; // usable content height per page
+  // Draw that slice starting just below the header gap
+  pctx.drawImage(sliceCanvas, 0, contentTopPx);
 
-    while (sy < imgPixelHeight) {
-      const slicePx = Math.min(contentAreaPx, imgPixelHeight - sy);
+  // Add page image to PDF
+  const finalData     = pageCanvas.toDataURL("image/jpeg", 0.95);
+  const sliceHeightPt = pageCanvas.height / pxPerPt;
 
-      // Full page canvas (background + content slice)
-      const pageCanvas        = document.createElement("canvas");
-      pageCanvas.width        = imgPixelWidth;
-      pageCanvas.height       = pagePixelHeight;
-      const pctx              = pageCanvas.getContext("2d");
+  if (!first) pdf.addPage();
+  pdf.addImage(
+    finalData,
+    "JPEG",
+    marginPt,
+    marginPt,
+    imgWidthPt,
+    sliceHeightPt
+  );
 
-      // Draw letterhead background full page
-      if (bgImg && bgImg.src) {
-        try {
-          pctx.drawImage(bgImg, 0, 0, pageCanvas.width, pageCanvas.height);
-        } catch (e) {
-          pctx.fillStyle = "#ffffff";
-          pctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-        }
-      } else {
-        pctx.fillStyle = "#ffffff";
-        pctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-      }
+  first = false;
+  sy   += slicePx;
+}
 
-      // Slice of captured content
-      const sliceCanvas  = document.createElement("canvas");
-      sliceCanvas.width  = imgPixelWidth;
-      sliceCanvas.height = slicePx;
-      const sctx         = sliceCanvas.getContext("2d");
+// cleanup wrapper after success
+try { wrapper.remove(); } catch (e) {}
 
-      sctx.drawImage(
-        canvas,
-        0, sy, imgPixelWidth, slicePx,
-        0, 0, imgPixelWidth, slicePx
-      );
-
-      // Draw content slice starting after header gap
-      pctx.drawImage(sliceCanvas, 0, contentTopPx);
-
-      // Add page to PDF
-      const finalData     = pageCanvas.toDataURL("image/jpeg", 0.95);
-      const sliceHeightPt = pageCanvas.height / pxPerPt;
-
-      if (!first) pdf.addPage();
-      pdf.addImage(
-        finalData,
-        "JPEG",
-        marginPt,
-        marginPt,
-        imgWidthPt,
-        sliceHeightPt
-      );
-
-      first = false;
-      sy   += slicePx;
-    }
-
-    // Clean up wrapper after success
-    try { wrapper.remove(); } catch (e) {}
-
-    const blob = pdf.output("blob");
-    return blob;
+const blob = pdf.output("blob");
+return blob;
   } catch (err) {
     // ensure wrapper removed on error
     try { wrapper.remove(); } catch (e) {}
