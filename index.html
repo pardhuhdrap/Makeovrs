@@ -2408,32 +2408,7 @@ msg += `</div>`;
   if (!events.length) {
     msg += `<i>(No events saved in this quotation)</i>`;
   } else {
-    events.forEach((ev, idx) => {
-
-      // ------------------ REQUIRED VALIDATION ------------------
-const locField = panel.querySelector('.event-eventLocationManual');
-const transportField = panel.querySelector('.event-transportPrice');
-
-const locValue = (locField?.value || "").trim();
-const transportValue = Number(transportField?.value || 0);
-
-// If transport price is entered BUT location is empty → throw error
-if (transportValue > 0 && locValue === "") {
-
-    // highlight field in RED
-    if (locField) {
-        locField.classList.add('field-error-red');
-        locField.style.border = "2px solid red";
-    }
-
-    showMessage(
-        `Location details not entered for Event ${idx + 1}`,
-        "Input Error"
-    );
-
-    // Stop quotation creation immediately
-    throw new Error("Quotation validation failed: missing location for transport");
-}
+    events.forEach((ev, idx) => {      
       
       msg += `<div style="margin:8px 0; padding:6px 8px; border:1px solid #ddd; border-radius:6px; background:#fafafa;">`;
 
