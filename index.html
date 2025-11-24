@@ -1,0 +1,4442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Dynamic App — Calendar Booking + Files — Single File</title>
+
+<!-- Tailwind & icons -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+
+<!-- === Google Identity (for Sign-in) Hari === -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+  // REPLACE the placeholder value with your OAuth Web Client ID from Google Cloud Console:
+  const CLIENT_ID = "698000626769-8mmgsqi4mumntijfcr7jcs1hnv5ksbmj.apps.googleusercontent.com";
+  // Note: do NOT paste any client *secret* here. Only the client ID.
+</script>
+<!-- === end Google Identity block Hari === -->
+
+
+<!-- PDF libs -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<style>
+#app { position: relative; }
+header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+}
+:root{--app-color:#3b82f6}
+.app-color-bg{background:var(--app-color)}
+.app-color-text{color:var(--app-color)}
+.app-color-border{border-color:var(--app-color)}
+.app-icon{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1rem;margin:0.5rem;background:#fff;border-radius:.75rem;box-shadow:0 10px 15px rgba(0,0,0,.08);transition:all .18s;cursor:pointer;width:120px;height:120px}
+.app-icon:hover{box-shadow:0 20px 25px rgba(0,0,0,.08)}
+#screen-wrapper { position: absolute; left: 0; right: 0; top: var(--app-header-height, 30px); bottom: 0; overflow-y: auto; }
+.screen-container{position:absolute;inset:0;top: 54px; background:#f8fafc;padding:1rem;transition:transform .3s;z-index:10;overflow-y:auto}
+.message-modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:50;padding:1rem}
+.message-modal-content{background:#fff;padding:1.25rem;border-radius:1rem;box-shadow:0 25px 50px rgba(0,0,0,.18);max-width:28rem;width:100%; max-height:80vh; overflow-y:auto;}
+.truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.event-panel{border:1px solid #e6e6e6;border-radius:.5rem;background:#fff;overflow:hidden}
+.event-panel .header{background:#fafafa;padding:.75rem 1rem;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.event-panel .body{padding:1rem;border-top:1px solid #eee}
+.hidden{display:none!important}
+.update-toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 24px; background: #111827; color: #fff; padding: 8px 14px; border-radius: 8px; z-index: 1200; box-shadow: 0 6px 18px rgba(0,0,0,0.25); opacity: 0; transition: opacity .18s, transform .18s; pointer-events: none; }
+.update-toast.show { opacity: 1; transform: translateX(-50%) translateY(-6px); pointer-events: auto; }
+
+/* Files page */
+.files-toolbar { display:flex; gap:0.5rem; align-items:center; margin-bottom:0.75rem; }
+.files-list { max-height: 48vh; overflow-y:auto; border:1px solid #e6e6e6; border-radius:0.5rem; background:white; padding:0.5rem; }
+.file-item { display:flex; gap:0.75rem; align-items:center; justify-content:space-between; padding:0.5rem; border-bottom:1px solid #f1f1f1; }
+.file-item .meta { display:flex; gap:0.5rem; align-items:center; }
+
+/* calendar */
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+.calendar-cell { min-height:64px; display:flex; align-items:flex-start; justify-content:center; padding-top:6px; position:relative; border-radius:8px; }
+.calendar-weekdays { display:grid; grid-template-columns: repeat(7, 1fr); gap:8px; margin-bottom:8px; text-align:center; color:#6b7280; font-weight:600; font-size:13px; }
+
+.calendar-date-circle {
+  width:36px; height:36px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-weight:700; color: #111827;
+  background: transparent; transition: all .12s;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.04);
+}
+.calendar-date-circle.colored { color: #fff; }
+
+/* popup */
+.calendar-popup { position:fixed; z-index:150; left:50%; top:50%; transform:translate(-50%,-50%); background:white; border-radius:8px; padding:12px; width:92%; max-width:640px; max-height:76vh; overflow:auto; box-shadow:0 20px 50px rgba(0,0,0,0.25); }
+.calendar-popup h3 { margin-top:0; }
+.calendar-popup .event-row { border-bottom:1px dashed #eee; padding:8px 0; display:flex; justify-content:space-between; gap:8px; align-items:center; }
+.calendar-popup .event-row .meta { display:flex; gap:8px; align-items:center; flex:1; }
+.calendar-popup .event-row .meta .details { font-size:13px; color:#374151; }
+.calendar-popup .event-row .meta .small { font-size:12px; color:#6b7280; }
+
+/* booked pill */
+.booked-pill { padding:4px 8px; border-radius:999px; font-size:12px; color:white; font-weight:600; }
+
+/* colors */
+.color-enquiry { background: #3b82f6; } /* Blue (changed) */
+.color-booked-1 { background: #10b981; } /* green */
+.color-booked-2 { background: #f59e0b; } /* orange */
+.color-booked-3 { background: #ef4444; } /* red */
+.color-booked-4 { background: #000000; } /* black */
+
+.tab { padding:0.5rem 0.75rem; border-radius:0.5rem; cursor:pointer; }
+.tab.active { background:var(--app-color); color:#fff; }
+
+/* ================================
+   GOOGLE MAPS AUTOCOMPLETE FIXES
+   ================================ */
+
+/* Ensure Google's dropdown appears above everything Hari */
+.pac-container {
+  z-index: 2147483647 !important;
+}
+
+/* Hide your old custom dropdown boxes so they don't conflict */
+#originDropdown,
+#destinationDropdown {
+  display: none !important;
+}
+</style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center font-sans">
+
+  <div id="app" class="w-full max-w-sm h-[92vh] bg-white rounded-3xl shadow-2xl overflow-hidden relative">
+
+  <!-- header -->
+  <header class="p-4 flex items-center justify-between text-white app-color-bg shadow-md">
+    <button id="backButton" type="button" class="text-white p-1 rounded-full hover:bg-white/10 transition-all opacity-0 pointer-events-none" style="width:40px;height:40px" onclick="goBack()">
+      <i data-lucide="chevron-left" class="w-6 h-6"></i>
+    </button>
+
+    <h1 id="app-title" class="text-xl font-bold truncate flex-grow text-center">App Name</h1>
+
+    <div class="flex items-center gap-2">
+       <!-- HOME button -->
+      <button type="button" onclick="navigate('dashboard')" class="text-white p-1 rounded-full hover:bg-white/10 transition-all" title="Home">
+        <i data-lucide="home" class="w-5 h-5"></i>
+      </button>
+
+      <!-- PROFILE / DRIVE MENU -->
+      <div class="relative">
+        <!-- always-visible user icon -->
+        <button id="profileMenuButton"
+        type="button"
+        class="text-white p-1 rounded-full hover:bg-white/10 transition-all"
+        title="Sign in / Drive">
+ <img id="profileAvatar"
+     class="h-8 w-8 rounded-full object-cover hidden" />
+
+<i id="profileIconDefault"
+   data-lucide="user"
+   class="w-7 h-7"></i>
+</button>
+
+
+        <!-- dropdown menu -->
+        <div id="profileMenu"
+     class="hidden absolute right-0 mt-2 w-60 bg-white text-gray-800 rounded-lg shadow-lg border text-sm z-50">
+  <div class="px-3 py-2 border-b">
+    <div id="gdrive-user" class="font-medium">Not signed in</div>
+    <div id="gdrive-status" class="text-xs text-gray-500 mt-1"></div>
+  </div>
+
+  <div class="flex flex-col px-2 py-2 gap-1">
+    <!-- NEW: open your existing Settings screen from here -->
+    <button
+  type="button"
+  onclick="navigate('settings'); document.getElementById('profileMenu')?.classList.add('hidden');"
+  class="w-full text-left px-2 py-1 rounded hover:bg-gray-100"
+>
+  User Profile &amp; Settings
+</button>
+
+    <hr class="my-1">
+
+    <button id="btnSignIn"
+            type="button"
+            class="w-full text-left px-2 py-1 rounded hover:bg-gray-100">
+      Sign in with Google
+    </button>
+
+    <button id="btnSignOut"
+            type="button"
+            style="display:none;"
+            class="w-full text-left px-2 py-1 rounded hover:bg-gray-100">
+      Sign out
+    </button>
+
+    <button id="btnSaveDrive"
+            type="button"
+            style="display:none;"
+            class="w-full text-left px-2 py-1 rounded hover:bg-gray-100">
+      Save to Drive
+    </button>
+
+    <button id="btnLoadDrive"
+            type="button"
+            style="display:none;"
+            class="w-full text-left px-2 py-1 rounded hover:bg-gray-100">
+      Load from Drive
+    </button>
+  </div>
+</div>
+
+
+      </div>
+    </div>
+  </header>
+
+  <div id="screen-wrapper" class="relative h-full pt-2 overflow-y-auto">
+
+
+    <!-- DASHBOARD -->
+    <div id="dashboard" class="screen-container translate-x-0">
+      <div class="flex flex-wrap justify-center">
+        <div class="app-icon text-center" onclick="navigate('calendar')"><i data-lucide="calendar" class="w-8 h-8 app-color-text"></i><span class="mt-2 text-sm font-medium text-gray-700">Event Calendar</span></div>
+        <div class="app-icon" onclick="navigate('quotation')"><i data-lucide="clipboard-list" class="w-8 h-8 app-color-text"></i><span class="mt-2 text-sm font-medium text-gray-700">Quotation</span></div>
+        <div class="app-icon" onclick="navigate('invoice')"><i data-lucide="indian-rupee" class="w-8 h-8 app-color-text"></i><span class="mt-2 text-sm font-medium text-gray-700">Invoice</span></div>
+        <div class="app-icon text-center" onclick="navigate('maps')"><i data-lucide="map-pin" class="w-8 h-8 app-color-text"></i><span class="mt-2 text-sm font-medium text-gray-700">Distance Calculator</span></div>
+        <div class="app-icon" onclick="navigate('master')"><i data-lucide="database" class="w-8 h-8 app-color-text"></i><span class="mt-2 text-sm font-medium text-gray-700">Master Data</span></div>
+        <div class="app-icon" onclick="navigate('files')"><i data-lucide="folder" class="w-8 h-8 app-color-text"></i><span class="mt-2 text-sm font-medium text-gray-700">Files</span></div>
+      </div>
+    </div>
+
+    <!-- SETTINGS (kept compact but functional) -->
+    <div id="settings" class="screen-container translate-x-full">
+      <h2 class="text-2xl font-semibold mb-6 app-color-text border-b pb-2">App Settings</h2>
+      <div class="bg-white p-6 rounded-xl shadow-lg mb-6" id="advancedSettingsBlock">
+        <h3 class="text-xl font-medium mb-4 text-gray-800">App Settings & Layout</h3>
+        <div class="mb-3">
+          <label class="block text-sm font-medium text-gray-700 mb-1">App Name</label>
+          <input id="appNameInput" class="mt-1 block w-full border-gray-300 rounded p-3" placeholder="My Business Tracker">
+        </div>
+        <div class="mb-3">
+          <label class="block text-sm font-medium text-gray-700 mb-1">App Primary Color</label>
+          <input id="appColorInput" type="color" class="mt-1 block w-full h-12 rounded border-2 app-color-border" value="#3b82f6">
+        </div>
+        <!-- APP LOGO -->
+<div class="mb-3">
+  <label class="block text-sm font-medium text-gray-700 mb-1">App Logo</label>
+
+  <div class="flex items-center gap-3">
+    <!-- Choose File -->
+    <input id="appLogoInput" type="file" accept="image/*" class="hidden">
+
+     <!-- Custom Upload Icon Button -->
+    <button type="button"
+            onclick="document.getElementById('appLogoInput').click()"
+            class="bg-gray-200 p-2 rounded border shadow">
+      <i data-lucide="upload" class="w-5 h-5"></i>
+    </button>
+
+    <!-- Preview Image (UNTOUCHED) -->
+    <img id="appLogoPreview"
+         src=""
+         alt="logo preview"
+         class="h-12 w-12 object-contain rounded hidden border" />
+  </div>
+
+  <!-- Trash Icon Button BELOW -->
+  <button id="removeLogoBtn"
+          type="button"
+          class="hidden bg-red-600 text-white p-2 rounded mt-2 w-fit">
+    <i data-lucide="trash-2" class="w-4 h-4"></i>
+  </button>
+
+  <p class="text-xs text-gray-400 mt-1">
+    Only JPG images.
+  </p>
+</div>
+
+
+
+<!-- QUOTATION LETTERHEAD -->
+<div class="mb-3">
+  <label class="block text-sm font-medium text-gray-700 mb-1">Quotation Background</label>
+
+  <div class="flex items-center gap-3">
+    <!-- Choose File -->
+    <input id="quotationLetterheadInput" type="file" accept="image/*" class="hidden">
+
+    <button type="button"
+            onclick="document.getElementById('quotationLetterheadInput').click()"
+            class="bg-gray-200 p-2 rounded border shadow">
+      <i data-lucide="upload" class="w-5 h-5"></i>
+    </button>
+
+    <!-- Preview Image (UNTOUCHED) -->
+    <img id="quotationLetterheadPreview"
+         src=""
+         alt="layout preview"
+         class="h-12 object-contain rounded hidden border" />
+  </div>
+
+  <!-- Trash Icon Button BELOW -->
+  <button id="removeQuotationLayoutBtn"
+          type="button"
+          class="hidden bg-red-600 text-white p-2 rounded mt-2 w-fit">
+    <i data-lucide="trash-2" class="w-4 h-4"></i>
+  </button>
+
+  <p class="text-xs text-gray-400 mt-1">
+    Only JPG images.
+  </p>
+</div>
+
+
+
+<!-- INVOICE LETTERHEAD -->
+<div class="mb-3">
+  <label class="block text-sm font-medium text-gray-700 mb-1">Invoice Background</label>
+
+  <div class="flex items-center gap-3">
+    <!-- Choose File -->
+    <input id="invoiceLetterheadInput" type="file" accept="image/*" class="hidden">
+
+     <!-- Custom Upload Icon Button -->
+    <button type="button"
+            onclick="document.getElementById('invoiceLetterheadInput').click()"
+            class="bg-gray-200 p-2 rounded border shadow">
+      <i data-lucide="upload" class="w-5 h-5"></i>
+    </button>
+
+    <!-- Preview Image (UNTOUCHED) -->
+    <img id="invoiceLetterheadPreview"
+         src=""
+         alt="layout preview"
+         class="h-12 object-contain rounded hidden border" />
+  </div>
+
+  <!-- Trash Icon Button BELOW -->
+  <button id="removeInvoiceLayoutBtn"
+          type="button"
+          class="hidden bg-red-600 text-white p-2 rounded mt-2 w-fit">
+    <i data-lucide="trash-2" class="w-4 h-4"></i>
+  </button>
+
+  <p class="text-xs text-gray-400 mt-1">
+    Only JPG images.
+  </p>
+</div>
+
+        <div class="flex gap-2">
+          <button id="saveSettingsBtn" type="button" class="w-full py-2 px-4 rounded text-white app-color-bg">Save Settings</button>
+          <button id="resetSettingsBtn" type="button" class="w-full py-2 px-4 rounded border">Reset Defaults</button>
+        </div>
+        <p id="settings-message" class="text-center mt-3 text-sm text-green-600" style="visibility:hidden">Settings saved!</p>
+      </div>
+      <p class="text-xs text-gray-500 p-2 border-t mt-4">Note: final Android apps require manifest alias for logo changes.</p>
+    </div>
+
+    <!-- MAPS (unchanged core behavior) -->
+    <div id="maps" class="screen-container translate-x-full">
+      <h2 class="text-2xl font-semibold mb-0 app-color-text border-b pb-2">Distance & Price Estimator</h2>
+      <div class="bg-white p-6 rounded-xl shadow-lg space-y-4">
+        <div id="map-display" class="w-full h-36 bg-gray-200 rounded-lg overflow-hidden border border-gray-300 relative flex items-center justify-center text-gray-500 text-sm font-medium">
+          <i data-lucide="map-pin" class="w-8 h-8 app-color-text absolute top-3 left-3"></i>
+          <i data-lucide="flag" class="w-8 h-8 text-red-500 absolute bottom-3 right-3"></i>
+          <div class="absolute inset-0 flex items-center justify-center opacity-90" style="background-image:linear-gradient(135deg,#a7f3d0 25%,#d1d5db 25%,#d1d5db 50%,#a7f3d0 50%,#a7f3d0 75%,#d1d5db 75%,#d1d5db 100%);background-size:20px 20px;">
+            <span id="route-text" class="px-3 py-1 bg-white/80 rounded-full shadow-lg font-bold text-sm app-color-text text-center"></span>
+          </div>
+        </div>
+            <div id="map-time-distance"
+     class="text-sm font-semibold app-color-text mt-2 text-center">
+</div>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="relative autocomplete-container col-span-2">
+            <label class="block text-xs font-medium text-gray-700">Origin (A)</label>
+            <input id="origin" class="mt-1 block w-full border-gray-300 rounded p-2 text-sm" placeholder="Start Location" autocomplete="off">
+            <div id="originDropdown" class="absolute w-full bg-white border rounded-b-md shadow z-20 mt-1 max-h-40 overflow-y-auto hidden"></div>
+          </div>
+          <div class="relative autocomplete-container col-span-2">
+            <label class="block text-xs font-medium text-gray-700">Destination (B)</label>
+            <input id="destination" class="mt-1 block w-full border-gray-300 rounded p-2 text-sm" placeholder="End Location" autocomplete="off">
+            <div id="destinationDropdown" class="fixed left-0 right-0 bg-white border rounded-b-md shadow z-50 mt-1 max-h-40 overflow-y-auto hidden"></div>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-700">Rate per KM (₹)</label>
+            <input id="pricePerKm" type="number" step="1" value="0" class="mt-1 block w-full border-gray-300 rounded p-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700">Driver Charge (₹)</label>
+            <input id="baseCharges" type="number" step="500" value="0" class="mt-1 block w-full border-gray-300 rounded p-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700">Waiting Charge (₹)</label>
+            <input id="waitingCharges" type="number" step="200" value="0" class="mt-1 block w-full border-gray-300 rounded p-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700">Toll Charge (₹)</label>
+            <input id="tollCharges" type="number" step="50" value="0" class="mt-1 block w-full border-gray-300 rounded p-2 text-sm">
+          </div>
+        </div>
+        <div class="flex items-center">
+          <input id="isRoundTrip" type="checkbox" class="h-4 w-4 app-color-text border-gray-300 rounded">
+          <label for="isRoundTrip" class="ml-2 text-sm text-gray-700">Round Trip (Double's Rate/KM & Toll)</label>
+        </div>
+        <div class="grid grid-cols-2 gap-4 mt-2">
+          <button type="button" onclick="resetMapCalculator()" class="py-3 rounded-lg bg-gray-200">Reset</button>
+          <button id="mapCalculateBtn" type="button" onclick="calculateDistancePrice()" class="py-3 rounded-lg text-white app-color-bg">Calculate Price</button>
+        </div>
+        <div id="map-confirm-row" class="mt-2 hidden">
+          <button id="mapConfirmBtn" type="button" class="w-full py-2 rounded bg-green-600 text-white" onclick="confirmMapPrice()">OK — Use this price</button>
+        </div>
+        <div id="calculationResult" class="p-4 border-2 app-color-border rounded-lg bg-gray-50 text-sm">
+          <div class="flex justify-between font-bold text-gray-700 border-b pb-1 mb-1"><span>Cost Breakdown</span><span>Amount</span></div>
+          <div id="cost-breakdown"><p class="text-center text-gray-500 pt-2">Enter route details and click calculate.</p></div>
+          <div id="total-result" class="flex justify-between font-extrabold text-lg pt-2 border-t mt-2"><span>TOTAL COST</span><span class="app-color-text">₹0.00</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MASTER -->
+        <div id="master" class="screen-container translate-x-full">
+      <h2 class="text-2xl font-semibold mb-6 app-color-text border-b pb-2">Master Data Management</h2>
+
+      <div class="bg-white p-6 rounded-xl shadow-lg mb-6">
+        <p class="text-gray-700 font-medium mb-3">Manage Event Names</p>
+        <form id="masterEventForm" onsubmit="addMasterEvent(event)" class="flex gap-2">
+          <input id="masterEventName" required class="flex-grow border-gray-300 rounded p-2" placeholder="e.g., Wedding">
+          <button type="submit" class="py-2 px-4 rounded text-white app-color-bg">Add</button>
+        </form>
+
+        <div id="masterEventList" class="mt-4 p-3 bg-gray-50 rounded border max-h-32 overflow-y-auto"><p class="text-sm text-gray-500 text-center">No event names added yet.</p></div>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-lg mb-6">
+        <p class="text-gray-700 font-medium mb-3">Manage Packages</p>
+        <form id="masterPackageForm" onsubmit="addMasterPackage(event)">
+          <div class="mb-2"><input id="masterPackageName" required class="w-full border-gray-300 rounded p-2" placeholder="Package name"></div>
+          <div class="mb-2"><input id="masterPackagePrice" required type="number" step="0.01" class="w-full border-gray-300 rounded p-2" placeholder="Price"></div>
+          <button type="submit" class="w-full py-2 rounded text-white app-color-bg">Add Package</button>
+        </form>
+        <div id="masterPackageList" class="mt-4 p-3 bg-gray-50 rounded border max-h-40 overflow-y-auto"><p class="text-sm text-gray-500 text-center">No packages added yet.</p></div>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-lg">
+        <p class="text-gray-700 font-medium mb-3">Manage AddOns</p>
+        <form id="masterAddOnForm" onsubmit="addMasterAddOn(event)">
+          <div class="mb-2"><input id="masterAddOnName" required class="w-full border-gray-300 rounded p-2" placeholder="AddOn name"></div>
+          <div class="mb-2"><input id="masterAddOnPrice" required type="number" step="0.01" class="w-full border-gray-300 rounded p-2" placeholder="Price"></div>
+          <button type="submit" class="w-full py-2 rounded text-white app-color-bg">Add AddOn</button>
+        </form>
+
+        <div id="masterAddOnList" class="mt-4 p-3 bg-gray-50 rounded border max-h-32 overflow-y-auto"><p class="text-sm text-gray-500 text-center">No addons added yet.</p></div>
+
+<div class="master-map-defaults p-4 bg-white rounded-md shadow-sm mb-4">
+  <h3 class="text-lg font-semibold mb-2">Default Map Settings</h3>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <label class="flex flex-col">
+      <span class="text-sm text-gray-600">Default Origin</span>
+      <input id="masterDefaultOrigin" type="text" class="border rounded p-2 text-sm" placeholder="e.g. Mumbai, India" />
+    </label>
+
+    <label class="flex flex-col">
+      <span class="text-sm text-gray-600">Rate per KM (₹)</span>
+      <input id="masterDefaultRatePerKm" type="number" step="0.01" class="border rounded p-2 text-sm" placeholder="0.50" />
+    </label>
+  </div>
+
+  <div class="mt-3">
+    <button class="px-3 py-2 rounded app-color-bg text-white" onclick="saveMasterMapDefaults()">Save Default Map Settings</button>
+    <button class="px-3 py-2 rounded border ml-2" onclick="document.getElementById('masterDefaultOrigin').value = ''; document.getElementById('masterDefaultRatePerKm').value = 0;">Reset</button>
+  </div>
+</div>
+
+      </div>
+    </div>
+
+    <!-- QUOTATION -->
+    <div id="quotation" class="screen-container translate-x-full">
+      <h2 class="text-2xl font-semibold mb-6 app-color-text border-b pb-2">New Quotation</h2>
+      <div class="bg-white p-6 rounded-xl shadow-lg space-y-5">
+        <div class="p-3 border rounded">
+          <h3 class="font-bold">Client Details</h3>
+          <div class="grid grid-cols-2 gap-3 mt-2">
+            <div>
+              <label class="text-xs text-gray-700">Client Name</label>
+              <input id="clientNameInput" class="mt-1 w-full border-gray-300 rounded p-2 text-sm" placeholder="Client name">
+            </div>
+            <div>
+              <label class="text-xs text-gray-700">Client Contact</label>
+              <input id="clientContactInput" class="mt-1 w-full border-gray-300 rounded p-2 text-sm" placeholder="Contact/email or phone">
+            </div>
+          </div>
+        </div>
+
+        <div class="p-3 border rounded">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="font-bold">Event(s) for this client</h3>
+          </div>
+          <div id="eventsContainer" class="space-y-3"></div>
+        </div>
+
+        <div class="flex justify-end">
+          <button id="addEventBtn" type="button" class="text-blue-600 hover:underline text-sm">Add Event +</button>
+        </div>
+
+        <div class="summary-box" id="quotationSummaryBox">
+          <div class="summary-row"><span>Actual Price</span><strong id="summaryActual">₹0.00</strong></div>
+          <div class="summary-row" style="align-items:center">
+            <div>
+              <div class="text-xs text-gray-600">Discount (₹)</div>
+              <input id="quotationDiscount" type="number" min="0" step="0.01" value="0.00" class="mt-1 block border-gray-300 rounded p-2 text-sm" style="width:140px">
+            </div>
+          </div>
+          <div class="summary-row"><span>Final Price</span><strong id="summaryFinal">₹0.00</strong></div>
+        </div>
+
+        <div>
+          <button id="generateQuotationButton" type="button" class="w-full py-3 rounded-lg text-white app-color-bg">Generate/Save Quotation</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CALENDAR -->
+    <div id="calendar" class="screen-container translate-x-full">
+      <h2 class="text-2xl font-semibold mb-6 app-color-text border-b pb-2">Event Calendar</h2>
+      <div class="bg-white p-0 rounded shadow w-auto">
+        <div class="flex items-center justify-between mb-3 w-full">
+    <!-- Left button group (horizontal) -->
+    <div class="flex items-center space-x-2">
+      <button onclick="changeMonth(-1)"
+              class="bg-pink-200 inline-flex flex-none py-1 px-3 rounded border whitespace-nowrap">
+        Prev
+      </button>
+    </div>
+
+        <!-- Center title -->
+    <div id="calendar-title"
+         class="text-lg font-semibold text-center flex-1 px-3 whitespace-nowrap"></div>
+
+
+    <!-- Right button group (horizontal) -->
+    <div class="flex items-center space-x-2">
+      <button onclick="changeMonth(1)"
+              class="bg-pink-200 inline-flex flex-none py-1 px-3 rounded border whitespace-nowrap">
+        Next
+      </button>
+	</div>
+          </div>           
+        </div>
+
+        <div id="calendar-widget" class="min-h-[260px]"></div>
+
+        <div class="calendar-legend mt-4 flex flex-row flex-wrap items-center gap-4">
+  <div class="flex items-center gap-2">
+    <div style="width:14px;height:14px;border-radius:4px;background:transparent;border:1px solid #e5e7eb"></div>
+    <div>No Event</div>
+  </div>
+
+  <div class="flex items-center gap-2">
+    <div style="width:14px;height:14px;border-radius:4px;background:#3b82f6"></div>
+    <div>Enquiry</div>
+  </div>
+
+  <div class="flex items-center gap-2">
+    <div style="width:14px;height:14px;border-radius:4px;background:#10b981"></div>
+    <div>1 Booked</div>
+  </div>
+
+  <div class="flex items-center gap-2">
+    <div style="width:14px;height:14px;border-radius:4px;background:#f59e0b"></div>
+    <div>2 Booked</div>
+  </div>
+
+  <div class="flex items-center gap-2">
+    <div style="width:14px;height:14px;border-radius:4px;background:#ef4444"></div>
+    <div>3 Booked</div>
+  </div>
+
+  <div class="flex items-center gap-2">
+    <div style="width:14px;height:14px;border-radius:4px;background:#000"></div>
+    <div>>3 Booked</div>
+  </div>
+</div>
+
+        <div id="calendar-help" class="text-xs text-gray-500 mt-3">
+          Click a date to view quotations/events for that date. Book events from the popup.
+        </div>
+      </div>
+    </div>
+
+    <!-- INVOICE (kept functional, UI similar) -->
+    <div id="invoice" class="screen-container translate-x-full">
+      <h2 class="text-2xl font-semibold mb-6 app-color-text border-b pb-2">Invoice Generator</h2>
+      <div class="bg-white p-6 rounded-xl shadow-lg space-y-5">
+        <div class="p-3 border rounded">
+          <h3 class="font-bold">Client Details</h3>
+          <div class="grid grid-cols-2 gap-3 mt-2">
+            <div>
+              <label class="text-xs text-gray-700">Client Name</label>
+              <input id="invoiceClientNameInput" class="mt-1 w-full border-gray-300 rounded p-2 text-sm" placeholder="Client name">
+            </div>
+            <div>
+              <label class="text-xs text-gray-700">Client Contact</label>
+              <input id="invoiceClientContactInput" class="mt-1 w-full border-gray-300 rounded p-2 text-sm" placeholder="Contact/email">
+            </div>
+          </div>
+        </div>
+        <div class="p-3 border rounded">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="font-bold">Event(s) for this invoice</h3>
+          </div>
+          <div id="invoiceEventsContainer" class="space-y-3"></div>
+        </div>
+        <div class="flex justify-end">
+          <button id="invoiceAddEventBtn" type="button" class="text-blue-600 hover:underline text-sm">Add Event +</button>
+        </div>
+        <div class="summary-box" id="invoiceSummaryBox">
+          <div class="summary-row"><span>Actual Price</span><strong id="invoiceSummaryActual">₹0.00</strong></div>
+          <div class="summary-row" style="align-items:center">
+            <div>
+              <div class="text-xs text-gray-600">Discount (₹)</div>
+              <input id="invoiceDiscount" type="number" min="0" step="0.01" value="0.00" class="mt-1 block border-gray-300 rounded p-2 text-sm" style="width:140px">
+            </div>
+          </div>
+          <div class="summary-row"><span>Final Price</span><strong id="invoiceSummaryFinal">₹0.00</strong></div>
+        </div>
+        <div>
+          <button id="generateInvoiceButton" type="button" class="w-full py-3 rounded-lg text-white app-color-bg">Save / Generate Invoice</button>
+        </div>
+      </div>
+    </div>
+
+<!-- FILES -->
+<div id="files" class="screen-container translate-x-full">
+  <h2 class="text-2xl font-semibold mb-4 app-color-text border-b pb-2">
+    Files — Quotations & Invoices
+  </h2>
+
+  <div class="bg-white p-4 rounded-xl shadow-lg space-y-4">
+    <!-- Tabs + search filters -->
+    <div class="flex items-center justify-between mb-3">
+  <div class="flex items-center gap-2">
+    <div class="tab active" id="tab-quotations" onclick="switchFilesTab('quotations')">
+      Quotations
+    </div>
+    <div class="tab" id="tab-invoices" onclick="switchFilesTab('invoices')">
+      Invoices
+    </div>
+  </div>
+</div>
+
+<!-- New line: toolbar below tabs -->
+<div class="files-toolbar mb-3"
+     style="display:flex; flex-wrap:nowrap; gap:0.5rem; align-items:center;">
+  <input id="filesSearch"
+         placeholder="Search by client"
+         class="border rounded p-2 text-sm" style="flex:1; min-width:0;" />
+
+  <input id="filesDate"
+         type="text"
+         placeholder="YYYY, MM-YYYY or DD-MM-YYYY"
+         class="border rounded p-2 text-sm" style="width:10rem; min-width:0;" />
+</div>
+
+<div id="filesContent">
+
+      <!-- QUOTATIONS TAB -->
+      <div id="quotationsTab">
+        <!-- Bulk toolbar for quotations -->
+        <div class="flex flex-wrap items-center gap-2 mb-2 text-sm">
+          <label class="flex items-center gap-1">
+            <input type="checkbox" id="quoteSelectAll" class="h-4 w-4">
+            <span>All</span>
+          </label>
+
+          <select id="quoteBulkAction"
+                  class="border rounded p-1 text-sm min-w-[100px]">
+            <option value="">Choose action</option>
+            <option value="download">Download</option>
+            <option value="share">Share</option>
+            <option value="edit">Edit</option> 
+            <option value="generate_invoice">Generate Invoice</option>
+          </select>
+
+          <button id="quoteBulkOk"
+                  class="py-1 px-3 rounded bg-gray-800 text-white text-sm">
+            OK
+          </button>
+
+          <button id="quoteBulkDelete"
+                  class="py-1 px-3 rounded bg-red-100 text-red-700 text-sm">
+            Delete
+          </button>
+        </div>
+
+        <div class="files-list" id="filesList"></div>
+        <div id="filesEmpty"
+             class="text-sm text-gray-500 text-center p-4 hidden">
+          No files found.
+        </div>
+      </div>
+
+      <!-- INVOICES TAB -->
+      <div id="invoicesTab" class="hidden">
+        <!-- Bulk toolbar for invoices -->
+        <div class="flex flex-wrap items-center gap-2 mb-2 text-sm">
+          <label class="flex items-center gap-1">
+            <input type="checkbox" id="invoiceSelectAll" class="h-4 w-4">
+            <span>All</span>
+          </label>
+
+          <select id="invoiceBulkAction"
+                  class="border rounded p-1 text-sm min-w-[100px]">
+            <option value="">Choose action</option>
+            <option value="download">Download</option>
+            <option value="edit">Edit</option> 
+            <option value="share">Share</option>
+          </select>
+
+          <div class="inline-flex gap-2">
+  <button id="invoiceBulkOk"
+          class="py-1 px-3 rounded bg-gray-800 text-white text-sm">
+    OK
+  </button>
+  <button id="invoiceBulkDelete"
+          class="py-1 px-3 rounded bg-red-100 text-red-700 text-sm">
+    Delete
+  </button>
+</div>
+        </div>
+
+        <div class="files-list" id="invoicesList"></div>
+        <div id="invoicesEmpty"
+             class="text-sm text-gray-500 text-center p-4 hidden">
+          No invoices found.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+
+
+  <!-- message modal -->
+  <div id="messageModal" class="message-modal" style="z-index:999">
+    <div class="message-modal-content">
+      <h3 id="messageTitle" class="text-xl font-bold text-red-600 mb-3">Input Error</h3>
+      <pre id="messageBody" class="text-gray-700 mb-6" style="white-space:pre-wrap;"></pre>
+      <button type="button" onclick="closeMessage()" class="w-full py-2 rounded bg-blue-600 text-white">OK</button>
+    </div>
+  </div>
+
+  <!-- calendar popup container -->
+  <div id="calendarPopupContainer" class="hidden"></div>
+
+</div>
+
+
+
+<!-- Inserted settings-related script blocks from New.html -->
+<script>
+/* -------------------------
+   Helpers & storage keys
+   ------------------------- */
+function createLucide(){ if(window.lucide && lucide.createIcons) try{ lucide.createIcons(); }catch(e){} }
+function showMessage(msg,title='Notice'){ const t=document.getElementById('messageTitle'), b=document.getElementById('messageBody'), m=document.getElementById('messageModal');  if (t) t.textContent = title;
+
+  if (b) {
+    if (typeof msg === 'string') {
+      // allow HTML for formatted messages (like your quotation viewer)
+      b.innerHTML = msg;
+    } else {
+      // fallback for objects / errors: show as plain JSON text
+      b.textContent = JSON.stringify(msg, null, 2);
+    }
+  }
+
+  if (m) m.style.display = 'flex';
+}
+function closeMessage(){ const m=document.getElementById('messageModal'); if(m) m.style.display='none'; }
+
+let navHistory = [];
+let currentScreen = 'dashboard';
+
+function navigate(id, opts = { pushHistory: true }) {
+  const screens = ['dashboard','settings','maps','master','quotation','calendar','invoice','files'];
+
+  // Show only the requested screen
+  screens.forEach(s => {
+    const el = document.getElementById(s);
+    if (!el) return;
+    el.style.transform = (s === id) ? 'translateX(0)' : 'translateX(100%)';
+  });
+
+  // History handling for back button
+  if (opts.pushHistory && currentScreen !== id) {
+    navHistory.push(currentScreen);
+  }
+  currentScreen = id;
+
+  // Back button visibility
+  const backBtn = document.getElementById('backButton');
+  if (backBtn) {
+    const noHistory = navHistory.length === 0;
+    backBtn.classList.toggle('opacity-0', noHistory);
+    backBtn.classList.toggle('pointer-events-none', noHistory);
+  }
+
+  // Screen-specific initialisation
+if (id === 'master')    loadMasterData();
+if (id === 'maps') {
+  applyDefaultMapValues();
+  // initialize maps & autocomplete once when maps screen is first shown
+  try { ensureMapsInitOnFirstShow(); } catch(e) { console.warn('Maps init failed', e); }
+}
+if (id === 'quotation') populateQuotationFields();
+if (id === 'invoice')   populateInvoiceFields();
+if (id === 'calendar')  renderCalendar();
+if (id === 'files')     loadFilesUI();
+
+  createLucide();
+}
+
+function goBack() {
+  if (navHistory.length === 0) {
+    // If no history, go home
+    return navigate('dashboard', { pushHistory: false });
+  }
+  const prev = navHistory.pop();
+  navigate(prev, { pushHistory: false });
+}
+
+const APP_NAME_KEY='app_name', APP_COLOR_KEY='app_color', MASTER_EVENT_NAMES_KEY='master_event_names', MASTER_PACKAGES_KEY='master_packages', MASTER_ADDONS_KEY='master_addons', SAVED_QUOTATIONS_KEY='saved_quotations', SAVED_INVOICES_KEY='saved_invoices'; 
+
+let CURRENT_EDIT_QUOTATION_ID = null; 
+let CURRENT_EDIT_INVOICE_ID   = null;
+
+const APP_LOGO_KEY='app_logo_dataurl';
+const QUOTATION_LAYOUT_KEY='quotation_layout_dataurl';
+const INVOICE_LAYOUT_KEY='invoice_layout_dataurl';
+const APP_FONT_KEY='app_font_size', BOOKED_EVENTS_KEY='booked_event_ids'; const MASTER_DEFAULT_ORIGIN_KEY = 'master_default_origin';
+const MASTER_DEFAULT_RATE_KEY = 'master_default_rate';
+
+
+function uid(prefix='id'){ return prefix + '_' + Date.now() + '_' + Math.floor(Math.random()*9000); }
+function loadFromLS(k, fallback){ try{ const v = localStorage.getItem(k); if(!v) return fallback; return JSON.parse(v); }catch(e){ return fallback; } }
+function saveToLS(k, v){ localStorage.setItem(k, JSON.stringify(v)); }
+
+
+
+/* -------------------------
+   Ensure existing saved quotations have eventId for each event
+   (migrator run once on load)
+   ------------------------- */
+function migrateEventIds(){
+  const all = loadFromLS(SAVED_QUOTATIONS_KEY, []);
+  let changed = false;
+  all.forEach(q=>{
+    if(Array.isArray(q.events)){
+      q.events.forEach(ev=>{
+        if(!ev.eventId){ ev.eventId = uid('ev'); changed = true; }
+      });
+    } else {
+      q.events = [];
+      changed = true;
+    }
+  });
+  if(changed) saveToLS(SAVED_QUOTATIONS_KEY, all);
+}
+
+
+/* -------------------------
+   apply settings
+   ------------------------- */
+function applySettings(){
+  let rawName = localStorage.getItem(APP_NAME_KEY);
+  let rawColor = localStorage.getItem(APP_COLOR_KEY);
+  const rawFont = localStorage.getItem(APP_FONT_KEY);
+
+// --- FIXED NAME LOADING ---
+  let name = 'My Business App';
+  if (typeof rawName === 'string' && rawName.length) {
+    try {
+      const parsed = JSON.parse(rawName);
+      if (typeof parsed === 'string') name = parsed;
+      else name = rawName;
+    } catch {
+      name = rawName;
+    }
+  }
+
+  // normalise color (leave this as it is)
+  let color = '#3b82f6';
+  if (typeof rawColor === 'string' && rawColor.length) {
+    try {
+      const parsed = JSON.parse(rawColor);
+      if (typeof parsed === 'string') rawColor = parsed;
+    } catch {}
+    if (/^#([0-9a-fA-F]{6})$/.test(rawColor)) color = rawColor;
+    else if (/^#([0-9a-fA-F]{3})$/.test(rawColor))
+      color = '#' + rawColor.slice(1).split('').map(c=>c+c).join('');
+  }
+
+  const fontSize = (rawFont && /^\d+$/.test(rawFont)) ? rawFont : '16';
+
+  // apply header title and settings input
+  const titleEl = document.getElementById('app-title');
+  if (titleEl) titleEl.textContent = name;
+
+  const nameInput = document.getElementById('appNameInput');
+  if (nameInput) nameInput.value = name;
+
+  // apply CSS vars & font-size
+  document.documentElement.style.setProperty('--app-color', color);
+  document.documentElement.style.setProperty('font-size', fontSize + 'px');
+
+  // set color input (type=color expects #rrggbb)
+  const colorInput = document.getElementById('appColorInput');
+  if (colorInput) {
+    try { colorInput.value = color; } catch(e) { /* if browser rejects invalid value */ }
+  }
+
+  // auto-contrast: keep icons/text readable (white on dark, black on light)
+  (function setContrast(){
+    try {
+      function hexToLuminance(hex) {
+        const r = parseInt(hex.slice(1,3),16) / 255;
+        const g = parseInt(hex.slice(3,5),16) / 255;
+        const b = parseInt(hex.slice(5,7),16) / 255;
+        const srgb = [r,g,b].map(c => c <= 0.03928 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4));
+        return 0.2126*srgb[0] + 0.7152*srgb[1] + 0.0722*srgb[2];
+      }
+      const lum = hexToLuminance(color);
+      const contrast = lum > 0.5 ? '#111111' : '#ffffff';
+      const header = document.querySelector('header');
+      if (header) header.style.color = contrast;
+
+      // ensure buttons/text remain readable
+      document.querySelectorAll('.app-color-bg').forEach(el => el.style.color = contrast);
+      document.documentElement.style.setProperty('--app-contrast-color', contrast);
+    } catch(e) { console.warn('setContrast failed', e); }
+  })();
+
+  // logo + letterhead previews (unchanged behavior)
+  const logoData = localStorage.getItem(APP_LOGO_KEY) || '';
+
+if (logoData) {
+  // Only update the preview + remove button in Settings
+  const logoPreview = document.getElementById('appLogoPreview');
+  const removeLogoBtn = document.getElementById('removeLogoBtn');
+
+  if (logoPreview) {
+    logoPreview.src = logoData;
+    logoPreview.classList.remove('hidden');
+  }
+  if (removeLogoBtn) {
+    removeLogoBtn.classList.remove('hidden');
+  }
+} else {
+  // No logo saved → hide preview + remove button
+  document.getElementById('appLogoPreview')?.classList.add('hidden');
+  document.getElementById('removeLogoBtn')?.classList.add('hidden');
+}
+
+
+  // quotation/invoice previews (keep existing logic)
+  const qLayout = localStorage.getItem(QUOTATION_LAYOUT_KEY) || '';
+  const invLayout = localStorage.getItem(INVOICE_LAYOUT_KEY) || '';
+
+  const qPreview = document.getElementById('quotationLetterheadPreview');
+  const removeQBtn = document.getElementById('removeQuotationLayoutBtn');
+  if (qPreview) { if (qLayout) { qPreview.src = qLayout; qPreview.classList.remove('hidden'); if (removeQBtn) removeQBtn.classList.remove('hidden'); } else { qPreview.classList.add('hidden'); if (removeQBtn) removeQBtn.classList.add('hidden'); } }
+
+  const iPreview = document.getElementById('invoiceLetterheadPreview');
+  const removeIBtn = document.getElementById('removeInvoiceLayoutBtn');
+  if (iPreview) { if (invLayout) { iPreview.src = invLayout; iPreview.classList.remove('hidden'); if (removeIBtn) removeIBtn.classList.remove('hidden'); } else { iPreview.classList.add('hidden'); if (removeIBtn) removeIBtn.classList.add('hidden'); } }
+
+  createLucide();
+}
+
+
+
+
+
+/* -------------------------
+   Master data (same functionality)
+   ------------------------- */
+let masterEventNames = [], masterPackages = [], masterAddOns = [];
+function loadMasterData(){
+  masterEventNames = loadFromLS(MASTER_EVENT_NAMES_KEY, []) || [];
+  masterPackages = loadFromLS(MASTER_PACKAGES_KEY, []) || [];
+  masterAddOns = loadFromLS(MASTER_ADDONS_KEY, []) || [];
+
+  // Render lists and refresh dependent UI
+  renderMasterEventList();
+  renderMasterPackageList();
+  renderMasterAddOnList();
+  refreshPanelsMasterData();
+
+  // Load saved defaults for map (guard with element checks)
+  const originInput = document.getElementById('masterDefaultOrigin');
+  const rateInput   = document.getElementById('masterDefaultRatePerKm');
+
+  if (originInput) {
+    originInput.value = loadFromLS(MASTER_DEFAULT_ORIGIN_KEY, '') || '';
+  }
+  if (rateInput) {
+    rateInput.value = loadFromLS(MASTER_DEFAULT_RATE_KEY, 0) || 0;
+  }
+}
+
+function applyDefaultMapValues() {
+  const origin = loadFromLS(MASTER_DEFAULT_ORIGIN_KEY, '');
+  const rate = loadFromLS(MASTER_DEFAULT_RATE_KEY, 0);
+
+  // Set default Origin (editable by user)
+  const originEl = document.getElementById('origin');
+  if (originEl) originEl.value = origin || '';
+
+  // Set default Rate (editable too)
+  const rateEl = document.getElementById('pricePerKm');
+  if (rateEl) rateEl.value = rate || 0;
+}
+
+function saveMasterEvents(){ saveToLS(MASTER_EVENT_NAMES_KEY, masterEventNames); }
+function saveMasterPackages(){ saveToLS(MASTER_PACKAGES_KEY, masterPackages); }
+function saveMasterAddOns(){ saveToLS(MASTER_ADDONS_KEY, masterAddOns); }
+
+function saveMasterMapDefaults() {
+  const origin = document.getElementById('masterDefaultOrigin')?.value?.trim() || '';
+  const rate = parseFloat(document.getElementById('masterDefaultRatePerKm')?.value || 0);
+
+  saveToLS(MASTER_DEFAULT_ORIGIN_KEY, origin);
+  saveToLS(MASTER_DEFAULT_RATE_KEY, isNaN(rate) ? 0 : rate);
+
+  showMessage("Default map settings saved!", "Saved");
+}
+
+
+function addMasterEvent(e){ e.preventDefault(); const v=document.getElementById('masterEventName')?.value?.trim(); if(!v) return showMessage('Enter a valid event name.'); if(masterEventNames.includes(v)) return showMessage('Event already exists.'); masterEventNames.push(v); saveMasterEvents(); document.getElementById('masterEventName').value=''; renderMasterEventList(); refreshPanelsMasterData(); }
+function addMasterPackage(e){ e.preventDefault(); const n=document.getElementById('masterPackageName')?.value?.trim(); const p=parseFloat(document.getElementById('masterPackagePrice')?.value); if(!n||isNaN(p)||p<0) return showMessage('Fill valid name & price.'); masterPackages.push({id:Date.now(), name:n, price:p}); saveMasterPackages(); document.getElementById('masterPackageForm').reset(); renderMasterPackageList(); refreshPanelsMasterData(); }
+function addMasterAddOn(e){ e.preventDefault(); const n=document.getElementById('masterAddOnName')?.value?.trim(); const p=parseFloat(document.getElementById('masterAddOnPrice')?.value); if(!n||isNaN(p)||p<0) return showMessage('Fill valid name & price.'); masterAddOns.push({id:Date.now(), name:n, price:p}); saveMasterAddOns(); document.getElementById('masterAddOnForm').reset(); renderMasterAddOnList(); refreshPanelsMasterData(); }
+
+function renderMasterEventList(){ const el=document.getElementById('masterEventList'); if(!el) return; el.innerHTML = masterEventNames.length===0?'<p class="text-sm text-gray-500 text-center p-2">No event names added yet.</p>': masterEventNames.map(n=>`<div class="flex justify-between items-center p-2 border-b bg-white rounded-md"><p class="font-semibold app-color-text">${n}</p><button onclick="deleteMasterEvent(${JSON.stringify(n)})" class="text-red-500 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>`).join(''); createLucide(); }
+function renderMasterPackageList(){ const el=document.getElementById('masterPackageList'); if(!el) return; el.innerHTML = masterPackages.length===0?'<p class="text-sm text-gray-500 text-center p-2">No packages added yet.</p>': masterPackages.map(p=>`<div class="flex justify-between items-center p-3 border-b bg-white"><div><p class="font-semibold app-color-text">${p.name}</p></div><div class="flex items-center"><p class="font-bold text-green-600 mr-2">₹${p.price.toFixed(2)}</p><button onclick="deleteMasterPackage(${p.id})" class="text-red-500 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></div>`).join(''); createLucide(); }
+function renderMasterAddOnList(){ const el=document.getElementById('masterAddOnList'); if(!el) return; el.innerHTML = masterAddOns.length===0?'<p class="text-sm text-gray-500 text-center p-2">No addons added yet.</p>': masterAddOns.map(a=>`<div class="flex justify-between items-center p-3 border-b bg-white"><div><p class="font-semibold app-color-text">${a.name}</p></div><div class="flex items-center"><p class="font-bold text-green-600 mr-2">₹${a.price.toFixed(2)}</p><button onclick="deleteMasterAddOn(${a.id})" class="text-red-500 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></div>`).join(''); createLucide(); }
+function deleteMasterEvent(name){ masterEventNames = masterEventNames.filter(x=>x!==name); saveMasterEvents(); renderMasterEventList(); refreshPanelsMasterData(); }
+function deleteMasterPackage(id){ masterPackages = masterPackages.filter(x=>x.id!==id); saveMasterPackages(); renderMasterPackageList(); refreshPanelsMasterData(); }
+function deleteMasterAddOn(id){ masterAddOns = masterAddOns.filter(x=>x.id!==id); saveMasterAddOns(); renderMasterAddOnList(); refreshPanelsMasterData(); }
+
+/* refresh UI selects inside event panels */
+function refreshPanelsMasterData(){
+  const panels = document.querySelectorAll('#eventsContainer .event-panel, #invoiceEventsContainer .event-panel');
+  panels.forEach(panel=>{
+    const nameSel = panel.querySelector('.event-eventNameMaster');
+    if(nameSel){
+      nameSel.innerHTML = '<option value="">-- Select Master Event --</option>';
+      masterEventNames.forEach(n => { const opt = document.createElement('option'); opt.value = n; opt.textContent = n; nameSel.appendChild(opt); });
+    }
+    const pkgSel = panel.querySelector('.event-packageMaster');
+    if(pkgSel){
+      pkgSel.innerHTML = '<option value="">-- Select Package --</option>';
+      masterPackages.forEach(p => { const opt = document.createElement('option'); opt.value = p.id; opt.textContent = `${p.name} — ₹${p.price.toFixed(2)}`; opt.dataset.price = p.price; pkgSel.appendChild(opt); });
+    }
+    const masterContainer = panel.querySelector('.event-addon-master');
+    if(masterContainer){
+      masterContainer.innerHTML = '';
+      if(masterAddOns.length===0) masterContainer.innerHTML = '<p class="text-sm text-gray-500 p-2">No add-ons in master.</p>';
+      else masterAddOns.forEach(a=>{ const row = document.createElement('div'); row.className='flex items-center justify-between p-1'; row.innerHTML = `<label class="flex items-center gap-2"><input type="checkbox" data-price="${a.price}" data-name="${a.name}" class="panel-addon-checkbox"> <span class="text-sm">${a.name}</span></label><span class="text-sm font-bold text-green-600">₹${a.price.toFixed(2)}</span>`; masterContainer.appendChild(row); });
+    }
+  });
+}
+
+/* -------------------------
+   Calendar data index & dedupe
+   ------------------------- */
+/* Deduplicate quotations by clientName + clientContact (keep latest) */
+function dedupeQuotationsByClient(){
+  const all = loadFromLS(SAVED_QUOTATIONS_KEY, []);
+  const map = {};
+  all.forEach(q=>{
+    const name = (q.clientName||'').trim();
+    const contact = (q.clientContact||'').trim();
+    if(!name) return;
+    const key = `${name.toLowerCase()}||${contact.toLowerCase()}`;
+    if(!map[key]) map[key] = q;
+    else {
+      const prev = new Date(map[key].createdAt || 0);
+      const cur = new Date(q.createdAt || 0);
+      if(cur > prev) map[key] = q;
+    }
+  });
+  return Object.values(map);
+}
+
+/* Build date => events index for calendar display.
+   Ensure all events have eventId (migrated earlier). */
+function buildCalendarEventIndex(){
+  const result = {};
+  const deduped = dedupeQuotationsByClient();
+  const bookedMap = loadFromLS(BOOKED_EVENTS_KEY, {});
+  deduped.forEach(q=>{
+    (q.events || []).forEach(ev=>{
+      // ensure eventId exists (safety)
+      if(!ev.eventId){ ev.eventId = uid('ev'); } // not persisted here (persist elsewhere when discovered)
+      const dateISO = ev.date;
+      if(!dateISO) return;
+      if(!result[dateISO]) result[dateISO] = [];
+      result[dateISO].push({
+        eventId: ev.eventId,
+        quotationId: q.id,
+        clientName: q.clientName,
+        clientContact: q.clientContact,
+        date: ev.date,
+        eventName: ev.name || '',
+        time: ev.time || '',
+        location: ev.location || '',
+        packagePrice: ev.packagePrice || 0,
+        addOnPrice: ev.addOnPrice || 0,
+        transportPrice: ev.transportPrice || 0,
+        notes: ev.notes || '',
+        booked: Boolean(bookedMap[ev.eventId])
+      });
+    });
+  });
+  return result;
+}
+
+/* Persist eventId for any events missing one in saved quotations (migration)
+   This writes back to storage so future load is consistent. */
+function persistMissingEventIds(){
+  const all = loadFromLS(SAVED_QUOTATIONS_KEY, []);
+  let changed = false;
+  all.forEach(q=>{
+    if(Array.isArray(q.events)) q.events.forEach(ev=>{
+      if(!ev.eventId){ ev.eventId = uid('ev'); changed = true; }
+    });
+  });
+  if(changed) saveToLS(SAVED_QUOTATIONS_KEY, all);
+}
+
+/* -------------------------
+   Booking helpers
+   ------------------------- */
+function setQuotationBookings(quotationId, booked=true){
+  const bookings = loadFromLS(BOOKED_EVENTS_KEY, {});
+  const all = loadFromLS(SAVED_QUOTATIONS_KEY, []);
+  const q = all.find(x=>x.id === quotationId);
+  if(!q) return;
+  (q.events || []).forEach(ev=>{ if(ev.eventId){ if(booked) bookings[ev.eventId] = true; else delete bookings[ev.eventId]; }});
+  saveToLS(BOOKED_EVENTS_KEY, bookings);
+}
+function setSingleEventBooking(eventId, booked=true){
+  const bookings = loadFromLS(BOOKED_EVENTS_KEY, {});
+  if(booked) bookings[eventId] = true; else delete bookings[eventId];
+  saveToLS(BOOKED_EVENTS_KEY, bookings);
+}
+
+/* -------------------------
+   Calendar rendering
+   ------------------------- */
+let curYear = new Date().getFullYear(), curMonth = new Date().getMonth();
+
+function renderCalendar(y=curYear, m=curMonth){
+  curYear = y; curMonth = m;
+  const now = new Date();
+  const firstDay0 = new Date(y,m,1).getDay(); // 0=Sun
+  const firstDay = (firstDay0 + 6) % 7; // Monday-first
+  const daysInMonth = new Date(y,m+1,0).getDate();
+  const title = document.getElementById('calendar-title'); if(title) title.textContent = `${['January','February','March','April','May','June','July','August','September','October','November','December'][m]} ${y}`;
+  const idx = buildCalendarEventIndex();
+
+  // Build weekday header + grid
+  let html = `<div class="calendar-weekdays"><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div></div>`;
+  html += `<div class="grid grid-cols-7 gap-2">`;
+  // blank placeholders
+  for(let i=0;i<firstDay;i++) html += `<div class="calendar-cell"></div>`;
+  for(let d=1; d<=daysInMonth; d++){
+    const dateISO = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const eventsOnDay = idx[dateISO] || [];
+    const bookedCount = eventsOnDay.filter(e=>e.booked).length;
+    let bgColor = 'transparent'; let circleClass = '';
+    if(eventsOnDay.length === 0){ bgColor = 'transparent'; circleClass = ''; }
+    else if(bookedCount === 0 && eventsOnDay.length > 0){ bgColor = '#3b82f6'; circleClass = 'colored'; } // Enquiry -> Blue
+    else {
+      if(bookedCount === 1){ bgColor = '#10b981'; circleClass = 'colored'; }
+      else if(bookedCount === 2){ bgColor = '#f59e0b'; circleClass = 'colored'; }
+      else if(bookedCount === 3){ bgColor = '#ef4444'; circleClass = 'colored'; }
+      else if(bookedCount > 3){ bgColor = '#000000'; circleClass = 'colored'; }
+    }
+
+    const today = (d === now.getDate() && m === now.getMonth() && y === now.getFullYear());
+    // Use circle as background of date number (full circle)
+    const circleStyle = bgColor === 'transparent' ? '' : `background:${bgColor};`;
+    const textColorClass = bgColor === 'transparent' ? '' : 'calendar-date-circle colored';
+    const dateNumHtml = `<span class="calendar-date-circle ${circleClass}" style="${circleStyle} ${today ? 'box-shadow:0 6px 18px rgba(59,130,246,0.12);' : ''}">${d}</span>`;
+
+    html += `<div class="calendar-cell" onclick="openCalendarDatePopup('${dateISO}')">${dateNumHtml}${eventsOnDay.length>0 ? `<div style="position:absolute;left:6px;top:6px;font-size:11px;color:#6b7280">${eventsOnDay.length}</div>` : ''}</div>`;
+  }
+  html += `</div>`;
+  document.getElementById('calendar-widget').innerHTML = html;
+  createLucide();
+}
+
+// --- add this under or after renderCalendar ---
+function changeMonth(delta){
+  // compute new month/year using curMonth/curYear as current state
+  let newMonth = curMonth + delta;
+  let newYear = curYear;
+  if(newMonth > 11){ newMonth = 0; newYear += 1; }
+  if(newMonth < 0){ newMonth = 11; newYear -= 1; }
+  // render the calendar with the updated year/month
+  renderCalendar(newYear, newMonth);
+}
+
+
+/* -------------------------
+   Calendar popup (event list)
+   - robust lookup for events (handles old entries without eventId)
+   - shows time and location
+   - includes button to open full quotation
+   ------------------------- */
+function openCalendarDatePopup(dateISO){
+  // Ensure eventIds persist for older entries (persist on demand)
+  persistMissingEventIds();
+
+  const idx = buildCalendarEventIndex();
+  const events = idx[dateISO] || [];
+  const container = document.getElementById('calendarPopupContainer');
+  container.innerHTML = ''; container.classList.remove('hidden');
+
+  const popup = document.createElement('div'); popup.className='calendar-popup';
+  const header = document.createElement('div');
+  header.innerHTML = `<h3>Events on ${dateISO}</h3><div style="font-size:13px;color:#666;margin-bottom:8px">${events.length} event(s)</div>`;
+  popup.appendChild(header);
+
+  if(events.length === 0){
+    const p = document.createElement('div'); p.className='p-2 text-sm text-gray-600'; p.textContent = 'No events on this date.'; popup.appendChild(p);
+  } else {
+    events.forEach(ev=>{
+      const row = document.createElement('div'); row.className='event-row';
+      const meta = document.createElement('div'); meta.className='meta';
+      const detailsHtml = `
+  <div class="details">
+    <div><strong>${ev.clientName || ''}</strong></div>
+    <div class="small">${ev.clientContact || ''}</div>
+  </div>
+
+  <div class="small"> ||
+    ${ev.eventName || '(No name)'} • 	
+    ${ev.time ? 'Time: ' + ev.time : ''}
+    ${ev.location ? (ev.time ? ' • ' : '') + 'Location: ' + ev.location : ''}
+  </div>
+`;
+      meta.innerHTML = detailsHtml;
+      const controls = document.createElement('div'); controls.style.textAlign='right';
+      const checkboxId = 'cb_' + (ev.eventId || Math.random().toString(36).slice(2,8));
+      const bookChecked = ev.booked ? 'checked' : '';
+      controls.innerHTML = `<div style="margin-bottom:6px"><label style="display:flex;align-items:center;gap:8px"><input id="${checkboxId}" type="checkbox" class="calendar-book-checkbox" data-eventid="${ev.eventId||''}" ${bookChecked} /> Booked</label></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;"><button class="py-1 px-2 rounded border text-sm" onclick="openQuotationViewerById('${ev.quotationId}')">View Quotation</button></div>`;
+      row.appendChild(meta); row.appendChild(controls);
+      popup.appendChild(row);
+    });
+
+    const note = document.createElement('div'); note.style.fontSize='12px'; note.style.color='#444'; note.style.marginTop='8px';
+    note.innerHTML = `<strong>Deduplication:</strong> If a client has multiple quotations with identical contact, only the newest quotation is shown in the calendar. If contact differs, multiple quotations are shown.`;
+    popup.appendChild(note);
+  }
+
+  const actions = document.createElement('div'); actions.style.marginTop='12px'; actions.style.display='flex'; actions.style.justifyContent='space-between';
+  const closeBtn = document.createElement('button'); closeBtn.className='py-2 px-3 rounded border'; closeBtn.textContent='Close';
+  closeBtn.onclick = ()=>{ container.innerHTML=''; container.classList.add('hidden'); renderCalendar(); };
+  actions.appendChild(closeBtn);
+  popup.appendChild(actions);
+
+  container.appendChild(popup);
+
+    // wire checkboxes robustly
+  popup.querySelectorAll('.calendar-book-checkbox').forEach(cb=>{
+    cb.addEventListener('change', async (e)=>{
+      const checked = e.target.checked;
+      const eventId = e.target.dataset.eventid;
+
+      // Build index to find event object & quotation id
+      const idx2 = buildCalendarEventIndex();
+
+      // Search by eventId first
+      let evObj = null;
+      if (eventId) {
+        for (const date in idx2) {
+          const arr = idx2[date];
+          for (const it of arr) {
+            if (it.eventId === eventId) {
+              evObj = it;
+              break;
+            }
+          }
+          if (evObj) break;
+        }
+      }
+
+      // fallback: try to find by row text (existing logic)
+      if (!evObj) {
+        const row = e.target.closest('.event-row');
+        if (row) {
+          const nameText  = (row.querySelector('.details strong')?.textContent || '').trim();
+          const smallText = (row.querySelector('.small')?.textContent || '').trim();
+          if (nameText) {
+            for (const date in idx2) {
+              const arr = idx2[date];
+              for (const it of arr) {
+                if (it.eventName === nameText /* && it.date === dateISO */) {
+                  evObj = it;
+                  break;
+                }
+              }
+              if (evObj) break;
+            }
+          }
+        }
+      }
+
+      if (!evObj) {
+        alert('Event metadata not found. (This should not happen — please check console.)');
+        console.error('Calendar: event not found for checkbox', e.target);
+        return;
+      }
+
+      // ✅ NEW: figure out how many events this quotation has
+      let quotationEventCount = 0;
+      for (const d in idx2) {
+        const arr = idx2[d];
+        quotationEventCount += arr.filter(it => it.quotationId === evObj.quotationId).length;
+      }
+      const hasMultipleEvents = quotationEventCount > 1;
+
+      if (checked) {
+        // Marking as booked
+        if (hasMultipleEvents) {
+          const yesWhole = confirm("Are whole event's booked as per quotation? (Yes = mark all events in this quotation as booked)");
+          if (yesWhole) {
+            setQuotationBookings(evObj.quotationId, true);   // all events of that quotation
+          } else {
+            setSingleEventBooking(evObj.eventId, true);      // only this event
+          }
+        } else {
+          // Single-event quotation: no question, just toggle this event
+          setSingleEventBooking(evObj.eventId, true);
+        }
+      } else {
+        // Unmarking booked
+        if (hasMultipleEvents) {
+          const yesWhole = confirm("Unmark whole quotation's events as booked? (Yes = unmark all events of this quotation)");
+          if (yesWhole) {
+            setQuotationBookings(evObj.quotationId, false);
+          } else {
+            setSingleEventBooking(evObj.eventId, false);
+          }
+        } else {
+          // Single-event quotation: no question, just unmark this event
+          setSingleEventBooking(evObj.eventId, false);
+        }
+      }
+
+      // Re-render popup and calendar to reflect new states
+      openCalendarDatePopup(dateISO);
+      renderCalendar();
+    });
+  });
+
+}
+
+/* -------------------------
+   Quotation save: create eventId for each event and persist
+   ------------------------- */
+function collectEventsFromPanelsForSave(){
+  const panels = Array.from(document.querySelectorAll('#eventsContainer > .event-panel'));
+
+  return panels.map(panel => {
+    const name =
+      panel.querySelector('.event-eventNameMaster')?.value ||
+      panel.querySelector('.event-eventNameManual')?.value ||
+      '';
+
+    const date = panel.querySelector('.event-eventDate')?.value || '';
+    const hour = panel.querySelector('.event-eventHour')?.value || '';
+    const minute = panel.querySelector('.event-eventMinute')?.value || '';
+    const period = panel.querySelector('.event-eventPeriod')?.value || '';
+
+    // --- package name + price ---
+    let packagePrice = 0;
+    let packageName = '';
+
+    const pkgMasterSel = panel.querySelector('.event-packageMaster');
+    if (pkgMasterSel) {
+      const opt = pkgMasterSel.options[pkgMasterSel.selectedIndex];
+      if (opt) {
+        packageName = (opt.textContent || '').split('—')[0].trim();
+        packagePrice = opt.dataset && opt.dataset.price
+          ? parseFloat(opt.dataset.price)
+          : 0;
+      }
+    } else {
+      packageName =
+        panel.querySelector('.event-packageSelectedManual')?.value || '';
+      packagePrice = parseFloat(
+        panel.querySelector('.event-packageManualPrice')?.value || 0
+      );
+    }
+
+    // --- add-on details + price ---
+    const addOnPrice = parseFloat(
+      panel.querySelector('.event-addOnPrice')?.value || 0
+    );
+
+    let addonDetails = '';
+    const addonDisplay = panel.querySelector('.event-addon-display');
+    const addonManual = panel.querySelector('.event-addon-manual');
+
+    if (
+      addonDisplay &&
+      addonDisplay.textContent &&
+      addonDisplay.textContent.trim() &&
+      !/Enter \(Text\)/i.test(addonDisplay.textContent) &&
+      !/No items selected/i.test(addonDisplay.textContent)
+    ) {
+      addonDetails = addonDisplay.textContent.trim();
+    } else if (addonManual && addonManual.value.trim()) {
+      addonDetails = addonManual.value.trim();
+    }
+
+    // --- location + transport ---
+    const locationVal =
+      panel.querySelector('.event-eventLocationManual')?.value?.trim() || '';
+
+    const transportRaw = panel.querySelector('.event-transportPrice')?.value;
+    const transportPrice =
+      transportRaw === undefined || transportRaw === null || transportRaw === ''
+        ? NaN
+        : parseFloat(transportRaw);
+
+    const notes = panel.querySelector('.event-notes')?.value || '';
+
+   const existingId = panel.dataset.eventId;
+const eventId = existingId || uid('ev');
+
+    return {
+      eventId,
+      name: name.trim(),
+      date,
+      time: `${hour || ''}:${minute || ''} ${period || ''}`.trim(),
+      packageName,
+      packagePrice,
+      addonDetails,
+      addOnPrice,
+      transportPrice: isNaN(transportPrice) ? undefined : transportPrice,
+      location: locationVal,
+      notes,
+    };
+  });
+}
+
+function getCleanQuotationPayloadWithEventIds(){
+  const clientName = (document.getElementById('clientNameInput')?.value || '').trim();
+  const clientContact = (document.getElementById('clientContactInput')?.value || '').trim();
+  const events = collectEventsFromPanelsForSave().filter(ev => ev.name && ev.date);
+  const actual = events.reduce(
+    (s,e)=> s + Number(e.packagePrice||0) + Number(e.addOnPrice||0) + Number(e.transportPrice||0),
+    0
+  );
+  let discount = parseFloat(document.getElementById('quotationDiscount')?.value || 0);
+  if(isNaN(discount) || discount <= 0) discount = 0;
+  const final = Math.max(0, actual - discount);
+  const payload = { clientName, clientContact, events, actual, final };
+  if(discount > 0) payload.discount = Number(discount.toFixed(2));
+  return payload;
+}
+
+function saveQuotationMultiEvent(){
+  const clientName = (document.getElementById('clientNameInput')?.value || '').trim();
+  const clientContact = (document.getElementById('clientContactInput')?.value || '').trim();
+  if(!clientName || !clientContact){
+    showMessage('Client name and contact are required.');
+    return;
+  }
+
+  const payload = getCleanQuotationPayloadWithEventIds();
+  if((payload.events||[]).length === 0){
+    showMessage('Add at least one event with date & name.');
+    return;
+  }
+
+  const existing = loadFromLS(SAVED_QUOTATIONS_KEY, []);
+  let savedQuotation;
+
+  if (CURRENT_EDIT_QUOTATION_ID) {
+    const idx = existing.findIndex(q => q.id === CURRENT_EDIT_QUOTATION_ID);
+    if (idx !== -1) {
+      savedQuotation = {
+        ...existing[idx],
+        ...payload,
+        id: CURRENT_EDIT_QUOTATION_ID,
+        createdAt: new Date().toISOString()
+      };
+      existing[idx] = savedQuotation;
+    } else {
+      // fallback: treat as new if id not found
+      savedQuotation = {
+        ...payload,
+        id: 'q_' + Date.now(),
+        createdAt: new Date().toISOString()
+      };
+      existing.push(savedQuotation);
+    }
+  } else {
+    savedQuotation = {
+      ...payload,
+      id: 'q_' + Date.now(),
+      createdAt: new Date().toISOString()
+    };
+    existing.push(savedQuotation);
+  }
+
+  saveToLS(SAVED_QUOTATIONS_KEY, existing);
+
+  // ensure no booking entries for events we just saved (they are enquiries)
+  const bookings = loadFromLS(BOOKED_EVENTS_KEY, {});
+  (savedQuotation.events||[]).forEach(ev => {
+    if(bookings[ev.eventId]) delete bookings[ev.eventId];
+  });
+  saveToLS(BOOKED_EVENTS_KEY, bookings);
+
+  CURRENT_EDIT_QUOTATION_ID = null;
+  showMessage('Quotation saved locally in your browser storage.', 'Saved');
+  renderCalendar();
+}
+
+/* -------------------------
+   Files UI & PDF helpers
+   (reused, slightly simplified)
+   ------------------------- */
+function switchFilesTab(tab){ const isInv = (tab==='invoices'); document.getElementById('tab-quotations').classList.toggle('active', !isInv); document.getElementById('tab-invoices').classList.toggle('active', isInv); document.getElementById('quotationsTab').classList.toggle('hidden', isInv); document.getElementById('invoicesTab').classList.toggle('hidden', !isInv); renderFilesList(); }
+function loadFilesUI(){
+  // you can use these later if needed
+  const rawQ = loadFromLS(SAVED_QUOTATIONS_KEY, []);
+  const rawI = loadFromLS(SAVED_INVOICES_KEY, []);
+
+  // for now we just render the list
+  renderFilesList();
+}
+// Change this to match your actual date field name (e.g. file.date or file.docDate)
+function getFileDate(file) {
+  // Example: if your file object has `file.date` as "2025-11-15"
+  return new Date(file.date);
+}
+
+function matchesDateFilter(file, filterStr) {
+  if (!filterStr) return true; // no filter -> match all
+
+  filterStr = filterStr.trim();
+  const fileDate = getFileDate(file);
+  if (isNaN(fileDate)) return false;
+
+  // 1) Year only: 2025
+  const yearMatch = filterStr.match(/^(\d{4})$/);
+  if (yearMatch) {
+    const year = Number(yearMatch[1]);
+    return fileDate.getFullYear() === year;
+  }
+
+  // 2) Month + Year: 11-2025 or 11/2025
+  const monthYearMatch = filterStr.match(/^(\d{1,2})[-/](\d{4})$/);
+  if (monthYearMatch) {
+    const month = Number(monthYearMatch[1]); // 1–12
+    const year = Number(monthYearMatch[2]);
+    return (
+      fileDate.getFullYear() === year &&
+      fileDate.getMonth() + 1 === month
+    );
+  }
+
+  // 3) Full date: DD-MM-YYYY or DD/MM/YYYY
+  const fullDMY = filterStr.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (fullDMY) {
+    const day = Number(fullDMY[1]);
+    const month = Number(fullDMY[2]) - 1; // JS month 0–11
+    const year = Number(fullDMY[3]);
+
+    return (
+      fileDate.getFullYear() === year &&
+      fileDate.getMonth() === month &&
+      fileDate.getDate() === day
+    );
+  }
+
+  // 4) Fallback: ISO date from old <input type="date"> (YYYY-MM-DD)
+  const iso = filterStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) {
+    const [_, y, m, d] = iso;
+    const fileIso = fileDate.toISOString().slice(0, 10);
+    return fileIso === `${y}-${m}-${d}`;
+  }
+
+  // If format not recognized -> no match
+  return false;
+}
+
+function renderFilesList() {
+  const searchQuery = (document.getElementById('filesSearch')?.value || '')
+    .trim()
+    .toLowerCase();
+  const dateFilterRaw = (document.getElementById('filesDate')?.value || '').trim();
+  const hasDateFilter = !!dateFilterRaw;
+  const dateFilter = dateFilterRaw; // keep as string
+
+  const quotations = loadFromLS(SAVED_QUOTATIONS_KEY, []);
+  const invoices   = loadFromLS(SAVED_INVOICES_KEY, []);
+
+  // ---------- Helper for date filtering ----------
+  function recordMatchesDate(created) {
+    if (!hasDateFilter) return true;            // no filter -> match all
+    if (!created || isNaN(created.getTime())) return false;
+
+    const f = dateFilter;
+
+    const year  = created.getFullYear();
+    const month = created.getMonth() + 1;       // 1–12
+    const day   = created.getDate();
+
+    // ISO yyyy-mm-dd for fallback (for old <input type="date"> usage)
+    const iso = created.toISOString().slice(0, 10);
+
+    // 1) Year only: 2025
+    if (/^\d{4}$/.test(f)) {
+      return year === Number(f);
+    }
+
+    // 2) Month + Year: 11-2025 or 11/2025
+    if (/^\d{1,2}[-/]\d{4}$/.test(f)) {
+      const parts = f.split(/[-/]/);
+      const fMonth = Number(parts[0]);
+      const fYear  = Number(parts[1]);
+      return year === fYear && month === fMonth;
+    }
+
+    // 3) Full date: DD-MM-YYYY or DD/MM/YYYY
+    if (/^\d{1,2}[-/]\d{1,2}[-/]\d{4}$/.test(f)) {
+      const parts = f.split(/[-/]/);
+      const fDay   = Number(parts[0]);
+      const fMonth = Number(parts[1]);
+      const fYear  = Number(parts[2]);
+      return year === fYear && month === fMonth && day === fDay;
+    }
+
+    // 4) Old date input style: YYYY-MM-DD (from <input type="date">)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(f)) {
+      return iso === f;
+    }
+
+    // Unknown format -> don't filter by date
+    return true;
+  }
+
+  // ---------- Quotations ----------
+  const qList = document.getElementById('filesList');
+  qList.innerHTML = '';
+  let foundQ = 0;
+
+  quotations.slice().reverse().forEach(q => {
+    const created = q.createdAt ? new Date(q.createdAt) : null;
+
+    // Date filter
+    if (!recordMatchesDate(created)) return;
+
+    // Client name filter
+    if (
+      searchQuery &&
+      !(String(q.clientName || '').toLowerCase().includes(searchQuery))
+    ) return;
+
+    foundQ++;
+
+    const item = document.createElement('div');
+    item.className = 'file-item';
+
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.innerHTML = `
+      <input type="checkbox"
+             class="file-select quote-select"
+             data-id="${q.id}"
+             style="width:18px;height:18px;margin-right:8px" />
+      <div>
+        <div class="font-semibold">${q.clientName || 'Unnamed'}</div>
+        <div class="text-xs text-gray-500">
+          ${created ? created.toLocaleString() : 'No date'}
+        </div>
+      </div>
+    `;
+
+    // ❌ No per-row dropdown / OK button anymore
+    item.appendChild(meta);
+    qList.appendChild(item);
+  });
+
+  document.getElementById('filesEmpty').classList.toggle('hidden', foundQ > 0);
+
+  // ---------- Invoices ----------
+  const invList = document.getElementById('invoicesList');
+  invList.innerHTML = '';
+  let foundI = 0;
+
+  invoices.slice().reverse().forEach(inv => {
+    const created = inv.createdAt ? new Date(inv.createdAt) : null;
+
+    // Date filter
+    if (!recordMatchesDate(created)) return;
+
+    // Client name filter
+    if (
+      searchQuery &&
+      !(String(inv.clientName || '').toLowerCase().includes(searchQuery))
+    ) return;
+
+    foundI++;
+
+    const item = document.createElement('div');
+    item.className = 'file-item';
+
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+
+    const idForInvoice = inv.invoiceId || inv.id;
+
+    meta.innerHTML = `
+      <input type="checkbox"
+             class="invoice-select"
+             data-id="${idForInvoice}"
+             style="width:18px;height:18px;margin-right:8px" />
+      <div>
+        <div class="font-semibold">${inv.clientName || 'Unnamed'}</div>
+        <div class="text-xs text-gray-500">
+          ${created ? created.toLocaleString() : 'No date'}
+        </div>
+      </div>
+    `;
+
+    // ❌ No per-row dropdown / OK button here either
+    item.appendChild(meta);
+    invList.appendChild(item);
+  });
+
+  document.getElementById('invoicesEmpty').classList.toggle('hidden', foundI > 0);
+}
+
+// Healper-function
+function getCheckedQuoteIds() {
+  return Array.from(
+    document.querySelectorAll('#filesList .quote-select:checked')
+  ).map(cb => cb.dataset.id);
+}
+
+function getCheckedInvoiceIds() {
+  return Array.from(
+    document.querySelectorAll('#invoicesList .invoice-select:checked')
+  ).map(cb => cb.dataset.id);
+}
+
+// Convert yyyy-mm-dd or dd/mm/yyyy to dd-MMM-yyyy
+function formatDateShortMonth(dateStr) {
+  if (!dateStr) return "";
+
+  // Format already like dd/mm/yyyy or dd-mm-yyyy
+  if (/^\d{2}[\/-]\d{2}[\/-]\d{4}$/.test(dateStr)) {
+    const parts = dateStr.includes("/") ? dateStr.split("/") : dateStr.split("-");
+    const d = parts[0], m = parts[1], y = parts[2];
+    return `${d}-${getShortMonth(m)}-${y}`;
+  }
+
+  // Format yyyy-mm-dd (ISO)
+  const parts = dateStr.split("-");
+  if (parts.length === 3) {
+    return `${parts[2]}-${getShortMonth(parts[1])}-${parts[0]}`;
+  }
+
+  return dateStr;
+}
+
+function getShortMonth(m) {
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const index = parseInt(m, 10) - 1;
+  return months[index] || m;
+}
+
+
+
+
+
+/* PDF creation helpers (keeps layout use consistent) */
+/* -------------------------
+   PDF creation helpers (multi-page: first page uses quotation/invoice layout,
+   subsequent pages use empty layout if provided)
+   ------------------------- */
+// --- NEW table-style PDF generator: real boxes, 3 columns ---
+// --- NEW table-style PDF generator with centered white box over letterhead ---
+async function createPdfBlobFromQuotation(q){
+  // choose correct layout key: invoice vs quotation
+  const layoutKey = q && (q.invoiceId || q.invoiceId === 0)
+    ? INVOICE_LAYOUT_KEY
+    : QUOTATION_LAYOUT_KEY;
+
+  const layoutData = localStorage.getItem(layoutKey) || "";
+
+  // Wrapper that html2canvas will capture
+  const wrapper = document.createElement("div");
+wrapper.style.width = "794px";   // exact A4 width in px @96dpi
+wrapper.style.height = "1123px"; // exact A4 height in px @96dpi
+wrapper.style.position = "relative";
+wrapper.style.overflow = "hidden";
+wrapper.style.display = "block";
+wrapper.style.background = "#ffffff";
+wrapper.style.boxSizing = "border-box";
+
+  // Full-page background = your letterhead (quotation / invoice layout)
+  if (layoutData) {
+  const bg = document.createElement("div");
+  bg.style.position = "absolute";
+  bg.style.top = "0";
+  bg.style.left = "0";
+  bg.style.width = "100%";
+  bg.style.height = "100%";
+  bg.style.backgroundImage = `url(${layoutData})`;
+  bg.style.backgroundSize = "cover";       // ensures full fill
+  bg.style.backgroundPosition = "center";  // prevents cropping at top
+  bg.style.opacity = "1";                  // your image already faint
+  wrapper.appendChild(bg);
+}
+
+
+  // How far below the header the white box starts
+  const FIRST_PAGE_TOP_OFFSET = 260; // adjust if you want it lower/higher
+
+  // ===== TABLE HTML (REAL BOXES) =====
+  const tableStyle   = "width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:14px;font-size:13px;";
+  const thFullStyle  = "border:1px solid #000;padding:6px 8px;font-weight:bold;background:transparent;text-align:left;";
+  const tdLabelStyle = "border:1px solid #000;padding:6px 8px;width:28%;vertical-align:top;word-wrap:break-word;white-space:normal;text-align:left;";
+  const tdValueStyle = "border:1px solid #000;padding:6px 8px;width:47%;vertical-align:middle;word-wrap:break-word;white-space:normal;text-align:center;";
+  const tdPriceStyle = "border:1px solid #000;padding:6px 8px;width:25%;vertical-align:middle;word-wrap:break-word;white-space:normal;text-align:right;font-weight:bold;";
+
+  // Indian number formatting (1,25,000 instead of 125000)
+  function indianFormat(num) {
+    const x = Number(num || 0);
+    if (!x) return "0";
+    const str = Math.round(x).toString();
+    if (str.length <= 3) return str;
+    const last3 = str.slice(-3);
+    const rest = str.slice(0, -3);
+    const formattedRest = rest.replace(/\B(?=(\d{2})+(?!\d))/g, ",");
+    return formattedRest + "," + last3;
+  }
+
+  // For detail row (0 or empty shows "-NA-")
+  function fmtPriceForDetailRow(num) {
+    const n = Number(num || 0);
+    if (!n) return "-NA-";
+    return "Rs. " + indianFormat(n);
+  }
+
+  // For summary cells (0 or empty returns blank)
+  function fmtPrice(num) {
+    const n = Number(num || 0);
+    if (!n) return "";
+    return "Rs. " + indianFormat(n);
+  }
+
+  // White box that sits over the background image (centered content)
+ let html = `
+  <div style="
+    position: absolute;
+    top: 265px;               /* Move tables lower below heading */
+    left: 30px;
+    right: 30px;
+    padding: 20px 25px;
+    background: transparent; /* Transparent white overlay */
+    border-radius: 6px;
+  ">
+`;
+
+  // ---------- 1) CLIENT DETAILS TABLE ----------
+  html += `<table style="${tableStyle}">`;
+  html += `<tr>
+    <td style="${tdLabelStyle}; font-size:16px;">Client Name</td>
+    <td colspan="2" style="${tdValueStyle}">
+      <span style="color:#AA336A; font-weight:bold; font-size:16px;">
+        ${(q.clientName || "").toString().replace(/</g,"&lt;")}
+      </span>
+    </td>
+  </tr>`;
+  html += `<tr>
+    <td style="${tdLabelStyle}; font-size:16px;">Client Contact</td>
+    <td colspan="2" style="${tdValueStyle}">
+      <span style="color:#AA336A; font-weight:bold; font-size:16px;">
+        ${(q.clientContact || "").toString().replace(/</g,"&lt;")}
+      </span>
+    </td>
+  </tr>`;
+  html += `</table>`;
+
+  // ---------- 2) EVENT TABLE(S) ----------
+  const events = Array.isArray(q.events) ? q.events : [];
+  events.forEach((ev, index) => {
+    const eName       = (ev.name        || "").toString();
+    const eDate       = (ev.date        || "").toString();
+    const displayDate = formatDateShortMonth(eDate); // already defined globally
+    const eTime       = (ev.time        || "").toString();
+    const eLocation   = (ev.location    || "").toString();
+    const eNotes      = (ev.notes       || "").toString();
+    const pkgName     = (ev.packageName || "").toString();
+    const addonData   = (ev.addonDetails|| "").toString();
+
+    const pkgPrice       = Number(ev.packagePrice   || 0);
+    const addOnPrice     = Number(ev.addOnPrice     || 0);
+    const transportPrice = Number(ev.transportPrice || 0);
+
+    html += `<div style="font-weight:bold; font-size:15px; margin:10px 0 6px 2px;">Event - ${index + 1}</div>`;
+    html += `<table style="${tableStyle}">`;
+
+    // Event Name
+    html += `<tr>
+      <td style="${tdLabelStyle}">Event Name</td>
+      <td style="${tdValueStyle}">
+        ${eName.replace(/</g,"&lt;")}
+      </td>
+      <td style="${tdPriceStyle}"></td>
+    </tr>`;
+
+    // Event Date
+    html += `<tr>
+      <td style="${tdLabelStyle}">Event Date</td>
+      <td style="${tdValueStyle}">
+        ${displayDate}
+      </td>
+      <td style="${tdPriceStyle}"></td>
+    </tr>`;
+
+    // Event Time (optional)
+    if (eTime.trim() !== "") {
+      html += `<tr>
+        <td style="${tdLabelStyle}">Event Time</td>
+        <td style="${tdValueStyle}">
+          ${eTime.replace(/</g,"&lt;")}
+        </td>
+        <td style="${tdPriceStyle}"></td>
+      </tr>`;
+    }
+
+    // Package Selected
+    if (pkgName.trim() !== "" || pkgPrice > 0) {
+      html += `<tr>
+        <td style="${tdLabelStyle}">Package Selected</td>
+        <td style="${tdValueStyle}">${pkgName.replace(/</g,"&lt;")}</td>
+        <td style="${tdPriceStyle}">${fmtPriceForDetailRow(pkgPrice)}</td>
+      </tr>`;
+    }
+
+    // Event Location + Transport
+    if (eLocation.trim() !== "" || transportPrice > 0) {
+      html += `<tr>
+        <td style="${tdLabelStyle}">Event Location</td>
+        <td style="${tdValueStyle}">
+          ${eLocation.replace(/</g,"&lt;")}
+        </td>
+        <td style="${tdPriceStyle}">
+          ${transportPrice ? fmtPriceForDetailRow(transportPrice) : ""}
+        </td>
+      </tr>`;
+    }
+
+    // Add-on
+    if (addonData.trim() !== "" || addOnPrice > 0) {
+      html += `<tr>
+        <td style="${tdLabelStyle}">Add-On</td>
+        <td style="${tdValueStyle}">${addonData}</td>
+        <td style="${tdPriceStyle}">${fmtPriceForDetailRow(addOnPrice)}</td>
+      </tr>`;
+    }
+
+    // Notes & Complimentary
+    if (eNotes.trim() !== "") {
+      html += `<tr>
+        <td style="${tdLabelStyle}">Notes &amp; Complimentary</td>
+        <td colspan="2" style="${tdValueStyle}">
+          ${eNotes.replace(/</g,"&lt;")}
+        </td>
+      </tr>`;
+    }
+
+    html += `</table>`;
+  });
+
+  // ---------- 3) PRICE SUMMARY TABLE ----------
+  const actual   = Number(q.actual   || 0);
+  const discount = Number(q.discount || 0);
+  const finalAmt = Number(q.final    || 0);
+  const isInvoice = !!(q && (q.invoiceId || q.invoiceId === 0));
+
+  html += `<div style="font-weight:bold; font-size:15px; margin:10px 0 6px 2px;">
+    ${isInvoice ? "Invoice Summary" : "Quotation Summary"}
+  </div>`;
+  html += `<table style="${tableStyle}">`;
+
+  // Actual Price (only when discount used)
+  if (discount > 0) {
+    html += `<tr>
+      <td style="${tdLabelStyle}">Actual Price</td>
+      <td style="${tdValueStyle}"></td>
+      <td style="${tdPriceStyle}">${fmtPrice(actual)}</td>
+    </tr>`;
+  }
+
+  // Discount (if any)
+  if (discount > 0) {
+    html += `<tr>
+      <td style="${tdLabelStyle}">Discount</td>
+      <td style="${tdValueStyle}"></td>
+      <td style="${tdPriceStyle}">${fmtPrice(discount)}</td>
+    </tr>`;
+  }
+
+  // Final Price (always)
+  html += `<tr>
+    <td style="${tdLabelStyle}">Final Price</td>
+    <td style="${tdValueStyle}"></td>
+    <td style="${tdPriceStyle}">${fmtPrice(finalAmt)}</td>
+  </tr>`;
+
+  html += `</table>`;
+  html += `</div>`; // end inner white box
+
+  // Attach content over the background
+  const contentWrapper = document.createElement("div");
+  contentWrapper.style.position = "relative";
+  contentWrapper.style.zIndex   = "1";
+  html += '</div>';
+  contentWrapper.innerHTML = html;
+  wrapper.appendChild(contentWrapper);
+
+  // ===== Render via html2canvas & slice into A4 PDF =====
+  document.body.appendChild(wrapper);
+
+  try {
+    const canvas = await html2canvas(wrapper, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      logging: false
+    });
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF("p","pt","a4");
+
+    const pageWidthPt       = pdf.internal.pageSize.getWidth();
+    const pageHeightPt      = pdf.internal.pageSize.getHeight();
+    const marginPt          = 20;
+    const usableWidthPt     = pageWidthPt - marginPt * 2;
+
+    const imgPixelWidth     = canvas.width;
+    const imgPixelHeight    = canvas.height;
+
+    const imgWidthPt        = usableWidthPt;
+    const imgHeightPt       = (imgPixelHeight * imgWidthPt) / imgPixelWidth;
+
+    const pxPerPt           = imgPixelHeight / imgHeightPt;
+    const pageImageHeightPt = pageHeightPt - marginPt * 2;
+
+    let sy    = 0;
+    let first = true;
+
+    while (sy < imgPixelHeight) {
+      const slicePx = Math.min(
+        imgPixelHeight - sy,
+        Math.round(pageImageHeightPt * pxPerPt)
+      );
+
+      const tempCanvas  = document.createElement("canvas");
+      tempCanvas.width  = imgPixelWidth;
+      tempCanvas.height = slicePx;
+      const tctx = tempCanvas.getContext("2d");
+      tctx.drawImage(
+        canvas,
+        0, sy, imgPixelWidth, slicePx,
+        0, 0, imgPixelWidth, slicePx
+      );
+
+      const sliceData     = tempCanvas.toDataURL("image/jpeg", 0.95);
+      const sliceHeightPt = slicePx / pxPerPt;
+
+      if (!first) pdf.addPage();
+      pdf.addImage(
+        sliceData,
+        "JPEG",
+        marginPt,
+        marginPt,
+        imgWidthPt,
+        sliceHeightPt
+      );
+
+      first = false;
+      sy   += slicePx;
+    }
+
+    wrapper.remove();
+    const blob = pdf.output("blob");
+    return blob;
+  } catch (err) {
+    wrapper.remove();
+    console.error(err);
+    throw err;
+  }
+}
+
+async function exportQuotationPDF(q){ try{ const blob = await createPdfBlobFromQuotation(q); const a = document.createElement('a'); const url = URL.createObjectURL(blob); a.href = url; a.download = `${(q.clientName|| (q.invoiceId ? 'invoice' : 'quotation')).replace(/\s+/g,'_')}_${q.id || q.invoiceId || Date.now()}.pdf`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }catch(e){ console.error(e); showMessage('Failed to create PDF.'); } }
+
+// FILES → Quotations actions (uses the new PDF generator)
+async function handleFileAction(id, action) {
+  const quotations = loadFromLS(SAVED_QUOTATIONS_KEY, []);
+  const q = quotations.find(x => x.id === id);
+  if (!q) {
+    showMessage("Quotation not found.");
+    return;
+  }
+
+  if (action === "download") {
+
+    exportQuotationPDF(q);
+
+  } else if (action === "share") {
+
+    try {
+      const blob = await createPdfBlobFromQuotation(q);
+      const file = new File(
+        [blob],
+        `${(q.clientName || "quotation").replace(/\s+/g, "_")}_${q.id || Date.now()}.pdf`,
+        { type: "application/pdf" }
+      );
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `${q.clientName} — Quotation`,
+          text: `Quotation for ${q.clientName}`
+        });
+      } else if (navigator.share) {
+        const url = URL.createObjectURL(file);
+        await navigator.share({
+          url,
+          title: `${q.clientName} — Quotation`,
+          text: `Quotation for ${q.clientName}`
+        }).catch(() => {});
+        URL.revokeObjectURL(url);
+      } else {
+        const a = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        a.href = url;
+        a.download = `${(q.clientName || "quotation").replace(/\s+/g, "_")}_${q.id || Date.now()}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+    } catch (err) {
+      console.error(err);
+      showMessage("Share failed; falling back to download.");
+      try { exportQuotationPDF(q); } catch (e) {}
+    }
+
+  } else if (action === "generate_invoice") {
+
+    try {
+      const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
+      const newInvoice = {
+        ...q,
+        invoiceId: "inv_" + Date.now() + "_" + Math.floor(Math.random() * 9999),
+        createdAt: new Date().toISOString()
+      };
+      invoices.push(newInvoice);
+      saveToLS(SAVED_INVOICES_KEY, invoices);
+      renderFilesList();
+      showMessage("Invoice generated and saved to Files → Invoices.");
+      switchFilesTab("invoices");
+
+    } catch (err) {
+      console.error(err);
+      showMessage("Failed to generate invoice.");
+    }
+
+  } else if (action === "edit") {   // <-- now correctly positioned
+
+    CURRENT_EDIT_QUOTATION_ID = q.id;
+    localStorage.setItem("CURRENT_EDIT_QUOTATION", JSON.stringify(q));
+    navigate("quotation");
+
+  }
+}
+
+// FILES → Invoices actions (also uses the new generator)
+async function handleInvoiceAction(invoiceId, action) {
+  const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
+  const inv = invoices.find(x => (x.invoiceId === invoiceId) || (x.id === invoiceId));
+  if (!inv) { showMessage("Invoice not found."); return; }
+
+  if (action === "download") {
+
+    exportQuotationPDF(inv);
+
+  } else if (action === "share") {
+
+    try {
+      const blob = await createPdfBlobFromQuotation(inv);
+      const file = new File(
+        [blob],
+        `${(inv.clientName || "invoice").replace(/\s+/g, "_")}_${inv.invoiceId || Date.now()}.pdf`,
+        { type: "application/pdf" }
+      );
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `${inv.clientName} — Invoice`,
+          text: `Invoice for ${inv.clientName}`
+        });
+      } else if (navigator.share) {
+        const url = URL.createObjectURL(file);
+        await navigator.share({
+          url,
+          title: `${inv.clientName} — Invoice`,
+          text: `Invoice for ${inv.clientName}`
+        }).catch(() => {});
+        URL.revokeObjectURL(url);
+      } else {
+        const a = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        a.href = url;
+        a.download = `${(inv.clientName || "invoice").replace(/\s+/g, "_")}_${inv.invoiceId || Date.now()}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+    } catch (err) {
+      console.error(err);
+      showMessage("Share failed; falling back to download.");
+      try { exportQuotationPDF(inv); }
+      catch (e) { showMessage("Failed to download PDF."); }
+    }
+
+  } else if (action === "edit") {
+
+    // enable edit mode
+    CURRENT_EDIT_INVOICE_ID = inv.invoiceId || inv.id;
+    localStorage.setItem("CURRENT_EDIT_INVOICE", JSON.stringify(inv));
+
+    // navigate to invoice builder
+    navigate("invoice");
+  }
+}
+
+  
+
+/* -------------------------
+   Open quotation viewer by id (from calendar popup)
+   ------------------------- */
+function openQuotationViewerById(qid){
+  const all = loadFromLS(SAVED_QUOTATIONS_KEY, []);
+  const q = all.find(x => x.id === qid);
+  if (!q) {
+    showMessage('Quotation not found.');
+    return;
+  }
+
+  const events = Array.isArray(q.events) ? q.events : [];
+
+  // Compute totals safely (fallback if not stored)
+  let actual = 0;
+  if (typeof q.actual === 'number') {
+    actual = q.actual;
+  } else {
+    actual = events.reduce((s, e) =>
+      s +
+      Number(e.packagePrice || 0) +
+      Number(e.addOnPrice || 0) +
+      Number(e.transportPrice || 0),
+      0
+    );
+  }
+
+  let discount = typeof q.discount === 'number' ? q.discount : 0;
+  let final = typeof q.final === 'number' ? q.final : Math.max(0, actual - discount);
+
+  let msg = "";
+
+  // ---------------- HEADER -----------------
+  msg += `<b style="color:#0b5ed7; font-size:15px;">Client Name</b> : ${q.clientName || ''}<br>`;
+  msg += `<b style="color:#0b5ed7;">Contact</b> : ${q.clientContact || ''}<br><br>`;
+
+  // ---------------- TOTALS -----------------
+msg += `<div style="margin:8px 0; padding:6px 8px; border:1px solid #ddd; border-radius:6px; background:#fafafa;"`; 
+
+  msg += `<b style="color:#ba2121;">Actual Price</b> : <b>₹${actual.toFixed(2)}</b><br>`;
+  msg += `<b style="color:#ba2121;">Discount</b> : <b>₹${discount.toFixed(2)}</b><br>`;
+  msg += `<b style="color:#198754; font-size:15px;">Final Price</b> : <b>₹${final.toFixed(2)}</b><br><br>`;
+msg += `</div>`;
+
+  // ---------------- EVENTS -----------------
+  msg += `<b style="color:#6f42c1;">Events:</b><br>`;
+
+  if (!events.length) {
+    msg += `<i>(No events saved in this quotation)</i>`;
+  } else {
+    events.forEach((ev, idx) => {
+      
+      msg += `<div style="margin:8px 0; padding:6px 8px; border:1px solid #ddd; border-radius:6px; background:#fafafa;">`;
+
+      msg += `<b style="color:#333;">#${idx + 1} — ${ev.name || '(No name)'}</b><br>`;
+      msg += `<span style="color:#555;">Date</span> : ${ev.date || '-'}<br>`;
+      msg += `<span style="color:#555;">Time</span> : ${ev.time || '-'}<br>`;
+      msg += `<span style="color:#555;">Location</span> : ${ev.location || '-'}<br>`;
+
+      const pkgName  = ev.packageName || '';
+      const pkgPrice = Number(ev.packagePrice || 0);
+      if (pkgName || pkgPrice) {
+        msg += `<span style="color:#555;">Package</span> : <b>${pkgName}</b> — <b style="color:#198754;">₹${pkgPrice.toFixed(2)}</b><br>`;
+      }
+
+      const addOnPrice = Number(ev.addOnPrice || 0);
+      if (addOnPrice || ev.addonDetails) {
+        msg += `<span style="color:#555;">Add-ons</span> : <b style="color:#ff7f00;">₹${addOnPrice.toFixed(2)}</b>`;
+        if (ev.addonDetails) msg += ` — <span>${ev.addonDetails}</span>`;
+        msg += `<br>`;
+      }
+
+      const transportPrice = Number(ev.transportPrice || 0);
+      if (transportPrice) {
+        msg += `<span style="color:#555;">Transport</span> : <b style="color:#d63384;">₹${transportPrice.toFixed(2)}</b><br>`;
+      }
+
+      if (ev.notes) {
+        msg += `<span style="color:#555;">Notes</span> : <i>${ev.notes}</i><br>`;
+      }
+
+      msg += `</div>`;
+    });
+  }
+
+  showMessage(msg, `Quotation — ${q.clientName || 'Unnamed'}`);
+}
+
+
+/* -------------------------
+   UI: event panels for quotations (create/edit)
+   ------------------------- */
+let eventCounter = 0;
+function createEventPanel(prefill = {}) {
+  eventCounter++;
+  const id = `eventPanel_${eventCounter}`;
+  const cont = document.getElementById('eventsContainer');
+  if (!cont) return;
+  const panel = document.createElement('div');
+  panel.className = 'event-panel';
+  panel.id = id;
+
+  panel.innerHTML = `
+    <div class="header">
+      <div>
+        <div class="flex items-center gap-2">
+          <strong class="event-title">New Event</strong>
+          <span class="text-xs text-gray-500 event-sub"></span>
+        </div>
+        <div class="text-xs text-gray-400">Tap to expand</div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button type="button" class="text-xs text-red-500 remove-event-btn">Remove</button>
+      </div>
+    </div>
+    <div class="body hidden">
+      <div class="mb-3">
+        <div class="flex items-center justify-between mb-2">
+          <h4 class="text-sm font-semibold text-gray-700">Event Name</h4>
+          <label class="flex items-center text-xs text-gray-600">
+            <input type="checkbox" class="mr-2 eventFetchName"> Fetch Master
+          </label>
+        </div>
+        <div class="event-name-area">
+          <input type="text"
+                 class="event-eventNameManual block w-full border-gray-300 rounded p-2 text-sm"
+                 placeholder="Manually enter event name">
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="block text-xs font-medium text-gray-700 mb-1">Event Date</label>
+        <input type="date"
+               class="event-eventDate border-gray-300 rounded p-2 text-sm w-full" />
+      </div>
+
+      <div class="mb-3">
+        <label class="block text-xs font-medium text-gray-700 mb-1">Event Time</label>
+        <div class="flex gap-2">
+          <input type="number"
+                 min="1" max="12"
+                 value="6"
+                 class="event-eventHour border-gray-300 rounded p-2 text-sm text-center w-20" />
+          <input type="number"
+                 min="0" max="59"
+                 value="30"
+                 class="event-eventMinute border-gray-300 rounded p-2 text-sm text-center w-20" />
+          <select class="event-eventPeriod border-gray-300 rounded p-2 text-sm w-20">
+            <option>AM</option>
+            <option selected>PM</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <div class="flex items-center justify-between mb-2">
+          <h4 class="text-sm font-semibold text-gray-700">Event Location</h4>
+          <label class="flex items-center text-xs text-gray-600">
+            <input type="checkbox" class="mr-2 eventFetchLocation"> Fetch Map
+          </label>
+        </div>
+        <div class="flex gap-2 mb-2">
+          <button type="button" class="py-2 px-3 rounded bg-gray-100 event-mapBtn hidden">
+            Use Map Calculator
+          </button>
+          <input type="text"
+                 class="event-eventLocationManual block w-full border-gray-300 rounded p-2 text-sm"
+                 placeholder="Manually enter destination" />
+        </div>
+        <label class="text-xs text-gray-700">Transport Price (₹)</label>
+        <input type="number" step="0.01"
+               class="event-transportPrice block w-full border-gray-300 rounded p-2 text-sm"
+               value="0.00" />
+      </div>
+
+      <div class="mb-3">
+        <div class="flex items-center justify-between mb-2">
+          <h4 class="text-sm font-semibold text-gray-700">Package</h4>
+          <label class="flex items-center text-xs text-gray-600">
+            <input type="checkbox" class="mr-2 eventFetchPackage"> Fetch Master
+          </label>
+        </div>
+        <div class="event-package-area">
+          <input type="text"
+                 class="event-packageSelectedManual block w-full border-gray-300 rounded p-2 text-sm"
+                 placeholder="Manually enter package name" />
+          <input type="number" step="0.01"
+                 class="event-packageManualPrice block w-full border-gray-300 rounded p-2 text-sm mt-2"
+                 placeholder="Manual price (₹)" value="0.00" />
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <div class="flex items-center justify-between mb-2">
+          <h4 class="text-sm font-semibold text-gray-700">AddOns</h4>
+          <label class="flex items-center text-xs text-gray-600">
+            <input type="checkbox" class="mr-2 eventFetchAddOn"> Fetch Master
+          </label>
+        </div>
+        <div class="event-addon-area">
+          <div class="event-addon-master hidden mb-2"></div>
+          <textarea class="event-addon-manual block w-full border-gray-300 rounded p-2 text-sm"
+                    rows="3"
+                    placeholder="Type items like: (Extra light rental) (Custom filter)"></textarea>
+          <div class="mt-2 flex items-center justify-between">
+            <div class="text-xs text-gray-500">**Output:**</div>
+            <div class="flex gap-2">
+              <button type="button"
+                      class="event-apply-addon-master hidden py-1 px-2 rounded bg-blue-600 text-white text-sm">
+                Apply Selected
+              </button>
+            </div>
+          </div>
+          <pre class="event-addon-display mt-2 p-2 bg-gray-50 rounded text-sm text-gray-700 min-h-[3rem]"></pre>
+        </div>
+        <label class="text-xs text-gray-700 mt-2">AddOn Price (₹)</label>
+        <input type="number" step="0.01"
+               class="event-addOnPrice block w-full border-gray-300 rounded p-2 text-sm"
+               value="0.00" />
+      </div>
+
+      <div class="mb-3">
+        <label class="text-sm font-semibold text-gray-700">
+          Notes & Complimentary Items
+        </label>
+        <textarea class="event-notes block w-full border-gray-300 rounded p-2 text-sm mt-1"
+                  rows="3"
+                  placeholder="Add notes and complimentary items for this event."></textarea>
+      </div>
+
+      <div class="mt-3 text-right">
+        <button type="button"
+                class="py-2 px-3 rounded bg-gray-100 update-btn">
+          Update
+        </button>
+      </div>
+    </div>
+  `;
+  cont.appendChild(panel);
+
+  // --- toggles and wiring (same as before) ---
+  panel.querySelector('.header').addEventListener('click', () => {
+    panel.querySelector('.body').classList.toggle('hidden');
+  });
+
+  panel.querySelector('.remove-event-btn')?.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    panel.remove();
+    updateSummaryUI();
+  });
+
+  panel.querySelector('.eventFetchName')?.addEventListener('change', (ev) => {
+    const area = panel.querySelector('.event-name-area');
+    if (ev.target.checked) {
+      const sel = document.createElement('select');
+      sel.className =
+        'event-eventNameMaster block w-full border-gray-300 rounded p-2 text-sm';
+      sel.innerHTML =
+        '<option value="">-- Select Master Event --</option>';
+      masterEventNames.forEach((n) => {
+        const o = document.createElement('option');
+        o.value = n;
+        o.textContent = n;
+        sel.appendChild(o);
+      });
+      area.innerHTML = '';
+      area.appendChild(sel);
+      sel.addEventListener('change', updateSummaryUI);
+    } else {
+      area.innerHTML =
+        '<input type="text" class="event-eventNameManual block w-full border-gray-300 rounded p-2 text-sm" placeholder="Manually enter event name">';
+    }
+  });
+
+  panel.querySelector('.eventFetchPackage')?.addEventListener('change', (ev) => {
+    const area = panel.querySelector('.event-package-area');
+    if (ev.target.checked) {
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = `
+        <select class="event-packageMaster block w-full border-gray-300 rounded p-2 text-sm">
+          <option value="">-- Select Package --</option>
+        </select>
+        <input type="number" step="0.01"
+               class="event-packagePrice block w-full border-gray-300 rounded p-2 text-sm mt-2"
+               readonly value="0.00" />
+      `;
+      area.innerHTML = '';
+      area.appendChild(wrapper);
+      const sel = panel.querySelector('.event-packageMaster');
+      masterPackages.forEach((p) => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = `${p.name} — ₹${p.price.toFixed(2)}`;
+        opt.dataset.price = p.price;
+        sel.appendChild(opt);
+      });
+      sel.onchange = () => {
+        const opt = sel.options[sel.selectedIndex];
+        const price =
+          opt && opt.dataset ? parseFloat(opt.dataset.price) || 0 : 0;
+        const priceInp = panel.querySelector('.event-packagePrice');
+        if (priceInp) priceInp.value = price.toFixed(2);
+        updateSummaryUI();
+        if (typeof updateInvoiceSummaryUI === 'function') {
+          updateInvoiceSummaryUI();
+        }
+      };
+    } else {
+      area.innerHTML = `
+        <input type="text"
+               class="event-packageSelectedManual block w-full border-gray-300 rounded p-2 text-sm"
+               placeholder="Manually enter package name" />
+        <input type="number" step="0.01"
+               class="event-packageManualPrice block w-full border-gray-300 rounded p-2 text-sm mt-2"
+               placeholder="Manual price (₹)" value="0.00" />
+      `;
+      panel
+        .querySelector('.event-packageManualPrice')
+        ?.addEventListener('input', updateSummaryUI);
+    }
+  });
+
+  // addons toggle
+  panel.querySelector('.eventFetchAddOn')?.addEventListener('change', (ev) => {
+    const masterContainer = panel.querySelector('.event-addon-master');
+    const manualTextarea = panel.querySelector('.event-addon-manual');
+    const displayPre = panel.querySelector('.event-addon-display');
+    const applyBtn = panel.querySelector('.event-apply-addon-master');
+    if (ev.target.checked) {
+      masterContainer.classList.remove('hidden');
+      applyBtn.classList.remove('hidden');
+      manualTextarea.classList.add('hidden');
+      displayPre.textContent = '';
+      masterContainer.innerHTML = '';
+      if (masterAddOns.length === 0)
+        masterContainer.innerHTML =
+          '<p class="text-sm text-gray-500 p-2">No add-ons in master.</p>';
+      else
+        masterAddOns.forEach((a) => {
+          const row = document.createElement('div');
+          row.className = 'flex items-center justify-between p-1';
+          row.innerHTML = `
+            <label class="flex items-center gap-2">
+              <input type="checkbox"
+                     data-price="${a.price}"
+                     data-name="${a.name}"
+                     class="panel-addon-checkbox">
+              <span class="text-sm">${a.name}</span>
+            </label>
+            <span class="text-sm font-bold text-green-600">
+              ₹${a.price.toFixed(2)}
+            </span>`;
+          masterContainer.appendChild(row);
+        });
+    } else {
+      masterContainer.classList.add('hidden');
+      applyBtn.classList.add('hidden');
+      manualTextarea.classList.remove('hidden');
+      displayPre.textContent = '';
+    }
+  });
+
+  panel.querySelector('.event-apply-addon-master')?.addEventListener('click', () => {
+    const checked = Array.from(
+      panel.querySelectorAll('.panel-addon-checkbox')
+    ).filter((cb) => cb.checked);
+    const names = checked.map(
+      (cb, i) =>
+        `${i + 1}. ${cb.dataset.name} (₹${Number(cb.dataset.price).toFixed(2)})`
+    );
+    const sum = checked.reduce(
+      (s, cb) => s + Number(cb.dataset.price || 0),
+      0
+    );
+    panel.querySelector('.event-addon-display').textContent =
+      names.join('\n') || 'No items selected.';
+    panel.querySelector('.event-addOnPrice').value = sum.toFixed(2);
+    updateSummaryUI();
+  if (typeof updateInvoiceSummaryUI === 'function') {
+      updateInvoiceSummaryUI();
+    }
+  });
+
+  panel.querySelector('.event-addon-manual')?.addEventListener('input', () => {
+    const raw = panel.querySelector('.event-addon-manual').value || '';
+    const matches = [...raw.matchAll(/\((.*?)\)/g)];
+    const list = matches
+      .map((m, i) => `${i + 1}. ${m[1].trim()}`)
+      .join('\n');
+    panel.querySelector('.event-addon-display').textContent =
+      list ||
+      (raw.trim()
+        ? 'No items found in (brackets).'
+        : 'Enter (Text) above to see the numbered list here.');
+  });
+
+  const chkLoc = panel.querySelector('.eventFetchLocation');
+  const mapBtn = panel.querySelector('.event-mapBtn');
+  const manualLoc = panel.querySelector('.event-eventLocationManual');
+  chkLoc?.addEventListener('change', (ev) => {
+    if (ev.target.checked) {
+      mapBtn.classList.remove('hidden');
+      manualLoc.classList.remove('hidden');
+      manualLoc.readOnly = true;
+    } else {
+      mapBtn.classList.add('hidden');
+      manualLoc.readOnly = false;
+    }
+  });
+  mapBtn?.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    localStorage.setItem(
+      'map_return_screen',
+      JSON.stringify({ screen: 'quotation', panelId: id })
+    );
+    navigate('maps');
+  });
+
+  // inputs updating summary
+    const hookPriceChange = (selector) => {
+    const el = panel.querySelector(selector);
+    if (!el) return;
+    el.addEventListener('input', () => {
+      updateSummaryUI();
+      if (typeof updateInvoiceSummaryUI === 'function') {
+        updateInvoiceSummaryUI();
+      }
+    });
+  };
+
+  hookPriceChange('.event-transportPrice');
+  hookPriceChange('.event-addOnPrice');
+  hookPriceChange('.event-packageManualPrice');
+
+
+  panel.querySelector('.update-btn')?.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    const res = validateEventPanel(panel);
+    if (!res.valid) showMessage(res.message);
+    else {
+      updateEventPanelSummary(panel.id);
+      showUpdateToast('Event updated');
+    }
+  });
+
+  // ---------- 🟣 PREFILL WHEN EDITING ----------
+  if (prefill && typeof prefill === 'object') {
+    // Name
+    if (prefill.name) {
+      const nameInput = panel.querySelector('.event-eventNameManual');
+      if (nameInput) nameInput.value = prefill.name;
+    }
+
+    // Date
+    if (prefill.date) {
+      const dateInput = panel.querySelector('.event-eventDate');
+      if (dateInput) dateInput.value = prefill.date;
+    }
+
+    // Time: parse "hh:mm AM/PM"
+    if (prefill.time) {
+      const m = prefill.time.match(/(\d{1,2}):(\d{1,2})\s*(AM|PM)?/i);
+      if (m) {
+        const h = m[1];
+        const min = m[2];
+        const per = (m[3] || '').toUpperCase();
+        const hEl = panel.querySelector('.event-eventHour');
+        const mEl = panel.querySelector('.event-eventMinute');
+        const pEl = panel.querySelector('.event-eventPeriod');
+        if (hEl) hEl.value = h;
+        if (mEl) mEl.value = min;
+        if (pEl && per) {
+          Array.from(pEl.options).forEach((opt) => {
+            if (opt.text.toUpperCase() === per) pEl.value = opt.value;
+          });
+        }
+      }
+    }
+
+    // Location
+    if (prefill.location) {
+      const locInput = panel.querySelector('.event-eventLocationManual');
+      if (locInput) locInput.value = prefill.location;
+    }
+
+    // Package (manual mode)
+    if (prefill.packageName || typeof prefill.packagePrice !== 'undefined') {
+      const pkgNameInput = panel.querySelector('.event-packageSelectedManual');
+      const pkgPriceInput = panel.querySelector('.event-packageManualPrice');
+      if (pkgNameInput && prefill.packageName) {
+        pkgNameInput.value = prefill.packageName;
+      }
+      if (pkgPriceInput && typeof prefill.packagePrice !== 'undefined') {
+        pkgPriceInput.value = Number(prefill.packagePrice || 0).toFixed(2);
+      }
+    }
+
+    // Add-on details + price
+    if (typeof prefill.addOnPrice !== 'undefined') {
+      const addOnPriceInput = panel.querySelector('.event-addOnPrice');
+      if (addOnPriceInput) {
+        addOnPriceInput.value = Number(prefill.addOnPrice || 0).toFixed(2);
+      }
+    }
+    if (prefill.addonDetails) {
+      const addonDisplay = panel.querySelector('.event-addon-display');
+      const addonManual = panel.querySelector('.event-addon-manual');
+      if (addonDisplay) addonDisplay.textContent = prefill.addonDetails;
+      if (addonManual) addonManual.value = prefill.addonDetails;
+    }
+
+    // Transport price
+    if (typeof prefill.transportPrice !== 'undefined') {
+      const tInput = panel.querySelector('.event-transportPrice');
+      if (tInput) {
+        tInput.value = Number(prefill.transportPrice || 0).toFixed(2);
+      }
+    }
+
+    // Notes
+    if (prefill.notes) {
+      const notesEl = panel.querySelector('.event-notes');
+      if (notesEl) notesEl.value = prefill.notes;
+    }
+
+    // Update header (title & date pill)
+    updateEventPanelSummary(id);
+  }
+
+  updateSummaryUI();
+  createLucide();
+  return id;
+}
+
+/* ==== EDIT SUPPORT: load quotation/invoice into forms ==== */
+
+// Fill quotation screen from saved object (client + events)
+function loadQuotationIntoForm(q) {
+  const nameEl    = document.getElementById('clientNameInput');
+  const contactEl = document.getElementById('clientContactInput');
+  const discEl    = document.getElementById('quotationDiscount');
+  const container = document.getElementById('eventsContainer');
+
+  if (nameEl)    nameEl.value    = q.clientName    || '';
+  if (contactEl) contactEl.value = q.clientContact || '';
+  if (discEl) {
+    const d = q.discount != null ? Number(q.discount) : 0;
+    discEl.value = d.toFixed(2);
+  }
+
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  const events = Array.isArray(q.events) ? q.events : [];
+
+  if (!events.length) {
+    const id = createEventPanel();
+    const panel = document.getElementById(id);
+    if (panel) panel.dataset.eventId = '';
+  } else {
+    events.forEach(ev => {
+      const id = createEventPanel(ev); // prefill fields
+      const panel = document.getElementById(id);
+      if (panel && ev.eventId) {
+        panel.dataset.eventId = ev.eventId;   // keep eventId for calendar
+      }
+    });
+  }
+
+  updateSummaryUI();
+}
+
+// Called whenever we open the Quotation screen
+function populateQuotationFields() {
+  const stored = localStorage.getItem('CURRENT_EDIT_QUOTATION');
+  const container = document.getElementById('eventsContainer');
+  if (!container) return;
+
+  if (!stored) {
+  // New quotation mode
+  const nameInput    = document.getElementById('clientNameInput');
+  const contactInput = document.getElementById('clientContactInput');
+  if (nameInput)    nameInput.value = '';
+  if (contactInput) contactInput.value = '';
+  const discEl = document.getElementById('quotationDiscount');
+  if (discEl) discEl.value = '0.00';
+
+  container.innerHTML = '';
+  const id = createEventPanel();
+  document.getElementById(id); // just ensure created
+  updateSummaryUI();
+  CURRENT_EDIT_QUOTATION_ID = null;
+  return;
+}
+
+  try {
+    const q = JSON.parse(stored);
+    CURRENT_EDIT_QUOTATION_ID = q.id;
+    loadQuotationIntoForm(q);
+  } catch (e) {
+    console.error(e);
+  } finally {
+    localStorage.removeItem('CURRENT_EDIT_QUOTATION');
+  }
+}
+
+// Fill invoice screen from saved object
+function loadInvoiceIntoForm(inv) {
+  const nameEl    = document.getElementById('invoiceClientNameInput');
+  const contactEl = document.getElementById('invoiceClientContactInput');
+  const discEl    = document.getElementById('invoiceDiscount');
+  const container = document.getElementById('invoiceEventsContainer');
+
+  if (nameEl)    nameEl.value    = inv.clientName    || '';
+  if (contactEl) contactEl.value = inv.clientContact || '';
+  if (discEl) {
+    const d = inv.discount != null ? Number(inv.discount) : 0;
+    discEl.value = d.toFixed(2);
+  }
+
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  const events = Array.isArray(inv.events) ? inv.events : [];
+
+  if (!events.length) {
+    const id = createEventPanel();
+    const panel = document.getElementById(id);
+    if (panel) container.appendChild(panel);
+  } else {
+    events.forEach(ev => {
+      const id = createEventPanel(ev); // prefill
+      const panel = document.getElementById(id);
+      if (panel) container.appendChild(panel); // move panel to invoice container
+    });
+  }
+
+  // update invoice summary from current panels
+  updateInvoiceSummaryUI();
+}
+
+// Called whenever we open the Invoice screen
+function populateInvoiceFields() {
+  const stored = localStorage.getItem('CURRENT_EDIT_INVOICE');
+  const container = document.getElementById('invoiceEventsContainer');
+  if (!container) return;
+
+  if (!stored) {
+  // New invoice mode
+  const invNameInput    = document.getElementById('invoiceClientNameInput');
+  const invContactInput = document.getElementById('invoiceClientContactInput');
+  if (invNameInput)    invNameInput.value = '';
+  if (invContactInput) invContactInput.value = '';
+  const discEl = document.getElementById('invoiceDiscount');
+  if (discEl) discEl.value = '0.00';
+
+    container.innerHTML = '';
+    const id = createEventPanel();
+    const panel = document.getElementById(id);
+    if (panel) container.appendChild(panel);
+
+    updateInvoiceSummaryUI();
+
+    CURRENT_EDIT_INVOICE_ID = null;
+    return;
+  }
+
+  try {
+    const inv = JSON.parse(stored);
+    CURRENT_EDIT_INVOICE_ID = inv.invoiceId || inv.id;
+    loadInvoiceIntoForm(inv);
+  } catch (e) {
+    console.error(e);
+  } finally {
+    localStorage.removeItem('CURRENT_EDIT_INVOICE');
+  }
+}
+
+
+function updateEventPanelSummary(panelId){
+  const panel = document.getElementById(panelId); if(!panel) return;
+  const name = panel.querySelector('.event-eventNameMaster')?.value || panel.querySelector('.event-eventNameManual')?.value || '';
+  const date = panel.querySelector('.event-eventDate')?.value || '';
+  const titleEl = panel.querySelector('.event-title'); if(titleEl) titleEl.textContent = name; // keep the app name input in sync with saved value
+const nameInput = document.getElementById('appNameInput');
+if (nameInput) nameInput.value = name;
+
+  const subEl = panel.querySelector('.event-sub'); if(subEl) subEl.textContent = date ? `• ${date}` : '';
+}
+
+function collectEventsFromPanels(){
+  const panels = Array.from(document.querySelectorAll('#eventsContainer > .event-panel'));
+  return panels.map(panel=>{
+    const name = panel.querySelector('.event-eventNameMaster')?.value || panel.querySelector('.event-eventNameManual')?.value || '';
+    const date = panel.querySelector('.event-eventDate')?.value || '';
+    let packagePrice = 0;
+    if(panel.querySelector('.event-packageMaster')){ const sel=panel.querySelector('.event-packageMaster'); const opt = sel && sel.options ? sel.options[sel.selectedIndex] : null; packagePrice = opt && opt.dataset && opt.dataset.price ? parseFloat(opt.dataset.price) : 0; } else packagePrice = parseFloat(panel.querySelector('.event-packageManualPrice')?.value || 0);
+    const addOnPrice = parseFloat(panel.querySelector('.event-addOnPrice')?.value) || 0;
+    const transportPrice = parseFloat(panel.querySelector('.event-transportPrice')?.value) || 0;
+    const notes = panel.querySelector('.event-notes')?.value || '';
+    return { name: name.trim(), date, packagePrice, addOnPrice, transportPrice, notes };
+  });
+}
+
+function updateSummaryUI(){
+  const events = collectEventsFromPanels();
+  const actual = events.reduce((s,e)=> s + Number(e.packagePrice||0) + Number(e.addOnPrice||0) + Number(e.transportPrice||0), 0);
+  const discountInput = document.getElementById('quotationDiscount'); let discount = parseFloat(discountInput?.value) || 0; if(discount < 0) discount = 0;
+  const finalPrice = Math.max(0, actual - discount);
+  document.getElementById('summaryActual').textContent = `₹${actual.toFixed(2)}`; document.getElementById('summaryFinal').textContent = `₹${finalPrice.toFixed(2)}`;
+}   // <-- keep this
+
+// ===== INVOICE SUMMARY HELPERS =====
+function collectInvoiceEventsFromPanels(){
+  const panels = Array.from(
+    document.querySelectorAll('#invoiceEventsContainer > .event-panel')
+  );
+  return panels.map(panel => {
+    // name/date not needed for total, but keep structure similar
+    let packagePrice = 0;
+
+    const pkgMasterSel = panel.querySelector('.event-packageMaster');
+    if (pkgMasterSel) {
+      const opt = pkgMasterSel.options[pkgMasterSel.selectedIndex];
+      if (opt && opt.dataset && opt.dataset.price) {
+        packagePrice = parseFloat(opt.dataset.price) || 0;
+      }
+    } else {
+      packagePrice = parseFloat(
+        panel.querySelector('.event-packageManualPrice')?.value || 0
+      );
+    }
+
+    const addOnPrice = parseFloat(
+      panel.querySelector('.event-addOnPrice')?.value || 0
+    );
+    const transportPrice = parseFloat(
+      panel.querySelector('.event-transportPrice')?.value || 0
+    );
+
+    return {
+      packagePrice,
+      addOnPrice,
+      transportPrice
+    };
+  });
+}
+
+function updateInvoiceSummaryUI(){
+  const events = collectInvoiceEventsFromPanels();
+  const actual = events.reduce(
+    (s,e)=> s + Number(e.packagePrice||0) + Number(e.addOnPrice||0) + Number(e.transportPrice||0),
+    0
+  );
+
+  let discount = parseFloat(document.getElementById('invoiceDiscount')?.value || 0);
+  if (isNaN(discount) || discount < 0) discount = 0;
+
+  const final = Math.max(0, actual - discount);
+
+  const actualEl = document.getElementById('invoiceSummaryActual');
+  const finalEl  = document.getElementById('invoiceSummaryFinal');
+
+  if (actualEl) actualEl.textContent = `₹${actual.toFixed(2)}`;
+  if (finalEl)  finalEl.textContent  = `₹${final.toFixed(2)}`;
+}
+
+// ⬇️ NOW PASTE THIS WHOLE FUNCTION HERE
+function updateInvoiceSummaryUI() {
+  const panels = Array.from(
+    document.querySelectorAll('#invoiceEventsContainer > .event-panel')
+  );
+
+  let actual = 0;
+
+  panels.forEach(panel => {
+    // --- package price (from master or manual) ---
+    let packagePrice = 0;
+
+    const pkgMasterSel = panel.querySelector('.event-packageMaster');
+    if (pkgMasterSel) {
+      const opt = pkgMasterSel.options[pkgMasterSel.selectedIndex];
+      if (opt && opt.dataset && opt.dataset.price) {
+        packagePrice = parseFloat(opt.dataset.price) || 0;
+      }
+    } else {
+      packagePrice = parseFloat(
+        panel.querySelector('.event-packageManualPrice')?.value || 0
+      );
+    }
+
+    const addOnPrice = parseFloat(
+      panel.querySelector('.event-addOnPrice')?.value || 0
+    );
+    const transportPrice = parseFloat(
+      panel.querySelector('.event-transportPrice')?.value || 0
+    );
+
+    actual +=
+      Number(packagePrice || 0) +
+      Number(addOnPrice || 0) +
+      Number(transportPrice || 0);
+  });
+
+  let discount = parseFloat(
+    document.getElementById('invoiceDiscount')?.value || 0
+  );
+  if (isNaN(discount) || discount < 0) discount = 0;
+
+  const final = Math.max(0, actual - discount);
+
+  const actualEl = document.getElementById('invoiceSummaryActual');
+  const finalEl  = document.getElementById('invoiceSummaryFinal');
+
+  if (actualEl) actualEl.textContent = `₹${actual.toFixed(2)}`;
+  if (finalEl)  finalEl.textContent  = `₹${final.toFixed(2)}`;
+}
+
+
+/* simple validate for update button */
+function validateEventPanel(panel){
+  const name = (panel.querySelector('.event-eventNameMaster')?.value || panel.querySelector('.event-eventNameManual')?.value || '').trim();
+  const date = panel.querySelector('.event-eventDate')?.value || '';
+  const pkgPrice = panel.querySelector('.event-packagePrice')?.value || panel.querySelector('.event-packageManualPrice')?.value || 0;
+  if(!name) return { valid:false, message:'Event name required' };
+  if(!date) return { valid:false, message:'Event date required' };
+  if(!(parseFloat(pkgPrice) > 0)) return { valid:false, message:'Package price must be > 0' };
+  return { valid:true };
+}
+
+/* -------------------------
+   Maps: real Google Maps + Places autocomplete + Directions
+   Replaces simulatedLocations, handleAutocomplete, resetMapCalculator, calculateDistancePrice
+   ------------------------- */
+
+// --- Safe no-op in case any inline handlers still exist ---
+function handleAutocomplete() { /* noop: Places handles autocomplete now */ }
+
+// --- Attach PlaceAutocompleteElement (new) with a fallback to Autocomplete (old) ---
+function attachPlaceAutocompleteToInput(inputEl) {
+  if (!inputEl) return null;
+
+  // New preferred element (if available)
+  if (window.google && google.maps && google.maps.places && google.maps.places.PlaceAutocompleteElement) {
+    try {
+      const elem = new google.maps.places.PlaceAutocompleteElement({
+        input: inputEl,
+        fields: ['formatted_address', 'geometry', 'name']
+      });
+      elem.addListener('place_changed', () => {
+        const place = elem.getPlace();
+        if (place && place.formatted_address) inputEl.value = place.formatted_address;
+        // optionally store geometry if needed: place.geometry.location
+      });
+      return elem;
+    } catch (e) {
+      console.warn('PlaceAutocompleteElement attach failed, falling back', e);
+      // fall through to fallback below
+    }
+  }
+
+  // Fallback for older clients/accounts — Autocomplete
+  if (window.google && google.maps && google.maps.places && google.maps.places.Autocomplete) {
+    try {
+      const ac = new google.maps.places.Autocomplete(inputEl, {
+        types: ['geocode', 'establishment'],
+        fields: ['formatted_address', 'geometry', 'name']
+      });
+      ac.addListener('place_changed', () => {
+        const p = ac.getPlace();
+        if (p && p.formatted_address) inputEl.value = p.formatted_address;
+      });
+      // ensure suggestions show even if map isn't bound
+      try { ac.bindTo && ac.bindTo('bounds', window._gmap || new google.maps.Map(document.createElement('div'))); } catch(e){ /* ignore */ }
+      return ac;
+    } catch (err) {
+      console.warn('Autocomplete fallback failed', err);
+    }
+  }
+
+  // If nothing available, just return null
+  return null;
+}
+
+// High-level setup function used by your maps init flow
+function setupPlacesAutocomplete() {
+  if (!window.google || !google.maps) {
+    // SDK not loaded yet — ensureMapsInitOnFirstShow will retry later
+    return;
+  }
+
+  const originEl = document.getElementById('origin');
+  const destEl = document.getElementById('destination');
+
+  // remove any old inline handlers to avoid interference
+  if (originEl) { originEl.oninput = null; originEl.onfocus = null; originEl.onkeydown = null; }
+  if (destEl) { destEl.oninput = null; destEl.onfocus = null; destEl.onkeydown = null; }
+
+  // attach new element / fallback
+  window._placeElemOrigin = attachPlaceAutocompleteToInput(originEl);
+  window._placeElemDest = attachPlaceAutocompleteToInput(destEl);
+
+  // optional: trigger suggestions when user types (helps on mobile)
+  if (originEl && window.google && google.maps && google.maps.event) {
+    originEl.addEventListener('keydown', () => { try { google.maps.event.trigger(originEl, 'keydown'); } catch(e){} });
+  }
+  if (destEl && window.google && google.maps && google.maps.event) {
+    destEl.addEventListener('keydown', () => { try { google.maps.event.trigger(destEl, 'keydown'); } catch(e){} });
+  }
+}
+
+// Google Maps objects (will be initialized on demand)
+let _gmap = null;
+let _directionsService = null;
+let _directionsRenderer = null;
+let _placesAutocompleteOrigin = null;
+let _placesAutocompleteDestination = null;
+
+function ensureGoogleMapsLoaded() {
+  // The app should have already loaded the Maps JS with Places library.
+  // If not, you must add the script tag with key & libraries=places.
+  if (!window.google || !google.maps) throw new Error('Google Maps SDK not loaded. Add script with &libraries=places');
+  if (!_gmap) {
+    const el = document.getElementById('map-display');
+    if (!el) return; // nothing to initialize
+    // create map inside existing display area
+    _gmap = new google.maps.Map(el, {
+      center: { lat: 20.5937, lng: 78.9629 }, // India center fallback
+      zoom: 6,
+      mapTypeControl: false,
+      fullscreenControl: false,
+      streetViewControl: false
+    });
+    _directionsService = new google.maps.DirectionsService();
+    _directionsRenderer = new google.maps.DirectionsRenderer({ suppressMarkers: false });
+    _directionsRenderer.setMap(_gmap);
+  }
+}
+
+// Places Autocomplete setup for origin/destination inputs (keeps existing dropdown behaviour minimal)
+function setupPlacesAutocomplete() {
+  try {
+    ensureGoogleMapsLoaded();
+  } catch (e) {
+    console.warn('Maps SDK not available for autocomplete', e);
+    return;
+  }
+
+  const originEl = document.getElementById('origin');
+  const destEl = document.getElementById('destination');
+
+  if (originEl && google.maps.places) {
+    _placesAutocompleteOrigin = new google.maps.places.Autocomplete(originEl, { types: ['geocode', 'establishment'] });
+    _placesAutocompleteOrigin.addListener('place_changed', () => {
+      // when user selects, we keep the value and optionally trigger calculation
+      // don't force calculate until user clicks Calculate
+    });
+  }
+
+  if (destEl && google.maps.places) {
+    _placesAutocompleteDestination = new google.maps.places.Autocomplete(destEl, { types: ['geocode', 'establishment'] });
+    _placesAutocompleteDestination.addListener('place_changed', () => {
+      //
+    });
+  }
+}
+
+// preserve the old reset behaviour but clear map and renderer
+function resetMapCalculator(){
+  ['origin','destination'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  [['pricePerKm','0.50'],['baseCharges','5.00'],['waitingCharges','0.00'],['tollCharges','0.00']].forEach(([id,val])=>{
+    const el=document.getElementById(id);
+    if (el) el.value = val;
+  });
+  document.getElementById('isRoundTrip').checked=false;
+  const routeTextEl = document.getElementById('route-text');
+  if (routeTextEl) routeTextEl.textContent='Route Not Set';
+  const costBreakdownEl = document.getElementById('cost-breakdown');
+  if (costBreakdownEl) costBreakdownEl.innerHTML='<p class="text-center text-gray-500 pt-2">Enter route details and click calculate.</p>';
+  const totalRes = document.getElementById('total-result');
+  if (totalRes) totalRes.innerHTML='<span>TOTAL COST</span><span class="app-color-text">₹0.00</span>';
+  tempTransportPrice={price:0,source:'manual',description:''};
+  document.getElementById('map-confirm-row')?.classList.add('hidden');
+
+  // clear directions from map
+  if (_directionsRenderer) {
+    _directionsRenderer.setDirections({ routes: [] });
+  }
+}
+
+// 🔧 Fetch toll estimate for a route using Google Routes API
+async function fetchTollForRoute(origin, dest) {
+  const apiKey = "AIzaSyCqRTP3fzHbjfJ0ZkDABWm6nPlLaHmhNsY"; // use your existing key (Routes enabled)
+
+  const body = {
+    origin: { address: origin },
+    destination: { address: dest },
+    travelMode: "DRIVE",
+    extraComputations: ["TOLLS"],
+    routeModifiers: {
+      // tweak later if you want passes like FASTag, etc.
+      vehicleInfo: { emissionType: "GASOLINE" }
+      // tollPasses: ["IN_FASTAG"]
+    }
+  };
+
+  const resp = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": apiKey,
+      "X-Goog-FieldMask": "routes.travelAdvisory.tollInfo"
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!resp.ok) {
+    console.warn("Routes API error:", resp.status, await resp.text());
+    return null;
+  }
+
+  const data = await resp.json();
+  const tollInfo = data.routes?.[0]?.travelAdvisory?.tollInfo;
+  if (!tollInfo || !tollInfo.estimatedPrice || !tollInfo.estimatedPrice.length) {
+    // Route may have tolls but no price data
+    return null;
+  }
+
+  // Prefer INR, else take first
+  const money = tollInfo.estimatedPrice.find(m => m.currencyCode === "INR")
+              || tollInfo.estimatedPrice[0];
+
+  const units = Number(money.units || 0);
+  const nanos = Number(money.nanos || 0); // 1e9 nanos = 1 unit
+  const value = units + nanos / 1e9;
+
+  return value; // e.g. 245.5
+}
+
+
+// calculateDistancePrice — uses DirectionsService to get distance in km and duration
+// calculateDistancePrice — uses DirectionsService to get distance in km and duration
+// DirectionsService + automatic tolls via Routes API
+async function calculateDistancePrice() {
+  const origin = document.getElementById('origin')?.value.trim() || '';
+  const dest   = document.getElementById('destination')?.value.trim() || '';
+  const perKm  = parseFloat(document.getElementById('pricePerKm')?.value) || 0;
+  const base   = parseFloat(document.getElementById('baseCharges')?.value) || 0;
+  const wait   = parseFloat(document.getElementById('waitingCharges')?.value) || 0;
+  const round  = document.getElementById('isRoundTrip')?.checked || false;
+
+  const tollInputEl = document.getElementById('tollCharges');
+  const manualToll  = parseFloat(tollInputEl?.value) || 0;
+
+  if (!origin || !dest) {
+    return showMessage('Enter valid Origin and Destination.');
+  }
+  if (perKm <= 0) {
+    return showMessage('Enter a positive Rate per KM');
+  }
+
+  // 🌐 1) Try to get toll from Routes API and put it into the Toll Charges field
+  let tollFromApi = null;
+  try {
+    tollFromApi = await fetchTollForRoute(origin, dest);
+    if (tollFromApi != null && tollInputEl) {
+      tollInputEl.value = tollFromApi.toFixed(0); // reflect automatically in UI
+    }
+  } catch (e) {
+    console.warn("Failed to fetch toll from Routes API", e);
+  }
+
+  // Use API toll if available, else manual
+  const baseToll = (tollFromApi != null) ? tollFromApi : manualToll;
+
+  // 2) Make sure Maps JS SDK is loaded (for distance + map route)
+  try {
+    ensureGoogleMapsLoaded();
+  } catch (e) {
+    console.warn('Maps SDK missing, cannot calculate real route', e);
+    return showMessage('Maps SDK not loaded. Please ensure your API key and script are included.');
+  }
+
+  const request = {
+    origin,
+    destination: dest,
+    travelMode: google.maps.TravelMode.DRIVING,
+    provideRouteAlternatives: false,
+    unitSystem: google.maps.UnitSystem.METRIC
+  };
+
+  const routeTextEl     = document.getElementById('route-text');
+  const costBreakdownEl = document.getElementById('cost-breakdown');
+
+  if (routeTextEl) {
+    routeTextEl.textContent = 'Calculating route...';
+  }
+  if (costBreakdownEl) {
+    costBreakdownEl.innerHTML = '<p class="text-sm text-gray-500">Calculating...</p>';
+  }
+  document.getElementById('map-confirm-row')?.classList.add('hidden');
+
+  _directionsService.route(request, (result, status) => {
+    try {
+      if (status !== 'OK' || !result || !result.routes || result.routes.length === 0) {
+        console.warn('Directions failed', status, result);
+        if (routeTextEl) {
+          routeTextEl.textContent = 'Route not found.';
+        }
+        if (costBreakdownEl) {
+          costBreakdownEl.innerHTML =
+            '<p class="text-sm text-red-500">Route not found.</p>';
+        }
+        tempTransportPrice = { price: 0, source: 'manual', description: '' };
+        return;
+      }
+
+            const route = result.routes[0];
+      let meters = 0;
+      let secs   = 0;
+
+      route.legs.forEach(leg => {
+        meters += leg.distance?.value || 0;
+        secs   += leg.duration?.value || 0;
+      });
+
+      // distance & time
+      const kmRaw = meters / 1000;
+      const kmForPrice = Math.round(kmRaw);     // for price maths (8 × 36 = 288)
+      const mins  = Math.round(secs / 60);
+      const hrs   = Math.floor(mins / 60);
+
+      // 🔁 Round trip: double RATE PER KM and TOLL
+      const effectivePerKm = round ? perKm * 2 : perKm;
+      const effectiveToll  = round ? baseToll * 2 : baseToll;
+
+      const distanceCharge = kmForPrice * effectivePerKm;
+      const totalPrice     = Math.max(
+        0,
+        Number(base) + Number(distanceCharge) + Number(wait) + Number(effectiveToll)
+      );
+
+      // ---------- TEXTS ----------
+
+      // nice readable time text
+      const timeText =
+  hrs > 0
+    ? `${hrs} hr ${mins % 60} min`
+    : `${mins} min`;
+
+// 1 decimal for display
+const kmText = Math.round(kmRaw);
+
+// update the small line below the map
+const infoEl = document.getElementById('map-time-distance');
+if (infoEl) {
+  infoEl.textContent = `${kmText} km • ${timeText}`;
+}
+
+      // ---------- COST BREAKDOWN UI ----------
+      if (costBreakdownEl) {
+        costBreakdownEl.innerHTML = `
+          <div class="text-sm space-y-1">
+            <div class="flex justify-between">
+              <span>Base</span>
+              <span>₹${base.toFixed(0)}</span>
+            </div>
+
+            <div class="flex justify-between">
+              <span>
+                <span class="font-semibold text-red-600">
+                  Distance: ${kmForPrice} km
+                </span>
+                <span> × ₹${effectivePerKm.toFixed(0)}</span>
+              </span>
+              <span>₹${distanceCharge.toFixed(0)}</span>
+            </div>
+
+            <div class="flex justify-between">
+              <span>Waiting</span>
+              <span>₹${wait.toFixed(0)}</span>
+            </div>
+
+            <div class="flex justify-between">
+              <span>
+                Tolls ${tollFromApi != null ? '(Aprox)' : '(Manual / fallback)'}
+              </span>
+              <span>₹${effectiveToll.toFixed(0)}</span>
+            </div>
+
+            <hr class="my-2"/>
+          </div>
+        `;
+      }
+
+
+
+      const totalRes = document.getElementById('total-result');
+      if (totalRes) {
+        totalRes.innerHTML =
+          `<span>TOTAL COST</span><span class="app-color-text">₹${totalPrice}</span>`;
+      }
+
+      if (_directionsRenderer) {
+        _directionsRenderer.setDirections(result);
+      }
+
+      document.getElementById('map-confirm-row')?.classList.remove('hidden');
+    } catch (innerErr) {
+      console.error('Error processing directions result', innerErr);
+      if (routeTextEl) {
+        routeTextEl.textContent = 'Route processing failed.';
+      }
+      if (costBreakdownEl) {
+        costBreakdownEl.innerHTML =
+          '<p class="text-sm text-red-500">Failed to compute price.</p>';
+      }
+    }
+  });
+}
+
+
+// wire Places autocomplete & map init automatically when maps screen is shown
+// Note: navigate('maps') already calls applyDefaultMapValues(); ensure this init runs once
+let __mapsInitialized = false;
+function ensureMapsInitOnFirstShow(){
+  if (__mapsInitialized) return;
+  try {
+    setupPlacesAutocomplete();
+    ensureGoogleMapsLoaded();
+  } catch(e){
+  console.warn('maps init:', e);
+    // silent: SDK might not be loaded yet — that's OK
+  }
+  __mapsInitialized = true;
+}
+// call this from navigation logic when maps screen is shown (maps initialization will be done by navigate('maps') handler)
+
+
+function confirmMapPrice(){
+  const raw = localStorage.getItem('map_return_screen'); if(!raw){ navigate('quotation'); return; }
+  try{
+    const parsed = JSON.parse(raw);
+    if(parsed && parsed.screen === 'quotation' && parsed.panelId){
+      const panelTransport = document.querySelector(`#${parsed.panelId} .event-transportPrice`);
+      const panelLoc = document.querySelector(`#${parsed.panelId} .event-eventLocationManual`);
+      if(panelTransport) panelTransport.value = (tempTransportPrice.price||0).toFixed(2);
+      const routeDesc = tempTransportPrice.description || '';
+      try{
+        const toIndex = routeDesc.indexOf(' to ');
+        const dashIndex = routeDesc.indexOf(' - ');
+        if(toIndex>=0 && dashIndex>toIndex){
+          const dest = routeDesc.substring(toIndex+4, dashIndex).trim();
+          if(panelLoc) { panelLoc.value = dest; panelLoc.classList.remove('field-error-orange'); panelLoc.classList.remove('field-error-red'); }
+        } else { if(panelLoc && routeDesc) panelLoc.value = routeDesc; }
+      }catch(e){}
+      localStorage.removeItem('map_return_screen');
+      document.getElementById('map-confirm-row').classList.add('hidden');
+      updateSummaryUI();
+      if (typeof updateInvoiceSummaryUI === 'function') {
+        updateInvoiceSummaryUI();
+      }
+      navigate('quotation');
+      return;
+    }
+  }catch(e){}
+  localStorage.removeItem('map_return_screen');
+  document.getElementById('map-confirm-row').classList.add('hidden');
+  navigate('quotation');
+}
+
+/* -------------------------
+   Initialization wiring
+   ------------------------- */
+function showUpdateToast(msg='Update successful'){ let t=document.getElementById('updateToast'); if(!t){ t=document.createElement('div'); t.id='updateToast'; t.className='update-toast'; document.body.appendChild(t); } t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 1600); }
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  createLucide();
+  migrateEventIds(); persistMissingEventIds();
+  applySettings();
+  loadMasterData();
+
+  document.getElementById('addEventBtn')?.addEventListener('click', ()=>{ createEventPanel(); updateSummaryUI(); });
+  document.getElementById('generateQuotationButton')?.addEventListener('click', saveQuotationMultiEvent);
+  document.getElementById('quotationDiscount')?.addEventListener('input', updateSummaryUI);
+  document.getElementById('invoiceDiscount')?.addEventListener('input', updateInvoiceSummaryUI);
+
+
+  if(document.getElementById('eventsContainer')?.children.length===0) createEventPanel();
+
+  // settings image handlers (simple)
+  const logoInput = document.getElementById('appLogoInput');
+  logoInput?.addEventListener('change', async (ev)=>{
+    const file = ev.target.files && ev.target.files[0];
+    if(!file) return;
+     try {
+    // upload or update existing
+    const name = 'app_logo_' + (USE_APPDATA ? 'appdata' : 'file') + '.png'; // logical stable name
+    // check existing
+    const existing = localStorage.getItem('APP_LOGO_FILE_ID');
+    if (existing && accessToken) {
+      // try update if existing file still valid
+      try {
+        await updateDriveFileContent(existing, file);
+        // keep same fileId
+      } catch(e) {
+        console.warn('Update failed, will try re-upload', e);
+        const newId = await uploadDriveFile(name, file);
+        localStorage.setItem('APP_LOGO_FILE_ID', newId);
+      }
+    } else {
+      // find by name in Drive (optional) or just upload
+      if (accessToken) {
+        const found = await findDriveFileIdByName(name);
+        if (found && found.id) {
+          await updateDriveFileContent(found.id, file);
+          localStorage.setItem('APP_LOGO_FILE_ID', found.id);
+        } else {
+          const id = await uploadDriveFile(name, file);
+          localStorage.setItem('APP_LOGO_FILE_ID', id);
+        }
+      } else {
+        // fallback: save as local dataURL if not signed in
+        const fr = new FileReader();
+        fr.onload = () => {
+          try { localStorage.setItem(APP_LOGO_KEY, fr.result); } catch(e){ console.warn(e); }
+        };
+        fr.readAsDataURL(file);
+      }
+    }
+    // update UI immediately
+    if (accessToken) {
+      const fileId = localStorage.getItem('APP_LOGO_FILE_ID');
+      const blob = await downloadDriveFileBlob(fileId);
+      const url = URL.createObjectURL(blob);
+      document.getElementById('appLogo')?.setAttribute('src', url);
+    } else {
+      // applySettings will show local cached dataURL
+      applySettings();
+    }
+    // scheduleAutoSave(); // optional: persist mapping to drive/json if you want
+  } catch (err) {
+    console.error(err);
+    showMessage('Logo upload failed: ' + (err.message || err));
+  }
+});
+  document.getElementById('removeLogoBtn')?.addEventListener('click', ()=>{ localStorage.removeItem(APP_LOGO_KEY); applySettings(); });
+
+  const quotationLayoutInput = document.getElementById('quotationLetterheadInput');
+
+quotationLayoutInput?.addEventListener('change', async (ev) => {
+  const file = ev.target.files?.[0]; 
+  if (!file) return;
+
+  try {
+    const img = new Image();
+    const fr = new FileReader();
+
+    fr.onload = (e) => (img.src = e.target.result);
+
+    img.onload = () => {
+      const scale = Math.min(1200 / img.width, 1);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      localStorage.setItem(QUOTATION_LAYOUT_KEY, dataUrl);
+      applySettings();
+    };
+
+    fr.readAsDataURL(file);
+  } catch (e) {
+    console.error(e);
+    showMessage("Failed to process quotation layout image.");
+  }
+});
+
+document.getElementById("removeQuotationLayoutBtn")?.addEventListener("click", () => {
+  localStorage.removeItem(QUOTATION_LAYOUT_KEY);
+  applySettings();
+});
+
+
+const invoiceLayoutInput = document.getElementById('invoiceLetterheadInput');
+
+invoiceLayoutInput?.addEventListener('change', async (ev) => {
+  const file = ev.target.files?.[0];
+  if (!file) return;
+
+  try {
+    const img = new Image();
+    const fr = new FileReader();
+
+    fr.onload = (e) => (img.src = e.target.result);
+
+    img.onload = () => {
+      const scale = Math.min(1200 / img.width, 1);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      localStorage.setItem(INVOICE_LAYOUT_KEY, dataUrl);
+      applySettings();
+    };
+
+    fr.readAsDataURL(file);
+  } catch (e) {
+    console.error(e);
+    showMessage("Failed to process invoice layout image.");
+  }
+});
+
+document.getElementById("removeInvoiceLayoutBtn")?.addEventListener("click", () => {
+  localStorage.removeItem(INVOICE_LAYOUT_KEY);
+  applySettings();
+});
+
+ 
+  document.getElementById('resetSettingsBtn')?.addEventListener('click', ()=>{ localStorage.removeItem(APP_NAME_KEY); localStorage.removeItem(APP_COLOR_KEY); localStorage.removeItem(APP_LOGO_KEY); localStorage.removeItem(QUOTATION_LAYOUT_KEY); localStorage.removeItem(INVOICE_LAYOUT_KEY); localStorage.removeItem(APP_FONT_KEY); applySettings(); });
+
+  // Files search
+  document.getElementById('filesSearch')?.addEventListener('input', renderFilesList);
+  document.getElementById('filesDate')?.addEventListener('input', renderFilesList);
+  document.getElementById('filesMonth')?.addEventListener('change', renderFilesList);
+
+  // ===== FILES → Quotations bulk actions =====
+  const quoteSelectAll = document.getElementById('quoteSelectAll');
+  if (quoteSelectAll) {
+    quoteSelectAll.addEventListener('change', (e) => {
+      const checked = e.target.checked;
+      document
+        .querySelectorAll('#filesList .quote-select')
+        .forEach(cb => cb.checked = checked);
+    });
+  }
+
+  const quoteBulkOk = document.getElementById('quoteBulkOk');
+  if (quoteBulkOk) {
+    quoteBulkOk.addEventListener('click', () => {
+      const action = document.getElementById('quoteBulkAction')?.value || '';
+      const ids = getCheckedQuoteIds();
+
+      if (!action) {
+        showMessage('Please choose an action for quotations.');
+        return;
+      }
+      if (!ids.length) {
+        showMessage('Please select at least one quotation.');
+        return;
+      }
+
+      ids.forEach(id => {
+        // reuse existing single-file handler
+        handleFileAction(id, action);
+      });
+    });
+  }
+
+  const quoteBulkDelete = document.getElementById('quoteBulkDelete');
+  if (quoteBulkDelete) {
+    quoteBulkDelete.addEventListener('click', () => {
+      const ids = getCheckedQuoteIds();
+      if (!ids.length) {
+        showMessage('Please select at least one quotation to delete.');
+        return;
+      }
+      if (!confirm('Delete selected quotations? This cannot be undone.')) return;
+
+      const list = loadFromLS(SAVED_QUOTATIONS_KEY, []);
+      const remaining = list.filter(q => !ids.includes(String(q.id)));
+      saveToLS(SAVED_QUOTATIONS_KEY, remaining);
+      renderFilesList();
+    });
+  }
+
+  // ===== FILES → Invoices bulk actions =====
+  const invoiceSelectAll = document.getElementById('invoiceSelectAll');
+  if (invoiceSelectAll) {
+    invoiceSelectAll.addEventListener('change', (e) => {
+      const checked = e.target.checked;
+      document
+        .querySelectorAll('#invoicesList .invoice-select')
+        .forEach(cb => cb.checked = checked);
+    });
+  }
+
+  const invoiceBulkOk = document.getElementById('invoiceBulkOk');
+  if (invoiceBulkOk) {
+    invoiceBulkOk.addEventListener('click', () => {
+      const action = document.getElementById('invoiceBulkAction')?.value || '';
+      const ids = getCheckedInvoiceIds();
+
+      if (!action) {
+        showMessage('Please choose an action for invoices.');
+        return;
+      }
+      if (!ids.length) {
+        showMessage('Please select at least one invoice.');
+        return;
+      }
+
+      ids.forEach(id => {
+        // reuse existing single-invoice handler
+        handleInvoiceAction(id, action);
+      });
+    });
+  }
+
+  const invoiceBulkDelete = document.getElementById('invoiceBulkDelete');
+  if (invoiceBulkDelete) {
+    invoiceBulkDelete.addEventListener('click', () => {
+      const ids = getCheckedInvoiceIds();
+      if (!ids.length) {
+        showMessage('Please select at least one invoice to delete.');
+        return;
+      }
+      if (!confirm('Delete selected invoices? This cannot be undone.')) return;
+
+      const list = loadFromLS(SAVED_INVOICES_KEY, []);
+      const remaining = list.filter(inv => {
+        const idForInvoice = inv.invoiceId || inv.id;
+        return !ids.includes(String(idForInvoice));
+      });
+      saveToLS(SAVED_INVOICES_KEY, remaining);
+      renderFilesList();
+    });
+  }
+
+
+    // Invoice add event behavior (reuse event panel and move)
+  document.getElementById('invoiceAddEventBtn')?.addEventListener('click', ()=>{
+    const panelId = createEventPanel();
+    const panel = document.getElementById(panelId);
+    if (panel) {
+      document.getElementById('invoiceEventsContainer')?.appendChild(panel);
+      updateInvoiceSummaryUI();
+    }
+  });
+
+
+    // Invoice save button
+  document.getElementById('generateInvoiceButton')?.addEventListener('click', ()=>{
+    const clientName = (document.getElementById('invoiceClientNameInput')?.value || '').trim();
+    const clientContact = (document.getElementById('invoiceClientContactInput')?.value || '').trim();
+    if(!clientName || !clientContact){
+      showMessage('Client name and contact are required.');
+      return;
+    }
+
+    const panels = Array.from(
+      document.querySelectorAll('#invoiceEventsContainer > .event-panel')
+    );
+    if(panels.length === 0){
+      showMessage('Add at least one event.');
+      return;
+    }
+
+    const events = panels.map(panel => {
+      const name =
+        panel.querySelector('.event-eventNameMaster')?.value ||
+        panel.querySelector('.event-eventNameManual')?.value ||
+        '';
+      const date = panel.querySelector('.event-eventDate')?.value || '';
+
+      // package
+      let packagePrice = 0;
+      let packageName = '';
+
+      const pkgMasterSel = panel.querySelector('.event-packageMaster');
+      if (pkgMasterSel) {
+        const opt = pkgMasterSel.options[pkgMasterSel.selectedIndex];
+        if (opt) {
+          packageName = (opt.textContent || '').split('—')[0].trim();
+          packagePrice = opt.dataset && opt.dataset.price
+            ? parseFloat(opt.dataset.price)
+            : 0;
+        }
+      } else {
+        packageName =
+          panel.querySelector('.event-packageSelectedManual')?.value || '';
+        packagePrice = parseFloat(
+          panel.querySelector('.event-packageManualPrice')?.value || 0
+        );
+      }
+
+      // add-on
+      const addOnPrice = parseFloat(
+        panel.querySelector('.event-addOnPrice')?.value || 0
+      );
+
+      let addonDetails = '';
+      const addonDisplay = panel.querySelector('.event-addon-display');
+      const addonManual = panel.querySelector('.event-addon-manual');
+
+      if (
+        addonDisplay &&
+        addonDisplay.textContent &&
+        addonDisplay.textContent.trim() &&
+        !/Enter \(Text\)/i.test(addonDisplay.textContent) &&
+        !/No items selected/i.test(addonDisplay.textContent)
+      ) {
+        addonDetails = addonDisplay.textContent.trim();
+      } else if (addonManual && addonManual.value.trim()) {
+        addonDetails = addonManual.value.trim();
+      }
+
+      const transportPrice = parseFloat(
+        panel.querySelector('.event-transportPrice')?.value || 0
+      );
+      const notes = panel.querySelector('.event-notes')?.value || '';
+
+      return {
+        name,
+        date,
+        packageName,
+        packagePrice,
+        addonDetails,
+        addOnPrice,
+        transportPrice,
+        notes,
+      };
+    });
+
+    const actual = events.reduce(
+      (s,e)=> s + (Number(e.packagePrice||0) + Number(e.addOnPrice||0) + Number(e.transportPrice||0)),
+      0
+    );
+    const discount = parseFloat(document.getElementById('invoiceDiscount')?.value || 0) || 0;
+    const final = Math.max(0, actual - discount);
+
+if (typeof updateInvoiceSummaryUI === 'function') {
+    updateInvoiceSummaryUI();
+  }
+
+    const base = { clientName, clientContact, events, actual, final };
+    if (discount > 0) base.discount = Number(discount.toFixed(2));
+
+    const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
+    let savedInvoice;
+
+    if (CURRENT_EDIT_INVOICE_ID) {
+      const idx = invoices.findIndex(inv =>
+        (inv.invoiceId || inv.id) === CURRENT_EDIT_INVOICE_ID
+      );
+      if (idx !== -1) {
+        const old = invoices[idx];
+        savedInvoice = {
+          ...old,
+          ...base,
+          invoiceId: old.invoiceId || CURRENT_EDIT_INVOICE_ID,
+          createdAt: new Date().toISOString()
+        };
+        invoices[idx] = savedInvoice;
+      } else {
+        savedInvoice = {
+          ...base,
+          invoiceId: 'inv_' + Date.now(),
+          createdAt: new Date().toISOString()
+        };
+        invoices.push(savedInvoice);
+      }
+    } else {
+      savedInvoice = {
+        ...base,
+        invoiceId: 'inv_' + Date.now(),
+        createdAt: new Date().toISOString()
+      };
+      invoices.push(savedInvoice);
+    }
+
+    saveToLS(SAVED_INVOICES_KEY, invoices);
+    CURRENT_EDIT_INVOICE_ID = null;
+    showMessage('Invoice saved to Files → Invoices', 'Saved');
+    switchFilesTab('invoices');
+    renderFilesList();
+  });
+
+
+  // init
+  renderFilesList();
+  renderCalendar();
+  navigate('dashboard',{pushHistory:false});
+});
+
+// Single canonical Save Settings handler — safe and defensive
+(function attachCanonicalSaveSettings(){
+  const btn = document.getElementById('saveSettingsBtn');
+  if (!btn) { console.warn('saveSettingsBtn not found — handler not attached'); return; }
+  // remove any previous handler to avoid duplicates
+  btn.onclick = null;
+  // remove potential previously attached listeners (best-effort)
+  try { btn.replaceWith(btn.cloneNode(true)); } catch(e) { /* ignore */ }
+
+  // re-query the button after clone (to attach listener to the real element)
+  const realBtn = document.getElementById('saveSettingsBtn');
+  if (!realBtn) return;
+
+  realBtn.addEventListener('click', function(){
+    try {
+     // prefer typed value; if empty, use stored name (parsed if JSON), else final fallback
+const name = (() => {
+  const typed = (document.getElementById('appNameInput')?.value || '').trim();
+  if (typed) return typed;
+  // read stored value (may be JSON string)
+  try {
+    const raw = localStorage.getItem(APP_NAME_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (parsed && typeof parsed === 'string') return parsed;
+  } catch(e) { /* ignore parse error and fallthrough */ }
+  return 'My Business App';
+})();
+
+      let color = (document.getElementById('appColorInput')?.value || '#3b82f6').trim();
+      const fontSize = (document.getElementById('appFontSize')?.value || '16').toString();
+
+      // Validate color (must be #rrggbb); fallback if invalid
+      if (!/^#([0-9a-fA-F]{6})$/.test(color)) {
+        console.warn('SaveSettings: invalid color chosen, falling back to #3b82f6', color);
+        color = '#3b82f6';
+      }
+
+      // Use saveToLS helper if present (it should handle serialization once)
+      if (typeof saveToLS === 'function') {
+        saveToLS(APP_NAME_KEY, name);
+        saveToLS(APP_COLOR_KEY, color);
+        saveToLS(APP_FONT_KEY, fontSize);
+      } else {
+        // Fallback: write plain JSON once
+        localStorage.setItem(APP_NAME_KEY, JSON.stringify(name));
+        localStorage.setItem(APP_COLOR_KEY, JSON.stringify(color));
+        localStorage.setItem(APP_FONT_KEY, JSON.stringify(fontSize));
+      }
+
+      // Re-apply immediately
+      if (typeof applySettings === 'function') applySettings();
+
+      // feedback
+      const msg = document.getElementById('settings-message');
+      if (msg) { msg.style.visibility = 'visible'; setTimeout(()=>{ msg.style.visibility='hidden'; }, 1400); }
+      console.log('Settings saved:', { name, color, fontSize });
+    } catch(err) {
+      console.error('Save settings error', err);
+      showMessage('Unable to save settings. See console for details.', 'Save Error');
+    }
+  });
+})();
+
+</script>
+
+<!-- Google Identity + Drive helpers Hari -->
+<script>
+const USE_APPDATA = true; // use appDataFolder (hidden) for app data
+const APP_FILENAME = 'myapp-data.json';
+
+let tokenClient = null;
+let accessToken = null;
+let userProfile = null;
+
+function initGoogleTokenClient(){
+  if (!window.google || !google.accounts || !google.accounts.oauth2) {
+    setTimeout(initGoogleTokenClient, 500);
+    return;
+  }
+  if (tokenClient) return;
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: (USE_APPDATA ? 'https://www.googleapis.com/auth/drive.appdata' : 'https://www.googleapis.com/auth/drive.file') + ' openid email profile',
+    callback: (resp) => {
+      if (resp.error) {
+        console.error('Token error', resp);
+        document.getElementById('gdrive-status').innerText = 'Sign-in failed';
+        return;
+      }
+      accessToken = resp.access_token;
+      onSignedIn();
+    }
+  });
+}
+
+function signInWithGoogle(){
+  if (!tokenClient) initGoogleTokenClient();
+  tokenClient.requestAccessToken({ prompt: 'consent' });
+}
+
+function updateProfileIcon() {
+  const avatarEl  = document.getElementById("profileAvatar");
+  const defaultEl = document.getElementById("profileIconDefault");
+
+  if (!avatarEl || !defaultEl) return;
+
+  const logoData = localStorage.getItem(APP_LOGO_KEY) || "";
+  const isSigned = localStorage.getItem('gdrive_signed_in') === '1';
+
+  if (isSigned && logoData) {
+    // show app logo as avatar
+    avatarEl.src = logoData;
+    avatarEl.classList.remove("hidden");
+    defaultEl.classList.add("hidden");
+  } else {
+    // show default Lucide icon
+    defaultEl.classList.remove("hidden");
+    avatarEl.classList.add("hidden");
+  }
+}
+
+
+async function onSignedIn(){
+  if (!accessToken) return;
+  document.getElementById('gdrive-status').innerText = 'Signed in — fetching profile.';
+  try {
+    const r = await fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
+      headers: { Authorization: 'Bearer ' + accessToken }
+    });
+    if (r.ok) {
+      userProfile = await r.json();
+
+      document.getElementById('gdrive-user').innerText =
+        userProfile.email || 'Signed in';
+      document.getElementById('btnSignIn').style.display  = 'none';
+      document.getElementById('btnSignOut').style.display = 'inline-block';
+      document.getElementById('btnSaveDrive').style.display = 'inline-block';
+      document.getElementById('btnLoadDrive').style.display = 'inline-block';
+      document.getElementById('gdrive-status').innerText =
+        'Signed in as ' + (userProfile.email || '');
+
+      // remember we are signed in
+      try { localStorage.setItem('gdrive_signed_in', '1'); } catch(e) {}
+
+      // 🔁 update header avatar based on sign-in + app logo
+      updateProfileIcon();
+
+      // === AUTO-LOAD FROM DRIVE ON SIGN-IN ===
+      document.getElementById('gdrive-status').innerText =
+        'Signed in — loading saved data...';
+
+      try {
+        await loadFromDrive();   // merges data into localStorage
+
+        // Re-apply UI immediately so images/letterheads show
+        if (typeof applySettings === 'function') applySettings();
+        if (typeof renderFilesList === 'function') renderFilesList();
+        if (typeof renderCalendar === 'function') renderCalendar();
+        if (typeof updateSummaryUI === 'function') updateSummaryUI();
+        if (typeof updateInvoiceSummaryUI === 'function') updateInvoiceSummaryUI();
+
+        document.getElementById('gdrive-status').innerText = 'Loaded saved data';
+      } catch (e) {
+        console.warn('Auto-load failed', e);
+        document.getElementById('gdrive-status').innerText =
+          'Signed in (no saved data)';
+      }
+      // === END AUTO-LOAD SECTION ===
+    } else {
+      document.getElementById('gdrive-status').innerText =
+        'Failed to fetch profile';
+    }
+  } catch (e) {
+    console.error(e);
+    document.getElementById('gdrive-status').innerText =
+      'Failed to fetch profile';
+  }
+}
+
+
+function signOutFromGoogle(){
+  const resetUi = () => {
+    accessToken = null;
+    userProfile = null;
+    tokenClient = null;
+
+    document.getElementById('gdrive-user').innerText = 'Not signed in';
+    document.getElementById('btnSignIn').style.display  = 'inline-block';
+    document.getElementById('btnSignOut').style.display = 'none';
+    document.getElementById('btnSaveDrive').style.display = 'none';
+    document.getElementById('btnLoadDrive').style.display = 'none';
+    document.getElementById('gdrive-status').innerText = '';
+    localStorage.removeItem('gdrive_signed_in');
+
+    // 🔁 when logged out, go back to default icon
+    updateProfileIcon();
+  };
+
+  if (accessToken) {
+    fetch('https://oauth2.googleapis.com/revoke?token=' + accessToken, {
+      method: 'POST'
+    })
+      .catch(e => console.warn('Revoke failed', e))
+      .finally(resetUi);
+  } else {
+    resetUi();
+  }
+}
+
+
+async function findFileId(name){
+  const q = `name='${name.replace(/'/g,"\\\\'")}' and trashed=false`;
+  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&spaces=${USE_APPDATA ? 'appDataFolder' : 'drive'}&fields=files(id,name)`;
+  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken }});
+  const j = await r.json();
+  return (j.files && j.files[0] && j.files[0].id) || null;
+}
+
+// ---------- Drive file helpers (images / pdf) Hari----------
+
+// find file in appDataFolder or drive by name
+async function findDriveFileIdByName(name){
+  const q = `name='${name.replace(/'/g,"\\'")}' and trashed=false`;
+  const space = USE_APPDATA ? 'appDataFolder' : 'drive';
+  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&spaces=${space}&fields=files(id,name,mimeType)`;
+  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken }});
+  const j = await r.json();
+  return (j.files && j.files[0]) ? j.files[0] : null;
+}
+
+// upload a new file (multipart using FormData) -> returns fileId
+async function uploadDriveFile(name, fileBlob){
+  const metadata = { name, mimeType: fileBlob.type || 'application/octet-stream' };
+  if (USE_APPDATA) metadata.parents = ['appDataFolder'];
+
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+  form.append('file', fileBlob);
+
+  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + accessToken },
+    body: form
+  });
+  if (!res.ok) throw new Error('Upload failed: ' + await res.text());
+  return (await res.json()).id;
+}
+
+// update existing file content (PATCH with uploadType=media)
+async function updateDriveFileContent(fileId, fileBlob){
+  const url = `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`;
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      Authorization: 'Bearer ' + accessToken,
+      'Content-Type': fileBlob.type || 'application/octet-stream'
+    },
+    body: fileBlob
+  });
+  if (!res.ok) throw new Error('Update failed: ' + await res.text());
+  return (await res.json()).id;
+}
+
+// fetch file blob by id
+async function downloadDriveFileBlob(fileId){
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+    headers: { Authorization: 'Bearer ' + accessToken }
+  });
+  if (!res.ok) throw new Error('Download failed: ' + await res.text());
+  return await res.blob();
+}
+
+// ---------- end Drive file helpers Hari----------
+
+
+async function uploadJsonFile(name, jsonObj){
+  // metadata for file
+  const metadata = { name, mimeType: 'application/json' };
+  if (USE_APPDATA) metadata.parents = ['appDataFolder'];
+
+  // create JSON body
+  const jsonStr = JSON.stringify(jsonObj);
+
+  // Use a random boundary (browser will handle content-length)
+  const boundary = '-------314159265358979323846'; // stable string is fine
+  const delimiter = "\r\n--" + boundary + "\r\n";
+  const close_delim = "\r\n--" + boundary + "--";
+
+  // Build parts as Blobs to avoid encoding issues
+  const metaPart = new Blob(
+    [ 'Content-Type: application/json; charset=UTF-8\r\n\r\n', JSON.stringify(metadata) ],
+    { type: 'application/json' }
+  );
+
+  const jsonPart = new Blob(
+    [ 'Content-Type: application/json\r\n\r\n', jsonStr ],
+    { type: 'application/json' }
+  );
+
+  // Build full multipart/related body as array of parts
+  const bodyParts = [
+    // starting boundary must be at the very start
+    new Blob([ '--' + boundary + '\r\n' ]),
+    // metadata headers (no extra 'Content-Type' outside metaPart)
+    new Blob([ 'Content-Type: application/json; charset=UTF-8\r\n\r\n' ]),
+    new Blob([ JSON.stringify(metadata) ]),
+    new Blob([ '\r\n--' + boundary + '\r\n' ]),
+    new Blob([ 'Content-Type: application/json\r\n\r\n' ]),
+    new Blob([ jsonStr ]),
+    new Blob([ '\r\n--' + boundary + '--\r\n' ])
+  ];
+
+  const multipartBlob = new Blob(bodyParts, { type: 'multipart/related; boundary=' + boundary });
+
+  const uploadUrl = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id';
+  const res = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + accessToken,
+      // Note: do NOT set Content-Type manually to include boundary; browser will set it from the Blob
+      // 'Content-Type': 'multipart/related; boundary="' + boundary + '"' 
+    },
+    body: multipartBlob
+  });
+
+  // if fetch returned non-OK, throw the response text for error handling
+  if (!res.ok) {
+    const text = await res.text().catch(()=>'<no response body>');
+    throw new Error('Upload failed: HTTP ' + res.status + ' — ' + text);
+  }
+  return (await res.json()).id;
+}
+
+async function updateJsonFile(fileId, jsonObj){
+  const url = `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`;
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': 'Bearer ' + accessToken,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(jsonObj)
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return (await res.json()).id;
+}
+
+async function saveToDrive(){
+  if (!accessToken) { alert('Please sign in first'); return; }
+  document.getElementById('gdrive-status').innerText = 'Preparing data...';
+  const data = {};
+  for (let i=0;i<localStorage.length;i++){
+    const k = localStorage.key(i);
+    try { data[k] = JSON.parse(localStorage.getItem(k)); } catch(e) { data[k] = localStorage.getItem(k); }
+  }
+  const payload = { savedAt: new Date().toISOString(), data };
+  try {
+    const existingId = await findFileId(APP_FILENAME);
+    if (existingId) {
+      await updateJsonFile(existingId, payload);
+      document.getElementById('gdrive-status').innerText = 'Updated Drive';
+    } else {
+      await uploadJsonFile(APP_FILENAME, payload);
+      document.getElementById('gdrive-status').innerText = 'Saved to Drive';
+      alert('Data saved to Drive.');
+    }
+  } catch (e) {
+  console.error("Drive upload failed:", e);
+
+  showMessage("Upload failed! Please try again.", "error");
+
+  // Show the Contact Admin error bar
+  const bar = document.getElementById("contactDevBar");
+  if (bar) bar.style.display = "block";
+}
+}
+
+async function loadFromDrive(){
+  if (!accessToken) { alert('Please sign in first'); return; }
+  document.getElementById('gdrive-status').innerText = 'Downloading...';
+  const fileId = await findFileId(APP_FILENAME);
+  if (!fileId) { alert('No saved file found on Drive'); document.getElementById('gdrive-status').innerText = 'No file found'; return; }
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+    headers: { Authorization: 'Bearer ' + accessToken }
+  });
+  if (!r.ok) { alert('Download failed: ' + await r.text()); document.getElementById('gdrive-status').innerText = 'Download failed'; return; }
+  const payload = await r.json();
+if (!payload || !payload.data) {
+  alert('Drive file has no data.');
+  return;
+}
+
+// ===== FIX: store strings as plain strings, stringify objects only =====
+Object.keys(payload.data).forEach(k => {
+  const v = payload.data[k];
+  if (typeof v === 'string') {
+    // store raw string (this preserves data:image/... without extra quotes)
+    try { localStorage.setItem(k, v); } catch (e) { /* ignore storage errors */ }
+  } else {
+    // objects/arrays/numbers -> stringify safely
+    try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { localStorage.setItem(k, String(v)); }
+  }
+});
+
+// ===== Immediately re-apply UI so images/letterheads show without manual refresh =====
+try {
+  if (typeof applySettings === 'function') applySettings();
+  if (typeof renderFilesList === 'function') renderFilesList();
+  if (typeof renderCalendar === 'function') renderCalendar();
+  if (typeof updateSummaryUI === 'function') updateSummaryUI();
+  if (typeof updateInvoiceSummaryUI === 'function') updateInvoiceSummaryUI();
+} catch (e) {
+  console.warn('Re-apply UI after load failed', e);
+}
+
+document.getElementById('gdrive-status').innerText = 'Loaded into localStorage and UI updated';
+alert('Data loaded and UI updated.');
+}
+
+/* Wire up buttons */
+document.addEventListener('DOMContentLoaded', () => {
+  // Drive buttons
+  document.getElementById('btnSignIn')?.addEventListener('click', signInWithGoogle);
+  document.getElementById('btnSignOut')?.addEventListener('click', signOutFromGoogle);
+  document.getElementById('btnSaveDrive')?.addEventListener('click', saveToDrive);
+  document.getElementById('btnLoadDrive')?.addEventListener('click', loadFromDrive);
+  initGoogleTokenClient();
+
+  // profile dropdown open/close
+  const profileBtn  = document.getElementById('profileMenuButton');
+  const profileMenu = document.getElementById('profileMenu');
+
+  profileBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!profileMenu) return;
+    profileMenu.classList.toggle('hidden');
+  });
+
+  // click outside closes menu
+  document.addEventListener('click', (e) => {
+    if (!profileMenu || profileMenu.classList.contains('hidden')) return;
+    const wrapper = profileMenu.parentElement;
+    if (wrapper && !wrapper.contains(e.target)) {
+      profileMenu.classList.add('hidden');
+    }
+  });
+
+  // --- silent token re-acquire if user was signed-in previously ---
+  try {
+    const wasSigned = localStorage.getItem('gdrive_signed_in') === '1';
+    if (wasSigned) {
+      if (!tokenClient) initGoogleTokenClient();
+      try {
+        tokenClient.requestAccessToken({ prompt: '' });
+        console.log('Attempting silent token refresh.');
+      } catch (err) {
+        console.warn('Silent token request threw:', err);
+      }
+    }
+  } catch (e) {
+    console.warn('Silent refresh check failed:', e);
+  }
+
+  // ... rest of init ...
+   updateProfileIcon();  // keep avatar in sync on first load
+});
+</script>
+<!-- Google Identity + Drive helpers end Hari -->
+
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCqRTP3fzHbjfJ0ZkDABWm6nPlLaHmhNsY&libraries=places" async defer></script>
+
+<div id="contactDevBar"
+     style="
+       width:100%;
+       text-align:center;
+       padding:10px;
+       font-weight:bold;
+       color:#b91c1c;
+       background:#ffe5e5;
+       border-top:2px solid #b91c1c;
+       position:fixed;
+       bottom:0;
+       left:0;
+       display:none;
+       z-index:9999;
+     ">
+  Contact Developer
+</div>
+
+</body>
+</html>
+
+
+
