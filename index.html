@@ -3773,6 +3773,15 @@ document.getElementById("removeInvoiceLayoutBtn")?.addEventListener("click", () 
       const remaining = list.filter(q => !ids.includes(String(q.id)));
       saveToLS(SAVED_QUOTATIONS_KEY, remaining);
       renderFilesList();
+
+      // 🔁 auto-save to Drive after delete
+    try {
+      if (typeof saveToDrive === 'function' && accessToken) {
+        saveToDrive();
+      }
+    } catch (e) {
+      console.warn('Auto-save to Drive after quotation delete failed:', e);
+    }
     });
   }
 
@@ -3826,6 +3835,15 @@ document.getElementById("removeInvoiceLayoutBtn")?.addEventListener("click", () 
       });
       saveToLS(SAVED_INVOICES_KEY, remaining);
       renderFilesList();
+
+      // 🔁 auto-save to Drive after delete
+    try {
+      if (typeof saveToDrive === 'function' && accessToken) {
+        saveToDrive();
+      }
+    } catch (e) {
+      console.warn('Auto-save to Drive after invoice delete failed:', e);
+    }
     });
   }
 
