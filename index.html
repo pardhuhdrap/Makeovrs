@@ -1610,35 +1610,48 @@ function getCleanQuotationPayloadWithEventIds(){
   return payload;
 }
 
-function saveQuotationMultiEvent(){
+function saveQuotationMultiEvent() {
   const clientName = (document.getElementById('clientNameInput')?.value || '').trim();
   const clientContact = (document.getElementById('clientContactInput')?.value || '').trim();
-  if(!clientName || !clientContact){
+
+  // ❌ basic validation → stay on quotation screen
+  if (!clientName || !clientContact) {
     showMessage('Client name and contact are required.');
     return;
   }
 
   const payload = getCleanQuotationPayloadWithEventIds();
-  if((payload.events||[]).length === 0){
+  if ((payload.events || []).length === 0) {
     showMessage('Add at least one event with date & name.');
     return;
   }
 
-  const existing = loadFromLS(SAVED_QUOTATIONS_KEY, []);
-  let savedQuotation;
+  try {
+    const existing = loadFromLS(SAVED_QUOTATIONS_KEY, []);
+    let savedQuotation;
 
-  if (CURRENT_EDIT_QUOTATION_ID) {
-    const idx = existing.findIndex(q => q.id === CURRENT_EDIT_QUOTATION_ID);
-    if (idx !== -1) {
-      savedQuotation = {
-        ...existing[idx],
-        ...payload,
-        id: CURRENT_EDIT_QUOTATION_ID,
-        createdAt: new Date().toISOString()
-      };
-      existing[idx] = savedQuotation;
+    if (CURRENT_EDIT_QUOTATION_ID) {
+      const idx = existing.findIndex(q => q.id === CURRENT_EDIT_QUOTATION_ID);
+      if (idx !== -1) {
+        // update existing quotation
+        savedQuotation = {
+          ...existing[idx],
+          ...payload,
+          id: CURRENT_EDIT_QUOTATION_ID,
+          createdAt: new Date().toISOString()
+        };
+        existing[idx] = savedQuotation;
+      } else {
+        // fallback: treat as new if id not found
+        savedQuotation = {
+          ...payload,
+          id: 'q_' + Date.now(),
+          createdAt: new Date().toISOString()
+        };
+        existing.push(savedQuotation);
+      }
     } else {
-      // fallback: treat as new if id not found
+      // brand new quotation
       savedQuotation = {
         ...payload,
         id: 'q_' + Date.now(),
@@ -1646,33 +1659,43 @@ function saveQuotationMultiEvent(){
       };
       existing.push(savedQuotation);
     }
-  } else {
-    savedQuotation = {
-      ...payload,
-      id: 'q_' + Date.now(),
-      createdAt: new Date().toISOString()
-    };
-    existing.push(savedQuotation);
-  }
 
-  saveToLS(SAVED_QUOTATIONS_KEY, existing);
+    // persist quotations
+    saveToLS(SAVED_QUOTATIONS_KEY, existing);
 
-  // ensure no booking entries for events we just saved (they are enquiries)
-  const bookings = loadFromLS(BOOKED_EVENTS_KEY, {});
-  (savedQuotation.events||[]).forEach(ev => {
-    if(bookings[ev.eventId]) delete bookings[ev.eventId];
-  });
-  saveToLS(BOOKED_EVENTS_KEY, bookings);
+    // ensure no booking entries for events we just saved (they are enquiries)
+    const bookings = loadFromLS(BOOKED_EVENTS_KEY, {});
+    (savedQuotation.events || []).forEach(ev => {
+      if (ev.eventId && bookings[ev.eventId]) {
+        delete bookings[ev.eventId];
+      }
+    });
+    saveToLS(BOOKED_EVENTS_KEY, bookings);
 
-  CURRENT_EDIT_QUOTATION_ID = null;
-  showMessage('Quotation saved locally in your browser storage.', 'Saved');
-  renderCalendar();
+    CURRENT_EDIT_QUOTATION_ID = null;
 
-   // 🔁 Auto-save to Drive (if signed in)
-  if (typeof autoSaveDrive === 'function') {
-    autoSaveDrive('quotation saved');
+    // ✅ success prompt
+    showMessage('Quotation saved to Files \u2192 Quotations', 'Saved');
+
+    // refresh calendar dots
+    renderCalendar();
+
+    // 🔁 Auto-save to Drive (if signed in)
+    if (typeof autoSaveDrive === 'function') {
+      autoSaveDrive('quotation saved');
+    }
+
+    // ✅ redirect to Files → Quotations list
+    navigate('files');
+    switchFilesTab('quotations');
+
+  } catch (err) {
+    console.error(err);
+    // ❌ error prompt and STAY on quotation screen
+    showMessage('Failed to save quotation. Please try again.', 'Error');
   }
 }
+
 
 /* -------------------------
    Files UI & PDF helpers
