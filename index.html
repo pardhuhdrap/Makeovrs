@@ -2457,23 +2457,24 @@ function openQuotationViewerById(qid){
 
   let msg = "";
 
-    // ---------------- HEADER -----------------
-  msg += `<b style="color:#0b5ed7; font-size:15px;">Client Name</b> : ${q.clientName || ''}<br>`;
+   // ---------------- HEADER -----------------
+msg += `<b style="color:#0b5ed7; font-size:15px;">Client Name</b> : ${q.clientName || ''}<br>`;
 
 const contactText = (q.clientContact || '').trim();
-msg += `<b style="color:#0b5ed7;">Contact</b> : 
-<span style="display:inline-flex; align-items:center;">
-  ${contactText || ''}
-  ${
-    contactText
-      ? `<i data-lucide="phone"
-             class="w-4 h-4 text-blue-600 ml-1 cursor-pointer inline-block"
-             style="display:inline-block;"
-             onclick="openContactOptions('${contactText.replace(/'/g, "\\'")}')"></i>`
-      : ``
-  }
-</span>
-<br><br>`;
+const contactEsc  = contactText.replace(/'/g, "\\'");  // for onclick string
+
+// label
+msg += `<b style="color:#0b5ed7;">Contact</b> : `;
+
+// number + icon on the SAME line
+if (contactText) {
+  msg += `<span style="display:inline-flex;align-items:center;">${contactText}<i data-lucide="phone" class="w-4 h-4 text-blue-600 ml-1 cursor-pointer" onclick="openContactOptions('${contactEsc}')"></i></span>`;
+} else {
+  msg += `-`;
+}
+
+msg += `<br><br>`;
+
 
   // ---------------- TOTALS -----------------
 msg += `<div style="margin:8px 0; padding:6px 8px; border:1px solid #ddd; border-radius:6px; background:#fafafa;"`; 
