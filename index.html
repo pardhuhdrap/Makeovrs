@@ -1382,6 +1382,238 @@ function refreshPanelsMasterData(){
 }
 
 /* -------------------------
+   Calendar popup (event list)
+   - robust lookup for events (handles old entries without eventId)
+   - shows time and location
+   - includes button to open full quotation
+   ------------------------- */
+function openCalendarDatePopup(dateISO) {
+  // Ensure eventIds persist for older entries (persist on demand)
+  persistMissingEventIds();
+
+  const idx = buildCalendarEventIndex();
+  const events = idx[dateISO] || [];
+  const container = document.getElementById('calendarPopupContainer');
+  container.innerHTML = '';
+  container.classList.remove('hidden');
+
+  const popup = document.createElement('div');
+  popup.className = 'calendar-popup';
+
+  const header = document.createElement('div');
+  header.innerHTML = `
+    <h3>Events on ${dateISO}</h3>
+    <div style="font-size:13px;color:#666;margin-bottom:8px">
+      ${events.length} event(s)
+    </div>`;
+  popup.appendChild(header);
+
+  if (events.length === 0) {
+    const p = document.createElement('div');
+    p.className = 'p-2 text-sm text-gray-600';
+    p.textContent = 'No events on this date.';
+    popup.appendChild(p);
+  } else {
+    events.forEach(ev => {
+      const row = document.createElement('div');
+      row.className = 'event-row';
+
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+
+      const detailsHtml = `
+        <div class="details">
+          <div><strong>${ev.clientName || ''}</strong></div>
+          <div class="small" style="display:flex;align-items:center;gap:4px;">
+            <span>${ev.clientContact || ''}</span>
+            ${ev.clientContact ? `
+              <button type="button"
+                      class="inline-flex items-center justify-center rounded-full border px-1.5 py-0.5 text-[11px]"
+                      data-contact="${(ev.clientContact || '').replace(/"/g, '&quot;')}"
+                      onclick="openContactOptions(this.dataset.contact)">
+                <i data-lucide="phone-call" class="w-3 h-3"></i>
+              </button>
+            ` : ''}
+          </div>
+        </div>
+
+        <div class="small">
+          ${ev.eventName || '(No name)'} • 
+          ${ev.time ? 'Time: ' + ev.time : ''}
+          ${ev.location ? (ev.time ? ' • ' : '') + 'Location: ' + ev.location : ''}
+        </div>
+      `;
+
+      meta.innerHTML = detailsHtml;
+
+      const controls = document.createElement('div');
+      controls.style.textAlign = 'right';
+
+      const checkboxId =
+        'cb_' + (ev.eventId || Math.random().toString(36).slice(2, 8));
+      const bookChecked = ev.booked ? 'checked' : '';
+
+      controls.innerHTML = `
+        <div style="margin-bottom:6px">
+          <label style="display:flex;align-items:center;gap:8px">
+            <input id="${checkboxId}"
+                   type="checkbox"
+                   class="calendar-book-checkbox"
+                   data-eventid="${ev.eventId || ''}"
+                   ${bookChecked} />
+            Booked
+          </label>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button class="py-1 px-2 rounded border text-sm"
+                  onclick="openQuotationViewerById('${ev.quotationId}')">
+            View Quotation
+          </button>
+        </div>
+      `;
+
+      row.appendChild(meta);
+      row.appendChild(controls);
+      popup.appendChild(row);
+    });
+
+    const note = document.createElement('div');
+    note.style.fontSize = '12px';
+    note.style.color = '#444';
+    note.style.marginTop = '8px';
+    note.innerHTML = `
+      <strong>Deduplication:</strong>
+      If a client has multiple quotations with identical contact, only the newest
+      quotation is shown in the calendar. If contact differs, multiple quotations
+      are shown.
+    `;
+    popup.appendChild(note);
+  }
+
+  const actions = document.createElement('div');
+  actions.style.marginTop = '12px';
+  actions.style.display = 'flex';
+  actions.style.justifyContent = 'space-between';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'py-2 px-3 rounded border';
+  closeBtn.textContent = 'Close';
+  closeBtn.onclick = () => {
+    container.innerHTML = '';
+    container.classList.add('hidden');
+    renderCalendar();
+  };
+
+  actions.appendChild(closeBtn);
+  popup.appendChild(actions);
+
+  container.appendChild(popup);
+  createLucide();
+
+  // 🔁 Wire "Booked" checkboxes
+  popup.querySelectorAll('.calendar-book-checkbox').forEach(cb => {
+    cb.addEventListener('change', (e) => {
+      const checked = e.target.checked;
+      const eventId = e.target.dataset.eventid;
+
+      const idx2 = buildCalendarEventIndex();
+      let evObj = null;
+
+      // 1) Find event by eventId
+      if (eventId) {
+        for (const date in idx2) {
+          const arr = idx2[date];
+          for (const it of arr) {
+            if (it.eventId === eventId) {
+              evObj = it;
+              break;
+            }
+          }
+          if (evObj) break;
+        }
+      }
+
+      // 2) Fallback: by row text (older data)
+      if (!evObj) {
+        const row = e.target.closest('.event-row');
+        if (row) {
+          const nameText =
+            (row.querySelector('.details strong')?.textContent || '').trim();
+          if (nameText) {
+            for (const date in idx2) {
+              const arr = idx2[date];
+              for (const it of arr) {
+                if (it.eventName === nameText) {
+                  evObj = it;
+                  break;
+                }
+              }
+              if (evObj) break;
+            }
+          }
+        }
+      }
+
+      if (!evObj) {
+        alert('Event metadata not found. (This should not happen — please check console.)');
+        console.error('Calendar: event not found for checkbox', e.target);
+        return;
+      }
+
+      // How many events does this quotation have?
+      let quotationEventCount = 0;
+      for (const d in idx2) {
+        const arr = idx2[d];
+        quotationEventCount += arr.filter(it => it.quotationId === evObj.quotationId).length;
+      }
+      const hasMultipleEvents = quotationEventCount > 1;
+
+      if (checked) {
+        // Marking as booked
+        if (hasMultipleEvents) {
+          const yesWhole = confirm(
+            "Are whole event's booked as per quotation? (Yes = mark all events in this quotation as booked)"
+          );
+          if (yesWhole) {
+            setQuotationBookings(evObj.quotationId, true);
+          } else {
+            setSingleEventBooking(evObj.eventId, true);
+          }
+        } else {
+          // Single-event quotation: just mark this event
+          setSingleEventBooking(evObj.eventId, true);
+        }
+      } else {
+        // Unmarking booked
+        if (hasMultipleEvents) {
+          const yesWhole = confirm(
+            "Unmark whole quotation's events as booked? (Yes = unmark all events of this quotation)"
+          );
+          if (yesWhole) {
+            setQuotationBookings(evObj.quotationId, false);
+          } else {
+            setSingleEventBooking(evObj.eventId, false);
+          }
+        } else {
+          // Single-event quotation: just unmark this event
+          setSingleEventBooking(evObj.eventId, false);
+        }
+      }
+
+      // Re-render popup + calendar to reflect new state
+      openCalendarDatePopup(dateISO);
+      renderCalendar();
+
+      // Optional: auto-save to Drive
+      if (typeof autoSaveDrive === 'function') {
+        autoSaveDrive('calendar booking changed');
+      }
+    });
+  });
+}
+
+
+/* -------------------------
    Calendar data index & dedupe
    ------------------------- */
 /* Deduplicate quotations by clientName + clientContact (keep latest) */
@@ -1632,185 +1864,6 @@ function changeMonth(delta){
   renderCalendar(newYear, newMonth);
 }
 
-
-/* -------------------------
-   Calendar popup (event list)
-   - robust lookup for events (handles old entries without eventId)
-   - shows time and location
-   - includes button to open full quotation
-   ------------------------- */
-function openCalendarDatePopup(dateISO){
-  // Ensure eventIds persist for older entries (persist on demand)
-  persistMissingEventIds();
-
-  const idx = buildCalendarEventIndex();
-  const events = idx[dateISO] || [];
-  const container = document.getElementById('calendarPopupContainer');
-  container.innerHTML = ''; container.classList.remove('hidden');
-
-  const popup = document.createElement('div'); popup.className='calendar-popup';
-  const header = document.createElement('div');
-  header.innerHTML = `<h3>Events on ${dateISO}</h3><div style="font-size:13px;color:#666;margin-bottom:8px">${events.length} event(s)</div>`;
-  popup.appendChild(header);
-
-  if(events.length === 0){
-    const p = document.createElement('div'); p.className='p-2 text-sm text-gray-600'; p.textContent = 'No events on this date.'; popup.appendChild(p);
-  } else {
-    events.forEach(ev=>{
-      const row = document.createElement('div'); row.className='event-row';
-      const meta = document.createElement('div'); meta.className='meta';
-      const detailsHtml = `
-  <div class="details">
-    <div><strong>${ev.clientName || ''}</strong></div>
-    <div class="small" style="display:flex;align-items:center;gap:4px;">
-      <span>${ev.clientContact || ''}</span>
-      ${ev.clientContact ? `
-        <button type="button"
-                class="inline-flex items-center justify-center rounded-full border px-1.5 py-0.5 text-[11px]"
-                data-contact="${(ev.clientContact || '').replace(/"/g, '&quot;')}"
-                onclick="openContactOptions(this.dataset.contact)">
-          <i data-lucide="phone-call" class="w-3 h-3"></i>
-        </button>
-      ` : ''}
-    </div>
-  </div>
-
-  <div class="small"> ||
-    ${ev.eventName || '(No name)'} • 	
-    ${ev.time ? 'Time: ' + ev.time : ''}
-    ${ev.location ? (ev.time ? ' • ' : '') + 'Location: ' + ev.location : ''}
-  </div>
-`;
-
-      meta.innerHTML = detailsHtml;
-      const controls = document.createElement('div'); controls.style.textAlign='right';
-      const checkboxId = 'cb_' + (ev.eventId || Math.random().toString(36).slice(2,8));
-      const bookChecked = ev.booked ? 'checked' : '';
-      controls.innerHTML = `<div style="margin-bottom:6px"><label style="display:flex;align-items:center;gap:8px"><input id="${checkboxId}" type="checkbox" class="calendar-book-checkbox" data-eventid="${ev.eventId||''}" ${bookChecked} /> Booked</label></div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;"><button class="py-1 px-2 rounded border text-sm" onclick="openQuotationViewerById('${ev.quotationId}')">View Quotation</button></div>`;
-      row.appendChild(meta); row.appendChild(controls);
-      popup.appendChild(row);
-    });
-
-    const note = document.createElement('div'); note.style.fontSize='12px'; note.style.color='#444'; note.style.marginTop='8px';
-    note.innerHTML = `<strong>Deduplication:</strong> If a client has multiple quotations with identical contact, only the newest quotation is shown in the calendar. If contact differs, multiple quotations are shown.`;
-    popup.appendChild(note);
-  }
-
-  const actions = document.createElement('div'); actions.style.marginTop='12px'; actions.style.display='flex'; actions.style.justifyContent='space-between';
-  const closeBtn = document.createElement('button'); closeBtn.className='py-2 px-3 rounded border'; closeBtn.textContent='Close';
-  closeBtn.onclick = ()=>{ container.innerHTML=''; container.classList.add('hidden'); renderCalendar(); };
-  actions.appendChild(closeBtn);
-  popup.appendChild(actions);
-
-  container.appendChild(popup);
-  createLucide();
-}
-
-      // wire checkboxes robustly
-  popup.querySelectorAll('.calendar-book-checkbox').forEach(cb=>{
-    cb.addEventListener('change', async (e)=>{
-      const checked = e.target.checked;
-      const eventId = e.target.dataset.eventid;
-
-      // Build index to find event object & quotation id
-      const idx2 = buildCalendarEventIndex();
-
-      // Search by eventId first
-      let evObj = null;
-      if (eventId) {
-        for (const date in idx2) {
-          const arr = idx2[date];
-          for (const it of arr) {
-            if (it.eventId === eventId) {
-              evObj = it;
-              break;
-            }
-          }
-          if (evObj) break;
-        }
-      }
-
-      // fallback: try to find by row text (existing logic)
-      if (!evObj) {
-        const row = e.target.closest('.event-row');
-        if (row) {
-          const nameText  = (row.querySelector('.details strong')?.textContent || '').trim();
-          const smallText = (row.querySelector('.small')?.textContent || '').trim();
-          if (nameText) {
-            for (const date in idx2) {
-              const arr = idx2[date];
-              for (const it of arr) {
-                if (it.eventName === nameText /* && it.date === dateISO */) {
-                  evObj = it;
-                  break;
-                }
-              }
-              if (evObj) break;
-            }
-          }
-        }
-      }
-
-      if (!evObj) {
-        alert('Event metadata not found. (This should not happen — please check console.)');
-        console.error('Calendar: event not found for checkbox', e.target);
-        return;
-      }
-
-      // figure out how many events this quotation has
-      let quotationEventCount = 0;
-      for (const d in idx2) {
-        const arr = idx2[d];
-        quotationEventCount += arr.filter(it => it.quotationId === evObj.quotationId).length;
-      }
-      const hasMultipleEvents = quotationEventCount > 1;
-
-      if (checked) {
-  // Marking as booked
-  if (hasMultipleEvents) {
-    const yesWhole = confirm("Are whole event's booked as per quotation? (Yes = mark all events in this quotation as booked)");
-    if (yesWhole) {
-      setQuotationBookings(evObj.quotationId, true);   // all events of that quotation
-    } else {
-      setSingleEventBooking(evObj.eventId, true);      // only this event
-    }
-  } else {
-    // Single-event quotation: no question, just toggle this event
-    setSingleEventBooking(evObj.eventId, true);
-  }
-
-  // 🔵 After marking booked, open Payment Info in BOOKING mode
-  openPaymentInfoModal({
-    mode: 'booking',
-    quotationId: evObj.quotationId,
-    eventId: evObj.eventId
-  });
-
-} else {
-  // Unmarking booked
-  if (hasMultipleEvents) {
-    const yesWhole = confirm("Unmark whole quotation's events as booked? (Yes = unmark all events of this quotation)");
-    if (yesWhole) {
-      setQuotationBookings(evObj.quotationId, false);
-    } else {
-      setSingleEventBooking(evObj.eventId, false);
-    }
-  } else {
-    // Single-event quotation: no question, just unmark this event
-    setSingleEventBooking(evObj.eventId, false);
-  }
-}
-      // Re-render popup and calendar
-    openCalendarDatePopup(dateISO);
-    renderCalendar();
-
-    // 🔁 Auto-save to Drive (if signed in)
-    if (typeof autoSaveDrive === 'function') {
-      autoSaveDrive('calendar booking changed');
-    }
-    });
-  });
 
 /* -------------------------
    Quotation save: create eventId for each event and persist
