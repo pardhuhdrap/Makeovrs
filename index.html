@@ -904,23 +904,68 @@ header {
 
     <!-- User Removed tab content -->
     <div id="recycleUserTab">
-      <div id="recycleUserList" class="space-y-2 text-sm">
-        <p class="text-sm text-gray-500 text-center p-4">
-          No user-removed items yet.
-        </p>
+      <!-- Filters row -->
+      <div class="flex flex-wrap items-center gap-2 mb-3 text-sm">
+        <select id="recycleUserType"
+                class="border border-gray-300 rounded px-2 py-1">
+          <option value="all">All</option>
+          <option value="quotation">Quotation</option>
+          <option value="invoice">Invoice</option>
+          <option value="others">Others</option>
+        </select>
+
+        <input id="recycleUserName"
+               type="text"
+               class="border border-gray-300 rounded px-2 py-1 flex-1 min-w-[140px]"
+               placeholder="Search by name" />
+
+        <input id="recycleUserDate"
+               type="text"
+               class="border border-gray-300 rounded px-2 py-1 w-44"
+               placeholder="Date (YYYY / MM-YYYY / DD-MM-YYYY)" />
       </div>
+
+      <div id="recycleUserEmpty"
+           class="text-sm text-gray-500 text-center p-4 hidden">
+        No user-removed items yet.
+      </div>
+
+      <div id="recycleUserList" class="space-y-2 text-sm"></div>
     </div>
 
     <!-- System Removed tab content -->
     <div id="recycleSystemTab" class="hidden">
-      <div id="recycleSystemList" class="space-y-2 text-sm">
-        <p class="text-sm text-gray-500 text-center p-4">
-          No system-removed items yet.
-        </p>
+      <!-- Filters row -->
+      <div class="flex flex-wrap items-center gap-2 mb-3 text-sm">
+        <select id="recycleSystemType"
+                class="border border-gray-300 rounded px-2 py-1">
+          <option value="all">All</option>
+          <option value="quotation">Quotation</option>
+          <option value="invoice">Invoice</option>
+          <option value="others">Others</option>
+        </select>
+
+        <input id="recycleSystemName"
+               type="text"
+               class="border border-gray-300 rounded px-2 py-1 flex-1 min-w-[140px]"
+               placeholder="Search by name" />
+
+        <input id="recycleSystemDate"
+               type="text"
+               class="border border-gray-300 rounded px-2 py-1 w-44"
+               placeholder="Date (YYYY / MM-YYYY / DD-MM-YYYY)" />
       </div>
+
+      <div id="recycleSystemEmpty"
+           class="text-sm text-gray-500 text-center p-4 hidden">
+        No system-removed items yet.
+      </div>
+
+      <div id="recycleSystemList" class="space-y-2 text-sm"></div>
     </div>
   </div>
 </div>
+
 
 
 <!-- Inserted settings-related script blocks from New.html -->
@@ -1976,34 +2021,123 @@ function getFileDate(file) {
 // -------------------------
 // Recycle Bin UI
 // -------------------------
+let RECYCLE_FILTERS_BOUND = false;
+
 function switchRecycleTab(which) {
   const isUser = (which === 'user');
 
-  document.getElementById('recycleTabUser')?.classList.toggle('active', isUser);
-  document.getElementById('recycleTabSystem')?.classList.toggle('active', !isUser);
+  document.getElementById('recycleTabUser')
+    ?.classList.toggle('active', isUser);
+  document.getElementById('recycleTabSystem')
+    ?.classList.toggle('active', !isUser);
 
-  document.getElementById('recycleUserTab')?.classList.toggle('hidden', !isUser);
-  document.getElementById('recycleSystemTab')?.classList.toggle('hidden', isUser);
+  document.getElementById('recycleUserTab')
+    ?.classList.toggle('hidden', !isUser);
+  document.getElementById('recycleSystemTab')
+    ?.classList.toggle('hidden', isUser);
 }
 
-function renderRecycleList(kind, items) {
-  const containerId = (kind === 'user') ? 'recycleUserList' : 'recycleSystemList';
-  const container = document.getElementById(containerId);
+function getRecycleItems(kind) {
+  return loadFromLS(
+    kind === 'user' ? RECYCLE_USER_KEY : RECYCLE_SYSTEM_KEY,
+    []
+  );
+}
+
+// type filter: all / quotation / invoice / others
+function recycleMatchesType(item, typeFilter) {
+  if (!typeFilter || typeFilter === 'all') return true;
+
+  const raw = String(item.type || item.kind || '').toLowerCase();
+
+  const isQuotation =
+    raw.includes('quotation') || raw === 'quote' || raw === 'q';
+  const isInvoice =
+    raw.includes('invoice') || raw === 'inv';
+
+  if (typeFilter === 'quotation') return isQuotation;
+  if (typeFilter === 'invoice')   return isInvoice;
+  if (typeFilter === 'others')    return !isQuotation && !isInvoice;
+
+  return true;
+}
+
+function recycleMatchesName(item, query) {
+  if (!query) return true;
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+
+  const text = [
+    item.label,
+    item.clientName,
+    item.name,
+    item.id,
+    item.invoiceId,
+    item.invoiceNo,
+    item.quotationId,
+    item.quotationNo,
+    item.notes,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return text.includes(q);
+}
+
+// ✅ Reuse existing matchesDateFilter from Files page
+function recycleMatchesDate(item, filterStr) {
+  if (!filterStr) return true;
+
+  // Prefer removedAt, else date / createdAt
+  const dateVal = item.removedAt || item.date || item.createdAt;
+  if (!dateVal) return false;
+
+  // matchesDateFilter expects { date: ... } and uses getFileDate(file)
+  return matchesDateFilter({ date: dateVal }, filterStr);
+}
+
+function filterRecycleItems(kind) {
+  const items = getRecycleItems(kind);
+
+  const typeSelId = (kind === 'user') ? 'recycleUserType'   : 'recycleSystemType';
+  const nameId    = (kind === 'user') ? 'recycleUserName'   : 'recycleSystemName';
+  const dateId    = (kind === 'user') ? 'recycleUserDate'   : 'recycleSystemDate';
+
+  const typeFilter = document.getElementById(typeSelId)?.value || 'all';
+  const nameFilter = document.getElementById(nameId)?.value || '';
+  const dateFilter = document.getElementById(dateId)?.value || '';
+
+  return items.filter((it) =>
+    recycleMatchesType(it, typeFilter) &&
+    recycleMatchesName(it, nameFilter) &&
+    recycleMatchesDate(it, dateFilter)
+  );
+}
+
+function renderRecycleList(kind) {
+  const listId  = (kind === 'user') ? 'recycleUserList'  : 'recycleSystemList';
+  const emptyId = (kind === 'user') ? 'recycleUserEmpty' : 'recycleSystemEmpty';
+
+  const container = document.getElementById(listId);
+  const emptyEl   = document.getElementById(emptyId);
   if (!container) return;
 
-  if (!Array.isArray(items) || items.length === 0) {
-    container.innerHTML = `
-      <p class="text-sm text-gray-500 text-center p-4">
-        No ${kind === 'user' ? 'user-removed' : 'system-removed'} items yet.
-      </p>`;
+  const items = filterRecycleItems(kind);
+
+  if (!items.length) {
+    container.innerHTML = '';
+    if (emptyEl) emptyEl.classList.remove('hidden');
     return;
   }
 
-  // Generic rendering: later we can specialize when we know what you store here
+  if (emptyEl) emptyEl.classList.add('hidden');
+
   container.innerHTML = items.map((it, idx) => {
-    const label = it.label || it.clientName || it.id || `Item ${idx + 1}`;
+    const label = it.label || it.clientName || it.name || it.id || `Item ${idx + 1}`;
     const when  = it.removedAt ? new Date(it.removedAt).toLocaleString() : '';
-    const type  = it.type || '';
+    const type  = it.type || it.kind || '';
+
     return `
       <div class="flex items-center justify-between p-2 border-b bg-gray-50 rounded">
         <div>
@@ -2017,12 +2151,28 @@ function renderRecycleList(kind, items) {
 }
 
 function loadRecycleUI() {
-  const userItems   = loadFromLS(RECYCLE_USER_KEY,   []);
-  const systemItems = loadFromLS(RECYCLE_SYSTEM_KEY, []);
+  // Bind filters only once
+  if (!RECYCLE_FILTERS_BOUND) {
+    ['user', 'system'].forEach((kind) => {
+      const typeSelId = (kind === 'user') ? 'recycleUserType'   : 'recycleSystemType';
+      const nameId    = (kind === 'user') ? 'recycleUserName'   : 'recycleSystemName';
+      const dateId    = (kind === 'user') ? 'recycleUserDate'   : 'recycleSystemDate';
 
-  renderRecycleList('user', userItems);
-  renderRecycleList('system', systemItems);
-  // default view
+      const typeSel = document.getElementById(typeSelId);
+      const nameInp = document.getElementById(nameId);
+      const dateInp = document.getElementById(dateId);
+
+      if (typeSel) typeSel.addEventListener('change', () => renderRecycleList(kind));
+      if (nameInp) nameInp.addEventListener('input', () => renderRecycleList(kind));
+      if (dateInp) dateInp.addEventListener('input', () => renderRecycleList(kind));
+    });
+
+    RECYCLE_FILTERS_BOUND = true;
+  }
+
+  // Initial render
+  renderRecycleList('user');
+  renderRecycleList('system');
   switchRecycleTab('user');
 }
 
