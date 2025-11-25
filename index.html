@@ -735,14 +735,146 @@ header {
     
 
 
-  <!-- message modal -->
+    <!-- message modal (used by showMessage) -->
   <div id="messageModal" class="message-modal" style="z-index:999">
     <div class="message-modal-content">
       <h3 id="messageTitle" class="text-xl font-bold text-red-600 mb-3">Input Error</h3>
-      <pre id="messageBody" class="text-gray-700 mb-6" style="white-space:pre-wrap;"></pre>
-      <button type="button" onclick="closeMessage()" class="w-full py-2 rounded bg-blue-600 text-white">OK</button>
+      <pre id="messageBody" class="text-gray-700 mb-4" style="white-space:pre-wrap;"></pre>
+
+      <div class="flex gap-2 justify-end">
+        <!-- This button is only shown for Invoice viewer -->
+        <button
+          id="messagePaidBtn"
+          type="button"
+          class="hidden px-4 py-2 rounded bg-green-600 text-white text-sm"
+        >
+          Paid
+        </button>
+
+        <button
+          type="button"
+          onclick="closeMessage()"
+          class="px-4 py-2 rounded bg-blue-600 text-white text-sm"
+        >
+          OK
+        </button>
+      </div>
     </div>
   </div>
+
+    <!-- Payment Info modal -->
+  <div id="paymentInfoModal" class="message-modal" style="z-index:1000; display:none;">
+    <div class="message-modal-content">
+      <h3 class="text-xl font-bold text-blue-600 mb-4">Payment Info</h3>
+
+      <div class="space-y-3 text-sm">
+        <!-- 1. Billed Amount -->
+        <div>
+          <label class="block text-xs text-gray-700 mb-1">Billed Amount</label>
+          <input
+            id="paymentBilledAmount"
+            type="number"
+            step="0.01"
+            class="w-full border rounded p-2 bg-gray-100"
+            readonly
+          />
+        </div>
+
+        <!-- 2. Revised Amount + checkbox -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-xs text-gray-700">Revised Amount</label>
+            <label class="flex items-center gap-1 text-xs text-gray-600">
+              <input
+                id="paymentRevisedEnable"
+                type="checkbox"
+                onchange="toggleRevisedAmount()"
+              />
+              Enable
+            </label>
+          </div>
+          <input
+            id="paymentRevisedAmount"
+            type="number"
+            step="0.01"
+            class="w-full border rounded p-2 bg-white"
+            disabled
+            oninput="recalcPaymentPending()"
+          />
+          <!-- if enabled, must be > 0; JS will mark red if not -->
+        </div>
+
+        <!-- 3. Advance Paid -->
+        <div>
+          <label class="block text-xs text-gray-700 mb-1">Advance Paid</label>
+          <input
+            id="paymentAdvancePaid"
+            type="number"
+            step="0.01"
+            class="w-full border rounded p-2 bg-white"
+            oninput="recalcPaymentPending()"
+          />
+          <!-- Later we can auto-fill this from the field you tell me -->
+        </div>
+
+        <!-- 4. Final Paid -->
+        <div>
+          <label class="block text-xs text-gray-700 mb-1">Final Paid</label>
+          <input
+            id="paymentFinalPaid"
+            type="number"
+            step="0.01"
+            class="w-full border rounded p-2 bg-white"
+            oninput="recalcPaymentPending()"
+          />
+        </div>
+
+        <!-- 5. Pending -->
+        <div>
+          <label class="block text-xs text-gray-700 mb-1">Pending</label>
+          <input
+            id="paymentPending"
+            type="number"
+            step="0.01"
+            class="w-full border rounded p-2 bg-gray-100"
+            readonly
+          />
+        </div>
+      </div>
+
+      <div class="flex gap-2 justify-end mt-4">
+        <button
+          type="button"
+          onclick="closePaymentInfoModal()"
+          class="px-4 py-2 rounded border border-gray-300 text-gray-700 text-sm"
+        >
+          Close
+        </button>
+
+        <button
+          id="paymentPartialBtn"
+          type="button"
+          onclick="handlePaymentPartial()"
+          class="px-4 py-2 rounded bg-yellow-500 text-white text-sm disabled:opacity-50"
+          disabled
+        >
+          Partially Paid
+        </button>
+
+        <button
+          id="paymentPaidFinalBtn"
+          type="button"
+          onclick="handlePaymentPaidFinal()"
+          class="px-4 py-2 rounded bg-green-600 text-white text-sm disabled:opacity-50"
+          disabled
+        >
+          Paid
+        </button>
+      </div>
+    </div>
+  </div>
+
+
 
   <!-- calendar popup container -->
   <div id="calendarPopupContainer" class="hidden"></div>
@@ -757,11 +889,17 @@ header {
    Helpers & storage keys
    ------------------------- */
 function createLucide(){ if(window.lucide && lucide.createIcons) try{ lucide.createIcons(); }catch(e){} }
-function showMessage(msg,title='Notice'){ const t=document.getElementById('messageTitle'), b=document.getElementById('messageBody'), m=document.getElementById('messageModal');  if (t) t.textContent = title;
+
+function showMessage(msg, title='Notice'){
+  const t = document.getElementById('messageTitle');
+  const b = document.getElementById('messageBody');
+  const m = document.getElementById('messageModal');
+
+  if (t) t.textContent = title;
 
   if (b) {
     if (typeof msg === 'string') {
-      // allow HTML for formatted messages (like your quotation viewer)
+      // allow HTML for formatted messages (like your quotation/invoice viewer)
       b.innerHTML = msg;
     } else {
       // fallback for objects / errors: show as plain JSON text
@@ -772,7 +910,18 @@ function showMessage(msg,title='Notice'){ const t=document.getElementById('messa
   if (m) m.style.display = 'flex';
   createLucide();
 }
-function closeMessage(){ const m=document.getElementById('messageModal'); if(m) m.style.display='none'; }
+
+function closeMessage(){
+  const m = document.getElementById('messageModal');
+  if (m) m.style.display = 'none';
+
+  // hide & reset the special "Paid" button used only by invoice viewer
+  const paidBtn = document.getElementById('messagePaidBtn');
+  if (paidBtn) {
+    paidBtn.classList.add('hidden');
+    paidBtn.onclick = null;
+  }
+}
 
 let navHistory = [];
 let currentScreen = 'dashboard';
@@ -2734,7 +2883,7 @@ function openInvoiceViewerById(invId){
   msg += `<b style="color:#198754; font-size:15px;">Final Price</b> : <b>₹${final.toFixed(2)}</b><br><br>`;
   msg += `</div>`;
 
-  // ---------- EVENTS ----------
+    // ---------- EVENTS ----------
   msg += `<b style="color:#6f42c1;">Events:</b><br>`;
 
   if (!events.length) {
@@ -2774,8 +2923,161 @@ function openInvoiceViewerById(invId){
     });
   }
 
+  // store current invoice context for Payment Info
+  window.CURRENT_VIEWED_INVOICE = {
+    id: inv.invoiceId || inv.id,
+    actual,
+    discount,
+    final,
+    invoice: inv
+  };
+
+  // open the standard popup
   showMessage(msg, `Invoice — ${inv.clientName || 'Unnamed'}`);
+
+  // enable "Paid" button ONLY for this invoice popup
+  const paidBtn = document.getElementById('messagePaidBtn');
+  if (paidBtn) {
+    paidBtn.classList.remove('hidden');
+    paidBtn.onclick = openPaymentInfoModal;
+  }
 }
+
+// ---- Payment Info helpers ----
+
+function openPaymentInfoModal() {
+  // Close the invoice viewer popup (but keep CURRENT_VIEWED_INVOICE)
+  closeMessage();
+
+  const modal = document.getElementById('paymentInfoModal');
+  if (!modal) return;
+
+  const billedInput  = document.getElementById('paymentBilledAmount');
+  const revisedInput = document.getElementById('paymentRevisedAmount');
+  const revisedChk   = document.getElementById('paymentRevisedEnable');
+  const advInput     = document.getElementById('paymentAdvancePaid');
+  const finalInput   = document.getElementById('paymentFinalPaid');
+  const pendingInput = document.getElementById('paymentPending');
+
+  const ctx = window.CURRENT_VIEWED_INVOICE || null;
+  const billed = (ctx && typeof ctx.actual === 'number')
+    ? ctx.actual
+    : 0;
+
+  if (billedInput) billedInput.value = billed.toFixed(2);
+
+  // Reset other fields
+  if (revisedChk) revisedChk.checked = false;
+  if (revisedInput) {
+    revisedInput.value = '';
+    revisedInput.disabled = true;
+    revisedInput.classList.remove('field-error-red');
+  }
+  if (advInput) advInput.value = '';
+  if (finalInput) finalInput.value = '';
+  if (pendingInput) pendingInput.value = '0.00';
+
+  // Reset buttons
+  const partialBtn = document.getElementById('paymentPartialBtn');
+  const paidBtn    = document.getElementById('paymentPaidFinalBtn');
+  if (partialBtn) partialBtn.disabled = true;
+  if (paidBtn)    paidBtn.disabled    = true;
+
+  recalcPaymentPending();
+
+  modal.style.display = 'flex';
+}
+
+function closePaymentInfoModal() {
+  const modal = document.getElementById('paymentInfoModal');
+  if (modal) modal.style.display = 'none';
+}
+
+// Enable/disable Revised Amount field
+function toggleRevisedAmount() {
+  const chk   = document.getElementById('paymentRevisedEnable');
+  const input = document.getElementById('paymentRevisedAmount');
+  if (!chk || !input) return;
+
+  if (chk.checked) {
+    input.disabled = false;
+  } else {
+    input.disabled = true;
+    input.classList.remove('field-error-red');
+    // optional: keep or clear value
+    // input.value = '';
+  }
+  recalcPaymentPending();
+}
+
+// Core math for Pending + button enabling
+function recalcPaymentPending() {
+  const billedInput  = document.getElementById('paymentBilledAmount');
+  const revisedInput = document.getElementById('paymentRevisedAmount');
+  const revisedChk   = document.getElementById('paymentRevisedEnable');
+  const advInput     = document.getElementById('paymentAdvancePaid');
+  const finalInput   = document.getElementById('paymentFinalPaid');
+  const pendingInput = document.getElementById('paymentPending');
+
+  const partialBtn   = document.getElementById('paymentPartialBtn');
+  const paidBtn      = document.getElementById('paymentPaidFinalBtn');
+
+  let billed = parseFloat(billedInput?.value || '0');
+  if (isNaN(billed)) billed = 0;
+
+  const revisedEnabled = !!revisedChk?.checked;
+  let revised = parseFloat(revisedInput?.value || '0');
+  if (isNaN(revised)) revised = 0;
+
+  // Revised must be > 0 if enabled
+  if (revisedEnabled && (!revised || revised <= 0)) {
+    revisedInput?.classList.add('field-error-red');
+  } else {
+    revisedInput?.classList.remove('field-error-red');
+  }
+
+  // base amount for calculation
+  let base = billed;
+  if (revisedEnabled && revised > 0) {
+    base = revised;
+  }
+
+  let adv = parseFloat(advInput?.value || '0');
+  if (isNaN(adv)) adv = 0;
+
+  let final = parseFloat(finalInput?.value || '0');
+  if (isNaN(final)) final = 0;
+
+  // raw Pending = Point 1 or 2  -  (Point 3 + Point 4)
+  const rawPending = base - (adv + final);
+
+  // As you mentioned: display as normal number (no - sign),
+  // but internally treat as negative if < 0
+  const displayPending = Math.abs(rawPending);
+
+  if (pendingInput) {
+    pendingInput.value = displayPending.toFixed(2);
+    pendingInput.dataset.rawPending = String(rawPending);
+  }
+
+  // Button states:
+  //  - Partially Paid enabled if Pending > 0
+  //  - Paid enabled if Pending <= 0
+  if (partialBtn) partialBtn.disabled = !(rawPending > 0);
+  if (paidBtn)    paidBtn.disabled    = !(rawPending <= 0);
+}
+
+// Placeholder handlers (you will define logic later)
+function handlePaymentPartial() {
+  // Here we'll later save partial payment info etc.
+  alert('Partially Paid functionality will be added here.');
+}
+
+function handlePaymentPaidFinal() {
+  // Here we'll later save full payment info etc.
+  alert('Paid functionality will be added here.');
+}
+
 
 // ==== Add-Event button helpers (quotation + invoice screens) ====
 
