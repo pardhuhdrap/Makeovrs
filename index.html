@@ -1801,8 +1801,6 @@ function openCalendarDatePopup(dateISO){
     setSingleEventBooking(evObj.eventId, false);
   }
 }
-
-
       // Re-render popup and calendar
     openCalendarDatePopup(dateISO);
     renderCalendar();
@@ -2983,222 +2981,7 @@ async function handleInvoiceAction(invoiceId, action) {
   }
 }
 
-  
-
-/* -------------------------
-   Open quotation viewer by id (from calendar popup)
-   ------------------------- */
-function openQuotationViewerById(qid){
-  const all = loadFromLS(SAVED_QUOTATIONS_KEY, []);
-  const q = all.find(x => x.id === qid);
-  if (!q) {
-    showMessage('Quotation not found.');
-    return;
-  }
-
-  const events = Array.isArray(q.events) ? q.events : [];
-
-  // Compute totals safely (fallback if not stored)
-  let actual = 0;
-  if (typeof q.actual === 'number') {
-    actual = q.actual;
-  } else {
-    actual = events.reduce((s, e) =>
-      s +
-      Number(e.packagePrice || 0) +
-      Number(e.addOnPrice || 0) +
-      Number(e.transportPrice || 0),
-      0
-    );
-  }
-
-  let discount = typeof q.discount === 'number' ? q.discount : 0;
-  let final = typeof q.final === 'number' ? q.final : Math.max(0, actual - discount);
-
-  let msg = "";
-
-   // ---------------- HEADER -----------------
-msg += `<b style="color:#0b5ed7; font-size:15px;">Client Name</b> : ${q.clientName || ''}<br>`;
-
-const contactText = (q.clientContact || '').trim();
-const contactEsc  = contactText.replace(/'/g, "\\'");  // for onclick string
-
-// label
-msg += `<b style="color:#0b5ed7;">Contact</b> : `;
-
-// number + icon on the SAME line
-if (contactText) {
-  msg += `<span style="display:inline-flex;align-items:center;">${contactText}<i data-lucide="phone" class="w-4 h-4 text-blue-600 ml-1 cursor-pointer" onclick="openContactOptions('${contactEsc}')"></i></span>`;
-} else {
-  msg += `-`;
-}
-
-msg += `<br><br>`;
-
-
-  // ---------------- TOTALS -----------------
-msg += `<div style="margin:8px 0; padding:6px 8px; border:1px solid #ddd; border-radius:6px; background:#fafafa;"`; 
-
-  msg += `<b style="color:#ba2121;">Actual Price</b> : <b>₹${actual.toFixed(2)}</b><br>`;
-  msg += `<b style="color:#ba2121;">Discount</b> : <b>₹${discount.toFixed(2)}</b><br>`;
-  msg += `<b style="color:#198754; font-size:15px;">Final Price</b> : <b>₹${final.toFixed(2)}</b><br><br>`;
-msg += `</div>`;
-
-  // ---------------- EVENTS -----------------
-  msg += `<b style="color:#6f42c1;">Events:</b><br>`;
-
-  if (!events.length) {
-    msg += `<i>(No events saved in this quotation)</i>`;
-  } else {
-    events.forEach((ev, idx) => {      
-      
-      msg += `<div style="margin:8px 0; padding:6px 8px; border:1px solid #ddd; border-radius:6px; background:#fafafa;">`;
-
-      msg += `<b style="color:#333;">#${idx + 1} — ${ev.name || '(No name)'}</b><br>`;
-      msg += `<span style="color:#555;">Date</span> : ${ev.date || '-'}<br>`;
-      msg += `<span style="color:#555;">Time</span> : ${ev.time || '-'}<br>`;
-      msg += `<span style="color:#555;">Location</span> : ${ev.location || '-'}<br>`;
-
-      const pkgName  = ev.packageName || '';
-      const pkgPrice = Number(ev.packagePrice || 0);
-      if (pkgName || pkgPrice) {
-        msg += `<span style="color:#555;">Package</span> : <b>${pkgName}</b> — <b style="color:#198754;">₹${pkgPrice.toFixed(2)}</b><br>`;
-      }
-
-      const addOnPrice = Number(ev.addOnPrice || 0);
-      if (addOnPrice || ev.addonDetails) {
-        msg += `<span style="color:#555;">Add-ons</span> : <b style="color:#ff7f00;">₹${addOnPrice.toFixed(2)}</b>`;
-        if (ev.addonDetails) msg += ` — <span>${ev.addonDetails}</span>`;
-        msg += `<br>`;
-      }
-
-      const transportPrice = Number(ev.transportPrice || 0);
-      if (transportPrice) {
-        msg += `<span style="color:#555;">Transport</span> : <b style="color:#d63384;">₹${transportPrice.toFixed(2)}</b><br>`;
-      }
-
-      if (ev.notes) {
-        msg += `<span style="color:#555;">Notes</span> : <i>${ev.notes}</i><br>`;
-      }
-
-      msg += `</div>`;
-    });
-  }
-
-  showMessage(msg, `Quotation — ${q.clientName || 'Unnamed'}`);
-}
-
-function openInvoiceViewerById(invId){
-  const all = loadFromLS(SAVED_INVOICES_KEY, []);
-  const inv = all.find(x => (x.invoiceId === invId) || (x.id === invId));
-  if (!inv) {
-    showMessage('Invoice not found.');
-    return;
-  }
-
-  const events = Array.isArray(inv.events) ? inv.events : [];
-
-  // totals (with safe fallbacks)
-  let actual = 0;
-  if (typeof inv.actual === 'number') {
-    actual = inv.actual;
-  } else {
-    actual = events.reduce((s, e) =>
-      s +
-      Number(e.packagePrice || 0) +
-      Number(e.addOnPrice || 0) +
-      Number(e.transportPrice || 0),
-      0
-    );
-  }
-
-  let discount = typeof inv.discount === 'number' ? inv.discount : 0;
-  let final = typeof inv.final === 'number' ? inv.final : Math.max(0, actual - discount);
-
-  let msg = "";
-
-  // ---------- HEADER ----------
-  msg += `<b style="color:#0b5ed7; font-size:15px;">Client Name</b> : ${inv.clientName || ''}<br>`;
-
-  const contactText = (inv.clientContact || '').trim();
-  const contactEsc  = contactText.replace(/'/g, "\\'");
-
-  msg += `<b style="color:#0b5ed7;">Contact</b> : `;
-  if (contactText) {
-    msg += `<span style="display:inline-flex;align-items:center;">${contactText}<i data-lucide="phone" class="w-4 h-4 text-blue-600 ml-1 cursor-pointer" onclick="openContactOptions('${contactEsc}')"></i></span>`;
-  } else {
-    msg += `-`;
-  }
-  msg += `<br><br>`;
-
-  // ---------- TOTALS ----------
-  msg += `<div style="margin:8px 0; padding:6px 8px; border:1px solid #ddd; border-radius:6px; background:#fafafa;">`;
-  msg += `<b style="color:#ba2121;">Actual Price</b> : <b>₹${actual.toFixed(2)}</b><br>`;
-  msg += `<b style="color:#ba2121;">Discount</b> : <b>₹${discount.toFixed(2)}</b><br>`;
-  msg += `<b style="color:#198754; font-size:15px;">Final Price</b> : <b>₹${final.toFixed(2)}</b><br><br>`;
-  msg += `</div>`;
-
-    // ---------- EVENTS ----------
-  msg += `<b style="color:#6f42c1;">Events:</b><br>`;
-
-  if (!events.length) {
-    msg += `<i>(No events saved in this invoice)</i>`;
-  } else {
-    events.forEach((ev, idx) => {
-      msg += `<div style="margin:8px 0; padding:6px 8px; border:1px solid #ddd; border-radius:6px; background:#fafafa;">`;
-
-      msg += `<b style="color:#333;">#${idx + 1} — ${ev.name || '(No name)'}</b><br>`;
-      msg += `<span style="color:#555;">Date</span> : ${ev.date || '-'}<br>`;
-      msg += `<span style="color:#555;">Time</span> : ${ev.time || '-'}<br>`;
-      msg += `<span style="color:#555;">Location</span> : ${ev.location || '-'}<br>`;
-
-      const pkgName  = ev.packageName || '';
-      const pkgPrice = Number(ev.packagePrice || 0);
-      if (pkgName || pkgPrice) {
-        msg += `<span style="color:#555;">Package</span> : <b>${pkgName}</b> — <b style="color:#198754;">₹${pkgPrice.toFixed(2)}</b><br>`;
-      }
-
-      const addOnPrice = Number(ev.addOnPrice || 0);
-      if (addOnPrice || ev.addonDetails) {
-        msg += `<span style="color:#555;">Add-ons</span> : <b style="color:#ff7f00;">₹${addOnPrice.toFixed(2)}</b>`;
-        if (ev.addonDetails) msg += ` — <span>${ev.addonDetails}</span>`;
-        msg += `<br>`;
-      }
-
-      const transportPrice = Number(ev.transportPrice || 0);
-      if (transportPrice) {
-        msg += `<span style="color:#555;">Transport</span> : <b style="color:#d63384;">₹${transportPrice.toFixed(2)}</b><br>`;
-      }
-
-      if (ev.notes) {
-        msg += `<span style="color:#555;">Notes</span> : <i>${ev.notes}</i><br>`;
-      }
-
-      msg += `</div>`;
-    });
-  }
-
-  // store current invoice context for Payment Info
-  window.CURRENT_VIEWED_INVOICE = {
-    id: inv.invoiceId || inv.id,
-    actual,
-    discount,
-    final,
-    invoice: inv
-  };
-
-  // open the standard popup
-  showMessage(msg, `Invoice — ${inv.clientName || 'Unnamed'}`);
-
-  // enable "Paid" button ONLY for this invoice popup
-  const paidBtn = document.getElementById('messagePaidBtn');
-  if (paidBtn) {
-    paidBtn.classList.remove('hidden');
-    paidBtn.onclick = openPaymentInfoModal;
-  }
-}
-
-// ---- Payment Info helpers ----
+ // ---- Payment Info helpers ----
 /**
  * Open Payment Info modal.
  *  - default mode: 'invoice'
@@ -3525,6 +3308,219 @@ function createInvoiceFromBooking() {
   }
 
   showMessage('Invoice generated from calendar booking.', 'Saved');
+} 
+
+/* -------------------------
+   Open quotation viewer by id (from calendar popup)
+   ------------------------- */
+function openQuotationViewerById(qid){
+  const all = loadFromLS(SAVED_QUOTATIONS_KEY, []);
+  const q = all.find(x => x.id === qid);
+  if (!q) {
+    showMessage('Quotation not found.');
+    return;
+  }
+
+  const events = Array.isArray(q.events) ? q.events : [];
+
+  // Compute totals safely (fallback if not stored)
+  let actual = 0;
+  if (typeof q.actual === 'number') {
+    actual = q.actual;
+  } else {
+    actual = events.reduce((s, e) =>
+      s +
+      Number(e.packagePrice || 0) +
+      Number(e.addOnPrice || 0) +
+      Number(e.transportPrice || 0),
+      0
+    );
+  }
+
+  let discount = typeof q.discount === 'number' ? q.discount : 0;
+  let final = typeof q.final === 'number' ? q.final : Math.max(0, actual - discount);
+
+  let msg = "";
+
+   // ---------------- HEADER -----------------
+msg += `<b style="color:#0b5ed7; font-size:15px;">Client Name</b> : ${q.clientName || ''}<br>`;
+
+const contactText = (q.clientContact || '').trim();
+const contactEsc  = contactText.replace(/'/g, "\\'");  // for onclick string
+
+// label
+msg += `<b style="color:#0b5ed7;">Contact</b> : `;
+
+// number + icon on the SAME line
+if (contactText) {
+  msg += `<span style="display:inline-flex;align-items:center;">${contactText}<i data-lucide="phone" class="w-4 h-4 text-blue-600 ml-1 cursor-pointer" onclick="openContactOptions('${contactEsc}')"></i></span>`;
+} else {
+  msg += `-`;
+}
+
+msg += `<br><br>`;
+
+
+  // ---------------- TOTALS -----------------
+msg += `<div style="margin:8px 0; padding:6px 8px; border:1px solid #ddd; border-radius:6px; background:#fafafa;"`; 
+
+  msg += `<b style="color:#ba2121;">Actual Price</b> : <b>₹${actual.toFixed(2)}</b><br>`;
+  msg += `<b style="color:#ba2121;">Discount</b> : <b>₹${discount.toFixed(2)}</b><br>`;
+  msg += `<b style="color:#198754; font-size:15px;">Final Price</b> : <b>₹${final.toFixed(2)}</b><br><br>`;
+msg += `</div>`;
+
+  // ---------------- EVENTS -----------------
+  msg += `<b style="color:#6f42c1;">Events:</b><br>`;
+
+  if (!events.length) {
+    msg += `<i>(No events saved in this quotation)</i>`;
+  } else {
+    events.forEach((ev, idx) => {      
+      
+      msg += `<div style="margin:8px 0; padding:6px 8px; border:1px solid #ddd; border-radius:6px; background:#fafafa;">`;
+
+      msg += `<b style="color:#333;">#${idx + 1} — ${ev.name || '(No name)'}</b><br>`;
+      msg += `<span style="color:#555;">Date</span> : ${ev.date || '-'}<br>`;
+      msg += `<span style="color:#555;">Time</span> : ${ev.time || '-'}<br>`;
+      msg += `<span style="color:#555;">Location</span> : ${ev.location || '-'}<br>`;
+
+      const pkgName  = ev.packageName || '';
+      const pkgPrice = Number(ev.packagePrice || 0);
+      if (pkgName || pkgPrice) {
+        msg += `<span style="color:#555;">Package</span> : <b>${pkgName}</b> — <b style="color:#198754;">₹${pkgPrice.toFixed(2)}</b><br>`;
+      }
+
+      const addOnPrice = Number(ev.addOnPrice || 0);
+      if (addOnPrice || ev.addonDetails) {
+        msg += `<span style="color:#555;">Add-ons</span> : <b style="color:#ff7f00;">₹${addOnPrice.toFixed(2)}</b>`;
+        if (ev.addonDetails) msg += ` — <span>${ev.addonDetails}</span>`;
+        msg += `<br>`;
+      }
+
+      const transportPrice = Number(ev.transportPrice || 0);
+      if (transportPrice) {
+        msg += `<span style="color:#555;">Transport</span> : <b style="color:#d63384;">₹${transportPrice.toFixed(2)}</b><br>`;
+      }
+
+      if (ev.notes) {
+        msg += `<span style="color:#555;">Notes</span> : <i>${ev.notes}</i><br>`;
+      }
+
+      msg += `</div>`;
+    });
+  }
+
+  showMessage(msg, `Quotation — ${q.clientName || 'Unnamed'}`);
+}
+
+function openInvoiceViewerById(invId){
+  const all = loadFromLS(SAVED_INVOICES_KEY, []);
+  const inv = all.find(x => (x.invoiceId === invId) || (x.id === invId));
+  if (!inv) {
+    showMessage('Invoice not found.');
+    return;
+  }
+
+  const events = Array.isArray(inv.events) ? inv.events : [];
+
+  // totals (with safe fallbacks)
+  let actual = 0;
+  if (typeof inv.actual === 'number') {
+    actual = inv.actual;
+  } else {
+    actual = events.reduce((s, e) =>
+      s +
+      Number(e.packagePrice || 0) +
+      Number(e.addOnPrice || 0) +
+      Number(e.transportPrice || 0),
+      0
+    );
+  }
+
+  let discount = typeof inv.discount === 'number' ? inv.discount : 0;
+  let final = typeof inv.final === 'number' ? inv.final : Math.max(0, actual - discount);
+
+  let msg = "";
+
+  // ---------- HEADER ----------
+  msg += `<b style="color:#0b5ed7; font-size:15px;">Client Name</b> : ${inv.clientName || ''}<br>`;
+
+  const contactText = (inv.clientContact || '').trim();
+  const contactEsc  = contactText.replace(/'/g, "\\'");
+
+  msg += `<b style="color:#0b5ed7;">Contact</b> : `;
+  if (contactText) {
+    msg += `<span style="display:inline-flex;align-items:center;">${contactText}<i data-lucide="phone" class="w-4 h-4 text-blue-600 ml-1 cursor-pointer" onclick="openContactOptions('${contactEsc}')"></i></span>`;
+  } else {
+    msg += `-`;
+  }
+  msg += `<br><br>`;
+
+  // ---------- TOTALS ----------
+  msg += `<div style="margin:8px 0; padding:6px 8px; border:1px solid #ddd; border-radius:6px; background:#fafafa;">`;
+  msg += `<b style="color:#ba2121;">Actual Price</b> : <b>₹${actual.toFixed(2)}</b><br>`;
+  msg += `<b style="color:#ba2121;">Discount</b> : <b>₹${discount.toFixed(2)}</b><br>`;
+  msg += `<b style="color:#198754; font-size:15px;">Final Price</b> : <b>₹${final.toFixed(2)}</b><br><br>`;
+  msg += `</div>`;
+
+    // ---------- EVENTS ----------
+  msg += `<b style="color:#6f42c1;">Events:</b><br>`;
+
+  if (!events.length) {
+    msg += `<i>(No events saved in this invoice)</i>`;
+  } else {
+    events.forEach((ev, idx) => {
+      msg += `<div style="margin:8px 0; padding:6px 8px; border:1px solid #ddd; border-radius:6px; background:#fafafa;">`;
+
+      msg += `<b style="color:#333;">#${idx + 1} — ${ev.name || '(No name)'}</b><br>`;
+      msg += `<span style="color:#555;">Date</span> : ${ev.date || '-'}<br>`;
+      msg += `<span style="color:#555;">Time</span> : ${ev.time || '-'}<br>`;
+      msg += `<span style="color:#555;">Location</span> : ${ev.location || '-'}<br>`;
+
+      const pkgName  = ev.packageName || '';
+      const pkgPrice = Number(ev.packagePrice || 0);
+      if (pkgName || pkgPrice) {
+        msg += `<span style="color:#555;">Package</span> : <b>${pkgName}</b> — <b style="color:#198754;">₹${pkgPrice.toFixed(2)}</b><br>`;
+      }
+
+      const addOnPrice = Number(ev.addOnPrice || 0);
+      if (addOnPrice || ev.addonDetails) {
+        msg += `<span style="color:#555;">Add-ons</span> : <b style="color:#ff7f00;">₹${addOnPrice.toFixed(2)}</b>`;
+        if (ev.addonDetails) msg += ` — <span>${ev.addonDetails}</span>`;
+        msg += `<br>`;
+      }
+
+      const transportPrice = Number(ev.transportPrice || 0);
+      if (transportPrice) {
+        msg += `<span style="color:#555;">Transport</span> : <b style="color:#d63384;">₹${transportPrice.toFixed(2)}</b><br>`;
+      }
+
+      if (ev.notes) {
+        msg += `<span style="color:#555;">Notes</span> : <i>${ev.notes}</i><br>`;
+      }
+
+      msg += `</div>`;
+    });
+  }
+
+  // store current invoice context for Payment Info
+  window.CURRENT_VIEWED_INVOICE = {
+    id: inv.invoiceId || inv.id,
+    actual,
+    discount,
+    final,
+    invoice: inv
+  };
+
+  // open the standard popup
+  showMessage(msg, `Invoice — ${inv.clientName || 'Unnamed'}`);
+
+  // enable "Paid" button ONLY for this invoice popup
+  const paidBtn = document.getElementById('messagePaidBtn');
+  if (paidBtn) {
+    paidBtn.classList.remove('hidden');
+    paidBtn.onclick = openPaymentInfoModal;
+  }
 }
 
 
