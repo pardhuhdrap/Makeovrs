@@ -3935,30 +3935,46 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('invoiceDiscount')?.addEventListener('input', updateInvoiceSummaryUI);
 
   document.getElementById('addEventBtn')?.addEventListener('click', () => {
+  const addBtn = document.getElementById('addEventBtn');
+  if (addBtn && addBtn.disabled) return;   // 🔒 ignore click when greyed out
+
   const container = document.getElementById('eventsContainer');
 
+  // 1) Collapse all existing event bodies
   if (container) {
-    // 1) Collapse all existing event bodies
     container
       .querySelectorAll('.event-panel .body')
       .forEach(body => body.classList.add('hidden'));
   }
 
   // 2) Create new event panel
-    const id = createEventPanel();
-    const newPanel = document.getElementById(id);
+  const id = createEventPanel();
+  const newPanel = document.getElementById(id);
 
-    if (newPanel) {
-      const body = newPanel.querySelector('.body');
-      if (body) body.classList.remove('hidden');
+  if (newPanel) {
+    const body = newPanel.querySelector('.body');
+    if (body) body.classList.remove('hidden');
 
-      // 3) Scroll to top of the newly opened event block
-      const rect = newPanel.getBoundingClientRect();
-      const offset = 80; // space below header
-      const targetTop = window.scrollY + rect.top - offset;
+    // 3) Scroll INSIDE the app container, not the window
+    const scrollContainer = document.getElementById('screen-wrapper'); // this is your scrolling area :contentReference[oaicite:0]{index=0}
+    if (scrollContainer) {
+      const panelRect     = newPanel.getBoundingClientRect();
+      const containerRect = scrollContainer.getBoundingClientRect();
+      const offset        = panelRect.top - containerRect.top - 12; // small margin from top
+
+      scrollContainer.scrollTo({
+        top: scrollContainer.scrollTop + offset,
+        behavior: 'smooth'
+      });
+    } else {
+      // Fallback (in case markup changes in future)
+      const rect      = newPanel.getBoundingClientRect();
+      const targetTop = window.scrollY + rect.top - 80;
       window.scrollTo({ top: targetTop, behavior: 'smooth' });
     }
+  }
 });
+
 
   if(document.getElementById('eventsContainer')?.children.length===0) createEventPanel();
 
