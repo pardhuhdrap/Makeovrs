@@ -734,6 +734,90 @@ header {
   </div>
  </div>
     
+<!-- RECYCLE BIN -->
+<div id="recycle" class="screen-container translate-x-full">
+  <h2 class="text-2xl font-semibold mb-4 app-color-text border-b pb-2">
+    Recycle Bin
+  </h2>
+
+  <div class="bg-white p-4 rounded-xl shadow-lg space-y-4">
+    <!-- Tabs -->
+    <div class="flex items-center gap-2 mb-2">
+      <div id="recycleTabUser"
+           class="tab active"
+           onclick="switchRecycleTab('user')">
+        User Removed
+      </div>
+      <div id="recycleTabSystem"
+           class="tab"
+           onclick="switchRecycleTab('system')">
+        System Removed
+      </div>
+    </div>
+
+    <!-- User Removed tab content -->
+    <div id="recycleUserTab">
+      <!-- Filters row -->
+      <div class="flex flex-wrap items-center gap-2 mb-3 text-sm">
+        <select id="recycleUserType"
+                class="border border-gray-300 rounded px-2 py-1">
+          <option value="all">All</option>
+          <option value="quotation">Quotation</option>
+          <option value="invoice">Invoice</option>
+          <option value="others">Others</option>
+        </select>
+
+        <input id="recycleUserName"
+               type="text"
+               class="border border-gray-300 rounded px-2 py-1 flex-1 min-w-[140px]"
+               placeholder="Search by name" />
+
+        <input id="recycleUserDate"
+               type="text"
+               class="border border-gray-300 rounded px-2 py-1 w-44"
+               placeholder="Date (YYYY / MM-YYYY / DD-MM-YYYY)" />
+      </div>
+
+      <div id="recycleUserEmpty"
+           class="text-sm text-gray-500 text-center p-4 hidden">
+        No user-removed items yet.
+      </div>
+
+      <div id="recycleUserList" class="space-y-2 text-sm"></div>
+    </div>
+
+    <!-- System Removed tab content -->
+    <div id="recycleSystemTab" class="hidden">
+      <!-- Filters row -->
+      <div class="flex flex-wrap items-center gap-2 mb-3 text-sm">
+        <select id="recycleSystemType"
+                class="border border-gray-300 rounded px-2 py-1">
+          <option value="all">All</option>
+          <option value="quotation">Quotation</option>
+          <option value="invoice">Invoice</option>
+          <option value="others">Others</option>
+        </select>
+
+        <input id="recycleSystemName"
+               type="text"
+               class="border border-gray-300 rounded px-2 py-1 flex-1 min-w-[140px]"
+               placeholder="Search by name" />
+
+        <input id="recycleSystemDate"
+               type="text"
+               class="border border-gray-300 rounded px-2 py-1 w-44"
+               placeholder="Date (YYYY / MM-YYYY / DD-MM-YYYY)" />
+      </div>
+
+      <div id="recycleSystemEmpty"
+           class="text-sm text-gray-500 text-center p-4 hidden">
+        No system-removed items yet.
+      </div>
+
+      <div id="recycleSystemList" class="space-y-2 text-sm"></div>
+    </div>
+  </div>
+</div>
 
 
     <!-- message modal (used by showMessage) -->
@@ -880,92 +964,6 @@ header {
   <div id="calendarPopupContainer" class="hidden"></div>
 
 </div>
-
-<!-- RECYCLE BIN -->
-<div id="recycle" class="screen-container translate-x-full">
-  <h2 class="text-2xl font-semibold mb-4 app-color-text border-b pb-2">
-    Recycle Bin
-  </h2>
-
-  <div class="bg-white p-4 rounded-xl shadow-lg space-y-4">
-    <!-- Tabs -->
-    <div class="flex items-center gap-2 mb-2">
-      <div id="recycleTabUser"
-           class="tab active"
-           onclick="switchRecycleTab('user')">
-        User Removed
-      </div>
-      <div id="recycleTabSystem"
-           class="tab"
-           onclick="switchRecycleTab('system')">
-        System Removed
-      </div>
-    </div>
-
-    <!-- User Removed tab content -->
-    <div id="recycleUserTab">
-      <!-- Filters row -->
-      <div class="flex flex-wrap items-center gap-2 mb-3 text-sm">
-        <select id="recycleUserType"
-                class="border border-gray-300 rounded px-2 py-1">
-          <option value="all">All</option>
-          <option value="quotation">Quotation</option>
-          <option value="invoice">Invoice</option>
-          <option value="others">Others</option>
-        </select>
-
-        <input id="recycleUserName"
-               type="text"
-               class="border border-gray-300 rounded px-2 py-1 flex-1 min-w-[140px]"
-               placeholder="Search by name" />
-
-        <input id="recycleUserDate"
-               type="text"
-               class="border border-gray-300 rounded px-2 py-1 w-44"
-               placeholder="Date (YYYY / MM-YYYY / DD-MM-YYYY)" />
-      </div>
-
-      <div id="recycleUserEmpty"
-           class="text-sm text-gray-500 text-center p-4 hidden">
-        No user-removed items yet.
-      </div>
-
-      <div id="recycleUserList" class="space-y-2 text-sm"></div>
-    </div>
-
-    <!-- System Removed tab content -->
-    <div id="recycleSystemTab" class="hidden">
-      <!-- Filters row -->
-      <div class="flex flex-wrap items-center gap-2 mb-3 text-sm">
-        <select id="recycleSystemType"
-                class="border border-gray-300 rounded px-2 py-1">
-          <option value="all">All</option>
-          <option value="quotation">Quotation</option>
-          <option value="invoice">Invoice</option>
-          <option value="others">Others</option>
-        </select>
-
-        <input id="recycleSystemName"
-               type="text"
-               class="border border-gray-300 rounded px-2 py-1 flex-1 min-w-[140px]"
-               placeholder="Search by name" />
-
-        <input id="recycleSystemDate"
-               type="text"
-               class="border border-gray-300 rounded px-2 py-1 w-44"
-               placeholder="Date (YYYY / MM-YYYY / DD-MM-YYYY)" />
-      </div>
-
-      <div id="recycleSystemEmpty"
-           class="text-sm text-gray-500 text-center p-4 hidden">
-        No system-removed items yet.
-      </div>
-
-      <div id="recycleSystemList" class="space-y-2 text-sm"></div>
-    </div>
-  </div>
-</div>
-
 
 
 <!-- Inserted settings-related script blocks from New.html -->
