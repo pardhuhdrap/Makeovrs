@@ -994,18 +994,14 @@ if (logoData) {
   createLucide();
 }
 
-
-
-
-
 /* -------------------------
    Master data (same functionality)
    ------------------------- */
 let masterEventNames = [], masterPackages = [], masterAddOns = [];
 function loadMasterData(){
   masterEventNames = loadFromLS(MASTER_EVENT_NAMES_KEY, []) || [];
-  masterPackages = loadFromLS(MASTER_PACKAGES_KEY, []) || [];
-  masterAddOns = loadFromLS(MASTER_ADDONS_KEY, []) || [];
+  masterPackages   = loadFromLS(MASTER_PACKAGES_KEY, []) || [];
+  masterAddOns     = loadFromLS(MASTER_ADDONS_KEY, []) || [];
 
   // Render lists and refresh dependent UI
   renderMasterEventList();
@@ -1013,21 +1009,82 @@ function loadMasterData(){
   renderMasterAddOnList();
   refreshPanelsMasterData();
 
-  // Load saved defaults for map (guard with element checks)
+  // Load saved defaults for map (robust against old/new storage formats)
   const originInput = document.getElementById('masterDefaultOrigin');
   const rateInput   = document.getElementById('masterDefaultRatePerKm');
 
   if (originInput) {
-    originInput.value = loadFromLS(MASTER_DEFAULT_ORIGIN_KEY, '') || '';
+    let origin = '';
+    try {
+      const raw = localStorage.getItem(MASTER_DEFAULT_ORIGIN_KEY);
+      if (raw != null && raw !== '') {
+        try {
+          // values saved with saveToLS -> JSON string
+          origin = JSON.parse(raw);
+        } catch {
+          // values saved as plain string
+          origin = raw;
+        }
+      }
+    } catch (e) {
+      origin = '';
+    }
+    originInput.value = origin || '';
   }
   if (rateInput) {
-    rateInput.value = loadFromLS(MASTER_DEFAULT_RATE_KEY, 0) || 0;
+    let rateVal = 0;
+    try {
+      const raw = localStorage.getItem(MASTER_DEFAULT_RATE_KEY);
+      if (raw != null && raw !== '') {
+        let parsed;
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          parsed = raw;
+        }
+        const num = parseFloat(parsed);
+        rateVal = isNaN(num) ? 0 : num;
+      }
+    } catch (e) {
+      rateVal = 0;
+    }
+    rateInput.value = rateVal;
   }
 }
 
+
 function applyDefaultMapValues() {
-  const origin = loadFromLS(MASTER_DEFAULT_ORIGIN_KEY, '');
-  const rate = loadFromLS(MASTER_DEFAULT_RATE_KEY, 0);
+  // Read defaults in a safe way (handles JSON or plain string)
+  let origin = '';
+  try {
+    const raw = localStorage.getItem(MASTER_DEFAULT_ORIGIN_KEY);
+    if (raw != null && raw !== '') {
+      try {
+        origin = JSON.parse(raw);
+      } catch {
+        origin = raw;
+      }
+    }
+  } catch (e) {
+    origin = '';
+  }
+
+  let rate = 0;
+  try {
+    const rawRate = localStorage.getItem(MASTER_DEFAULT_RATE_KEY);
+    if (rawRate != null && rawRate !== '') {
+      let parsed;
+      try {
+        parsed = JSON.parse(rawRate);
+      } catch {
+        parsed = rawRate;
+      }
+      const num = parseFloat(parsed);
+      rate = isNaN(num) ? 0 : num;
+    }
+  } catch (e) {
+    rate = 0;
+  }
 
   // Set default Origin (editable by user)
   const originEl = document.getElementById('origin');
@@ -1037,6 +1094,7 @@ function applyDefaultMapValues() {
   const rateEl = document.getElementById('pricePerKm');
   if (rateEl) rateEl.value = rate || 0;
 }
+
 
 function saveMasterEvents(){ saveToLS(MASTER_EVENT_NAMES_KEY, masterEventNames); }
 function saveMasterPackages(){ saveToLS(MASTER_PACKAGES_KEY, masterPackages); }
