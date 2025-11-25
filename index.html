@@ -3720,6 +3720,8 @@ async function fetchTollForRoute(origin, dest) {
 // calculateDistancePrice — uses DirectionsService to get distance in km and duration
 // calculateDistancePrice — uses DirectionsService to get distance in km and duration
 // DirectionsService + automatic tolls via Routes API
+let tempTransportPrice = { price: 0, source: 'manual', description: '' };
+
 async function calculateDistancePrice() {
   const origin = document.getElementById('origin')?.value.trim() || '';
   const dest   = document.getElementById('destination')?.value.trim() || '';
@@ -3883,6 +3885,13 @@ if (infoEl) {
       if (_directionsRenderer) {
         _directionsRenderer.setDirections(result);
       }
+
+       // ✅ Save result for confirmMapPrice() to use
+      tempTransportPrice = {
+        price: totalPrice,
+        source: 'map',
+        description: `${origin} to ${dest} - ${kmText} km • ${timeText}`
+      };
 
       document.getElementById('map-confirm-row')?.classList.remove('hidden');
     } catch (innerErr) {
