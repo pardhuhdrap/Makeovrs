@@ -3955,28 +3955,21 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const body = newPanel.querySelector('.body');
     if (body) body.classList.remove('hidden');
 
-    // 3) Scroll INSIDE the app container, not the window
-    const scrollContainer = document.getElementById('screen-wrapper'); // this is your scrolling area :contentReference[oaicite:0]{index=0}
+    // 3) Scroll INSIDE the QUOTATION screen (the correct scroll container)
+    const scrollContainer = document.getElementById('quotation');
     if (scrollContainer) {
-      const panelRect     = newPanel.getBoundingClientRect();
-      const containerRect = scrollContainer.getBoundingClientRect();
-      const offset        = panelRect.top - containerRect.top - 12; // small margin from top
-
+      const offsetTop = newPanel.offsetTop - 16;   // small top margin
       scrollContainer.scrollTo({
-        top: scrollContainer.scrollTop + offset,
+        top: offsetTop < 0 ? 0 : offsetTop,
         behavior: 'smooth'
       });
-    } else {
-      // Fallback (in case markup changes in future)
-      const rect      = newPanel.getBoundingClientRect();
-      const targetTop = window.scrollY + rect.top - 80;
-      window.scrollTo({ top: targetTop, behavior: 'smooth' });
     }
   }
 });
 
+if (document.getElementById('eventsContainer')?.children.length === 0)
+  createEventPanel();
 
-  if(document.getElementById('eventsContainer')?.children.length===0) createEventPanel();
 
   // settings image handlers (simple)
   const logoInput = document.getElementById('appLogoInput');
