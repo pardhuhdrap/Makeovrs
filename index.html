@@ -3079,13 +3079,19 @@ function createEventPanel(prefill = {}) {
     }
   });
   mapBtn?.addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    localStorage.setItem(
-      'map_return_screen',
-      JSON.stringify({ screen: 'quotation', panelId: id })
-    );
-    navigate('maps');
-  });
+  ev.stopPropagation();
+
+  // Remember which screen we came from (quotation OR invoice)
+  localStorage.setItem(
+    'map_return_screen',
+    JSON.stringify({
+      screen: currentScreen || 'quotation',
+      panelId: id
+    })
+  );
+
+  navigate('maps');
+});
 
   // inputs updating summary
     const hookPriceChange = (selector) => {
@@ -4015,12 +4021,13 @@ function ensureMapsInitOnFirstShow(){
 
 
 function confirmMapPrice() {
-  // ✅ do NOT push history, and do NOT re-run init logic on quotation screen
+  // ✅ do NOT push history, and do NOT re-run init logic on return screen
   const navOpts = { pushHistory: false, skipInit: true };
 
   const raw = localStorage.getItem('map_return_screen');
   if (!raw) {
     document.getElementById('map-confirm-row')?.classList.add('hidden');
+    // fallback: old behaviour → go to quotation
     navigate('quotation', navOpts);
     return;
   }
@@ -4028,12 +4035,16 @@ function confirmMapPrice() {
   try {
     const parsed = JSON.parse(raw);
 
-    if (parsed && parsed.screen === 'quotation' && parsed.panelId) {
+    if (parsed && parsed.panelId) {
+      const panelId = parsed.panelId;
+      const targetScreen =
+        parsed.screen === 'invoice' ? 'invoice' : 'quotation';
+
       const panelTransport = document.querySelector(
-        `#${parsed.panelId} .event-transportPrice`
+        `#${panelId} .event-transportPrice`
       );
       const panelLoc = document.querySelector(
-        `#${parsed.panelId} .event-eventLocationManual`
+        `#${panelId} .event-eventLocationManual`
       );
 
       // ---- transport price ----
@@ -4074,7 +4085,8 @@ function confirmMapPrice() {
       if (typeof updateInvoiceSummaryUI === 'function')
         updateInvoiceSummaryUI();
 
-      navigate('quotation', navOpts);
+      // 👈 Go back to the same screen we came from
+      navigate(targetScreen, navOpts);
       return;
     }
   } catch (e) {
@@ -4086,6 +4098,7 @@ function confirmMapPrice() {
   document.getElementById('map-confirm-row')?.classList.add('hidden');
   navigate('quotation', navOpts);
 }
+
 
 
 
