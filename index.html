@@ -1181,32 +1181,34 @@ function openContactOptions(rawContact) {
     return;
   }
 
-  // 1) Try Web Share API -> OS chooser (WhatsApp, SMS, Call, etc.)
+  // Clean phone (remove spaces, dashes, etc.)
+  const phoneDigits = contact.replace(/[^\d+]/g, '');
+
+  // 1) Prefer Web Share API → OS chooser (WhatsApp / WhatsApp Business / SMS / Call, etc.)
   if (navigator.share) {
+    const text = phoneDigits || contact;
     navigator.share({
-      title: 'Contact',
-      text: contact
+      title: 'Client contact',
+      text
     }).catch(() => {
-      // user cancelled or share failed; silently ignore
+      // user cancelled or share failed; ignore
     });
     return;
   }
 
-  // 2) Fallback: try to treat as phone number
-  const phoneDigits = contact.replace(/[^\d+]/g, '');
+  // 2) Fallback: open dialer with number
   if (phoneDigits) {
-    // opens dialer; from there user can choose normal call apps
     window.location.href = 'tel:' + phoneDigits;
     return;
   }
 
-  // 3) Fallback: if it looks like email
+  // 3) Fallback: if looks like email
   if (contact.includes('@')) {
     window.location.href = 'mailto:' + contact;
     return;
   }
 
-  // Last fallback: just show the contact value
+  // Last fallback: just show the value
   showMessage('Cannot open contact. Value: ' + contact);
 }
 
@@ -2454,9 +2456,36 @@ function openQuotationViewerById(qid){
 
   let msg = "";
 
-  // ---------------- HEADER -----------------
+    // ---------------- HEADER -----------------
+  const contactText = (q.clientContact || '').trim();
+  const contactAttr = contactText.replace(/"/g, '&quot;');  // safe for HTML attribute
+
   msg += `<b style="color:#0b5ed7; font-size:15px;">Client Name</b> : ${q.clientName || ''}<br>`;
-  msg += `<b style="color:#0b5ed7;">Contact</b> : ${q.clientContact || ''}<br><br>`;
+
+  msg += `<b style="color:#0b5ed7;">Contact</b> : ${contactText || ''}`;
+
+  if (contactText) {
+    msg += `
+      <button
+        type="button"
+        style="
+          margin-left:6px;
+          padding:2px 8px;
+          border-radius:999px;
+          border:1px solid #0b5ed7;
+          background:#e0f2fe;
+          font-size:11px;
+          cursor:pointer;
+        "
+        data-contact="${contactAttr}"
+        onclick="openContactOptions(this.dataset.contact)">
+        📲 Contact
+      </button>
+    `;
+  }
+
+  msg += `<br><br>`;
+
 
   // ---------------- TOTALS -----------------
 msg += `<div style="margin:8px 0; padding:6px 8px; border:1px solid #ddd; border-radius:6px; background:#fafafa;"`; 
