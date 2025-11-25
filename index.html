@@ -770,6 +770,7 @@ function showMessage(msg,title='Notice'){ const t=document.getElementById('messa
   }
 
   if (m) m.style.display = 'flex';
+  createLucide();
 }
 function closeMessage(){ const m=document.getElementById('messageModal'); if(m) m.style.display='none'; }
 
@@ -2462,29 +2463,19 @@ function openQuotationViewerById(qid){
 
   msg += `<b style="color:#0b5ed7; font-size:15px;">Client Name</b> : ${q.clientName || ''}<br>`;
 
-  msg += `<b style="color:#0b5ed7;">Contact</b> : ${contactText || ''}`;
+  const contactText = (q.clientContact || '').trim();
+msg += `<b style="color:#0b5ed7;">Contact</b> : ${contactText || ''}`;
 
-  if (contactText) {
-    msg += `
-      <button
-        type="button"
-        style="
-          margin-left:6px;
-          padding:2px 8px;
-          border-radius:999px;
-          border:1px solid #0b5ed7;
-          background:#e0f2fe;
-          font-size:11px;
-          cursor:pointer;
-        "
-        data-contact="${contactAttr}"
-        onclick="openContactOptions(this.dataset.contact)">
-        📲 Contact
-      </button>
-    `;
-  }
+if (contactText) {
+  msg += `
+    <i data-lucide="phone" 
+       class="w-4 h-4 text-blue-600 ml-1 cursor-pointer inline-block"
+       onclick="openContactOptions('${contactText.replace(/'/g, "\\'")}')">
+    </i>
+  `;
+}
 
-  msg += `<br><br>`;
+msg += `<br><br>`;
 
 
   // ---------------- TOTALS -----------------
