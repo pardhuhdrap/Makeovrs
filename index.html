@@ -2589,6 +2589,47 @@ msg += `</div>`;
   showMessage(msg, `Quotation — ${q.clientName || 'Unnamed'}`);
 }
 
+// ==== Add-Event button helpers (quotation screen) ====
+function setAddEventEnabled(enabled) {
+  const btn = document.getElementById('addEventBtn');
+  if (!btn) return;
+
+  btn.disabled = !enabled;
+
+  if (enabled) {
+    btn.classList.remove('text-gray-400', 'cursor-not-allowed', 'opacity-60');
+    btn.classList.add('text-blue-600', 'hover:underline');
+  } else {
+    btn.classList.add('text-gray-400', 'cursor-not-allowed', 'opacity-60');
+    btn.classList.remove('text-blue-600', 'hover:underline');
+  }
+}
+
+// recompute based on any event-panel having data-dirty="true"
+function recomputeAddEventState() {
+  const container = document.getElementById('eventsContainer');
+  if (!container) return;
+
+  const panels = Array.from(container.querySelectorAll('.event-panel'));
+  const hasDirty = panels.some(p => p.dataset.dirty === 'true');
+
+  // Rule:
+  // - if there are NO panels → allow Add Event
+  // - if there is any "dirty" panel → block Add Event
+  setAddEventEnabled(!hasDirty || panels.length === 0);
+}
+
+function markPanelDirty(panel) {
+  if (!panel) return;
+  panel.dataset.dirty = 'true';
+  recomputeAddEventState();
+}
+
+function markPanelClean(panel) {
+  if (!panel) return;
+  panel.dataset.dirty = 'false';
+  recomputeAddEventState();
+}
 
 /* -------------------------
    UI: event panels for quotations (create/edit)
@@ -2741,6 +2782,17 @@ function createEventPanel(prefill = {}) {
   `;
   cont.appendChild(panel);
 
+  // Any input/change inside this panel makes it "dirty"
+  panel.addEventListener('input', (e) => {
+    // ignore clicks on the Update button itself
+    if (e.target.closest('.update-btn')) return;
+    markPanelDirty(panel);
+  });
+  panel.addEventListener('change', (e) => {
+    if (e.target.closest('.update-btn')) return;
+    markPanelDirty(panel);
+  });
+
   // --- toggles and wiring (same as before) ---
   panel.querySelector('.header').addEventListener('click', () => {
     panel.querySelector('.body').classList.toggle('hidden');
@@ -2750,6 +2802,7 @@ function createEventPanel(prefill = {}) {
     ev.stopPropagation();
     panel.remove();
     updateSummaryUI();
+    recomputeAddEventState();
   });
 
   panel.querySelector('.eventFetchName')?.addEventListener('change', (ev) => {
@@ -2939,9 +2992,11 @@ function createEventPanel(prefill = {}) {
   panel.querySelector('.update-btn')?.addEventListener('click', (ev) => {
     ev.stopPropagation();
     const res = validateEventPanel(panel);
-    if (!res.valid) showMessage(res.message);
-    else {
+    if (!res.valid) {
+      showMessage(res.message);
+    } else {
       updateEventPanelSummary(panel.id);
+      markPanelClean(panel);           // ✅ this panel is now "saved"
       showUpdateToast('Event updated');
     }
   });
@@ -3029,6 +3084,15 @@ function createEventPanel(prefill = {}) {
     // Update header (title & date pill)
     updateEventPanelSummary(id);
   }
+  // Initial dirty state:
+  // - existing events loaded from storage (have prefill data) → clean
+  // - brand-new empty event → dirty (user must click Update once)
+  if (prefill && Object.keys(prefill).length > 0) {
+    panel.dataset.dirty = 'false';
+  } else {
+    panel.dataset.dirty = 'true';
+  }
+  recomputeAddEventState();
 
   updateSummaryUI();
   createLucide();
@@ -3880,17 +3944,20 @@ document.addEventListener('DOMContentLoaded', ()=>{
       .forEach(body => body.classList.add('hidden'));
   }
 
-  // 2) Create the new event panel
-  const newId = createEventPanel();
+  // 2) Create new event panel
+    const id = createEventPanel();
+    const newPanel = document.getElementById(id);
 
-  // 3) Expand the new panel's body
-  const newPanel = document.getElementById(newId);
-  if (newPanel) {
-    const body = newPanel.querySelector('.body');
-    if (body) body.classList.remove('hidden');
-  }
+    if (newPanel) {
+      const body = newPanel.querySelector('.body');
+      if (body) body.classList.remove('hidden');
 
-  updateSummaryUI();
+      // 3) Scroll to top of the newly opened event block
+      const rect = newPanel.getBoundingClientRect();
+      const offset = 80; // space below header
+      const targetTop = window.scrollY + rect.top - offset;
+      window.scrollTo({ top: targetTop, behavior: 'smooth' });
+    }
 });
 
   if(document.getElementById('eventsContainer')?.children.length===0) createEventPanel();
