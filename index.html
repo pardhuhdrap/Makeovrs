@@ -2676,7 +2676,9 @@ msg += `</div>`;
   showMessage(msg, `Quotation — ${q.clientName || 'Unnamed'}`);
 }
 
-// ==== Add-Event button helpers (quotation screen) ====
+// ==== Add-Event button helpers (quotation + invoice screens) ====
+
+// Quotation Add Event
 function setAddEventEnabled(enabled) {
   const btn = document.getElementById('addEventBtn');
   if (!btn) return;
@@ -2692,18 +2694,43 @@ function setAddEventEnabled(enabled) {
   }
 }
 
+// Invoice Add Event
+function setInvoiceAddEventEnabled(enabled) {
+  const btn = document.getElementById('invoiceAddEventBtn');
+  if (!btn) return;
+
+  btn.disabled = !enabled;
+
+  if (enabled) {
+    btn.classList.remove('text-gray-400', 'cursor-not-allowed', 'opacity-60');
+    btn.classList.add('text-blue-600', 'hover:underline');
+  } else {
+    btn.classList.add('text-gray-400', 'cursor-not-allowed', 'opacity-60');
+    btn.classList.remove('text-blue-600', 'hover:underline');
+  }
+}
+
 // recompute based on any event-panel having data-dirty="true"
+// for BOTH quotation and invoice containers
 function recomputeAddEventState() {
-  const container = document.getElementById('eventsContainer');
-  if (!container) return;
+  // --- quotation container ---
+  const quoteContainer = document.getElementById('eventsContainer');
+  if (quoteContainer) {
+    const qPanels  = Array.from(quoteContainer.querySelectorAll('.event-panel'));
+    const qHasDirty = qPanels.some(p => p.dataset.dirty === 'true');
+    // Rule:
+    // - if NO panels → allow Add Event
+    // - if any dirty → block Add Event
+    setAddEventEnabled(!qHasDirty || qPanels.length === 0);
+  }
 
-  const panels = Array.from(container.querySelectorAll('.event-panel'));
-  const hasDirty = panels.some(p => p.dataset.dirty === 'true');
-
-  // Rule:
-  // - if there are NO panels → allow Add Event
-  // - if there is any "dirty" panel → block Add Event
-  setAddEventEnabled(!hasDirty || panels.length === 0);
+  // --- invoice container ---
+  const invContainer = document.getElementById('invoiceEventsContainer');
+  if (invContainer) {
+    const iPanels  = Array.from(invContainer.querySelectorAll('.event-panel'));
+    const iHasDirty = iPanels.some(p => p.dataset.dirty === 'true');
+    setInvoiceAddEventEnabled(!iHasDirty || iPanels.length === 0);
+  }
 }
 
 function markPanelDirty(panel) {
@@ -2717,6 +2744,7 @@ function markPanelClean(panel) {
   panel.dataset.dirty = 'false';
   recomputeAddEventState();
 }
+
 
 /* -------------------------
    UI: event panels for quotations (create/edit)
@@ -3293,6 +3321,7 @@ function loadInvoiceIntoForm(inv) {
 
   // update invoice summary from current panels
   updateInvoiceSummaryUI();
+   recomputeAddEventState();
 }
 
 // Called whenever we open the Invoice screen
@@ -3316,6 +3345,8 @@ function populateInvoiceFields() {
     if (panel) container.appendChild(panel);
 
     updateInvoiceSummaryUI();
+    recomputeAddEventState();
+
 
     CURRENT_EDIT_INVOICE_ID = null;
     return;
@@ -4429,16 +4460,51 @@ document.getElementById("removeInvoiceLayoutBtn")?.addEventListener("click", () 
   }
 
 
-    // Invoice add event behavior (reuse event panel and move)
-  document.getElementById('invoiceAddEventBtn')?.addEventListener('click', ()=>{
-    const panelId = createEventPanel();
-    const panel = document.getElementById(panelId);
-    if (panel) {
-      document.getElementById('invoiceEventsContainer')?.appendChild(panel);
-      updateInvoiceSummaryUI();
-    }
-  });
+    // Invoice add event behavior (reuse event panel and move, with dirty + scroll)
+document.getElementById('invoiceAddEventBtn')?.addEventListener('click', () => {
+  const addBtn = document.getElementById('invoiceAddEventBtn');
+  if (addBtn && addBtn.disabled) return;   // 🔒 ignore when greyed out
 
+  const invContainer = document.getElementById('invoiceEventsContainer');
+
+  // 1) Collapse all existing event bodies in INVOICE
+  if (invContainer) {
+    invContainer
+      .querySelectorAll('.event-panel .body')
+      .forEach(body => body.classList.add('hidden'));
+  }
+
+  // 2) Create new event panel (created in quotation container)
+  const panelId = createEventPanel();
+  const newPanel = document.getElementById(panelId);
+
+  if (newPanel) {
+    // move panel to invoice container
+    if (invContainer) {
+      invContainer.appendChild(newPanel);
+    }
+
+    const body = newPanel.querySelector('.body');
+    if (body) body.classList.remove('hidden');
+
+    // 3) Scroll INSIDE the INVOICE screen
+    const scrollContainer = document.getElementById('invoice');
+    if (scrollContainer) {
+      const offsetTop = newPanel.offsetTop - 16; // small top margin
+      scrollContainer.scrollTo({
+        top: offsetTop < 0 ? 0 : offsetTop,
+        behavior: 'smooth'
+      });
+    }
+  }
+
+  if (typeof updateInvoiceSummaryUI === 'function') {
+    updateInvoiceSummaryUI();
+  }
+
+  // 🔁 recompute add-event states for both screens
+  recomputeAddEventState();
+});
 
     // Invoice save button
   document.getElementById('generateInvoiceButton')?.addEventListener('click', ()=>{
