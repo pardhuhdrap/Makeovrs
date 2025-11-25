@@ -1705,8 +1705,9 @@ function openCalendarDatePopup(dateISO){
 
   container.appendChild(popup);
   createLucide();
+}
 
-    // wire checkboxes robustly
+      // wire checkboxes robustly
   popup.querySelectorAll('.calendar-book-checkbox').forEach(cb=>{
     cb.addEventListener('change', async (e)=>{
       const checked = e.target.checked;
@@ -1757,7 +1758,7 @@ function openCalendarDatePopup(dateISO){
         return;
       }
 
-      // ✅ NEW: figure out how many events this quotation has
+      // figure out how many events this quotation has
       let quotationEventCount = 0;
       for (const d in idx2) {
         const arr = idx2[d];
@@ -1778,6 +1779,14 @@ function openCalendarDatePopup(dateISO){
           // Single-event quotation: no question, just toggle this event
           setSingleEventBooking(evObj.eventId, true);
         }
+
+        // 🟢 OPEN PAYMENT INFO IN BOOKING MODE
+        openPaymentInfoModal({
+          mode: 'booking',
+          quotationId: evObj.quotationId,
+          eventId: evObj.eventId
+        });
+
       } else {
         // Unmarking booked
         if (hasMultipleEvents) {
@@ -1793,17 +1802,16 @@ function openCalendarDatePopup(dateISO){
         }
       }
 
-      // Re-render popup and calendar to reflect new states
-      openCalendarDatePopup(dateISO);
-      renderCalendar();
-       // 🔁 Auto-save to Drive (if signed in)
-  if (typeof autoSaveDrive === 'function') {
-    autoSaveDrive('calendar booking changed');
-  }
+      // Re-render popup and calendar
+    openCalendarDatePopup(dateISO);
+    renderCalendar();
+
+    // 🔁 Auto-save to Drive (if signed in)
+    if (typeof autoSaveDrive === 'function') {
+      autoSaveDrive('calendar booking changed');
+    }
     });
   });
-
-}
 
 /* -------------------------
    Quotation save: create eventId for each event and persist
@@ -1915,7 +1923,7 @@ function saveQuotationMultiEvent() {
   const clientName = (document.getElementById('clientNameInput')?.value || '').trim();
   const clientContact = (document.getElementById('clientContactInput')?.value || '').trim();
 
-  // ❌ basic validation → stay on quotation screen
+  //  basic validation → stay on quotation screen
   if (!clientName || !clientContact) {
     showMessage('Client name and contact are required.');
     return;
@@ -3190,10 +3198,27 @@ function openInvoiceViewerById(invId){
 }
 
 // ---- Payment Info helpers ----
+/**
+ * Open Payment Info modal.
+ *  - default mode: 'invoice'
+ *  - booking init: openPaymentInfoModal({ mode:'booking', quotationId, eventId })
+ */
+// ---- Payment Info helpers (booking + invoice modes) ----
 
-function openPaymentInfoModal() {
-  // Close the invoice viewer popup (but keep CURRENT_VIEWED_INVOICE)
-  closeMessage();
+// mode: 'invoice' (from Files → View → Paid button) or 'booking' (from calendar)
+let PAYMENT_MODE = 'invoice';
+let PAYMENT_BOOKING_CTX = null; // { quotationId, eventId } when coming from calendar
+
+function openPaymentInfoModal(options) {
+  const opts = options || {};
+
+  // Decide mode
+  PAYMENT_MODE = opts.mode === 'booking' ? 'booking' : 'invoice';
+
+  if (PAYMENT_MODE === 'invoice') {
+    // Close the invoice viewer popup (but keep CURRENT_VIEWED_INVOICE)
+    closeMessage();
+  }
 
   const modal = document.getElementById('paymentInfoModal');
   if (!modal) return;
@@ -3205,14 +3230,44 @@ function openPaymentInfoModal() {
   const finalInput   = document.getElementById('paymentFinalPaid');
   const pendingInput = document.getElementById('paymentPending');
 
-  const ctx = window.CURRENT_VIEWED_INVOICE || null;
-  const billed = (ctx && typeof ctx.actual === 'number')
-    ? ctx.actual
-    : 0;
+  const partialBtn   = document.getElementById('paymentPartialBtn');
+  const paidBtn      = document.getElementById('paymentPaidFinalBtn');
+
+  let billed = 0;
+
+  if (PAYMENT_MODE === 'invoice') {
+    // Normal case: opened from invoice viewer
+    const ctx = window.CURRENT_VIEWED_INVOICE || null;
+    billed = (ctx && typeof ctx.actual === 'number') ? ctx.actual : 0;
+    PAYMENT_BOOKING_CTX = null;
+  } else {
+    // Booking mode: coming from calendar; we only know quotationId/eventId
+    PAYMENT_BOOKING_CTX = {
+      quotationId: opts.quotationId || null,
+      eventId: opts.eventId || null,
+    };
+
+    // Get quotation to estimate billed amount (use quotation.final / actual / total)
+    const allQ = loadFromLS(SAVED_QUOTATIONS_KEY, []);
+    const q = allQ.find(x => x.id === PAYMENT_BOOKING_CTX.quotationId);
+
+    if (q) {
+      const finalAmt  = Number(q.final || 0);
+      const actualAmt = Number(q.actual || 0);
+      const totalAmt  = Number(q.total || 0);
+
+      if (finalAmt) billed = finalAmt;
+      else if (actualAmt) billed = actualAmt;
+      else if (totalAmt) billed = totalAmt;
+      else billed = 0;
+    } else {
+      billed = 0;
+    }
+  }
 
   if (billedInput) billedInput.value = billed.toFixed(2);
 
-  // Reset other fields
+  // Reset common fields
   if (revisedChk) revisedChk.checked = false;
   if (revisedInput) {
     revisedInput.value = '';
@@ -3223,20 +3278,54 @@ function openPaymentInfoModal() {
   if (finalInput) finalInput.value = '';
   if (pendingInput) pendingInput.value = '0.00';
 
-  // Reset buttons
-  const partialBtn = document.getElementById('paymentPartialBtn');
-  const paidBtn    = document.getElementById('paymentPaidFinalBtn');
-  if (partialBtn) partialBtn.disabled = true;
-  if (paidBtn)    paidBtn.disabled    = true;
+  // Mode-specific enabling/disabling
+  if (PAYMENT_MODE === 'booking') {
+    // Booking screen: only Advance + Partially Paid + Close are usable
+    if (revisedChk)   revisedChk.disabled = true;
+    if (revisedInput) revisedInput.disabled = true;
+    if (finalInput)   finalInput.disabled = true;
+
+    if (paidBtn) {
+      paidBtn.disabled = true;
+      paidBtn.classList.add('opacity-50');
+    }
+
+    // Partial button will be enabled by recalc() when Pending > 0
+    if (partialBtn) {
+      partialBtn.disabled = true;
+      partialBtn.classList.add('opacity-50');
+    }
+  } else {
+    // Invoice mode: everything behaves as before
+    if (revisedChk)   revisedChk.disabled = false;
+    if (revisedInput) revisedInput.disabled = true; // only when checkbox is ticked
+    if (finalInput)   finalInput.disabled = false;
+    if (partialBtn) {
+      partialBtn.disabled = true;
+      partialBtn.classList.remove('opacity-50');
+    }
+    if (paidBtn) {
+      paidBtn.disabled = true;
+      paidBtn.classList.remove('opacity-50');
+    }
+  }
 
   recalcPaymentPending();
-
   modal.style.display = 'flex';
 }
 
 function closePaymentInfoModal() {
   const modal = document.getElementById('paymentInfoModal');
   if (modal) modal.style.display = 'none';
+
+  // If we came from calendar booking, closing should create invoice
+  if (PAYMENT_MODE === 'booking') {
+    createInvoiceFromBooking();
+  }
+
+  // reset mode
+  PAYMENT_MODE = 'invoice';
+  PAYMENT_BOOKING_CTX = null;
 }
 
 // Enable/disable Revised Amount field
@@ -3250,8 +3339,6 @@ function toggleRevisedAmount() {
   } else {
     input.disabled = true;
     input.classList.remove('field-error-red');
-    // optional: keep or clear value
-    // input.value = '';
   }
   recalcPaymentPending();
 }
@@ -3297,8 +3384,7 @@ function recalcPaymentPending() {
   // raw Pending = Point 1 or 2  -  (Point 3 + Point 4)
   const rawPending = base - (adv + final);
 
-  // As you mentioned: display as normal number (no - sign),
-  // but internally treat as negative if < 0
+  // Display as positive number but keep sign in data
   const displayPending = Math.abs(rawPending);
 
   if (pendingInput) {
@@ -3306,22 +3392,173 @@ function recalcPaymentPending() {
     pendingInput.dataset.rawPending = String(rawPending);
   }
 
+  const isBooking = (PAYMENT_MODE === 'booking');
+
   // Button states:
   //  - Partially Paid enabled if Pending > 0
-  //  - Paid enabled if Pending <= 0
-  if (partialBtn) partialBtn.disabled = !(rawPending > 0);
-  if (paidBtn)    paidBtn.disabled    = !(rawPending <= 0);
+  //  - Paid enabled if Pending <= 0 (only in invoice mode)
+  if (partialBtn) {
+    partialBtn.disabled = !(rawPending > 0);
+    partialBtn.classList.toggle('opacity-50', partialBtn.disabled);
+  }
+  if (paidBtn) {
+    if (isBooking) {
+      paidBtn.disabled = true;
+      paidBtn.classList.add('opacity-50');
+    } else {
+      paidBtn.disabled = !(rawPending <= 0);
+      paidBtn.classList.toggle('opacity-50', paidBtn.disabled);
+    }
+  }
 }
 
-// Placeholder handlers (you will define logic later)
 function handlePaymentPartial() {
-  // Here we'll later save partial payment info etc.
+  if (PAYMENT_MODE === 'booking') {
+    // In booking mode, treat this as "Save advance & create invoice"
+    closePaymentInfoModal(); // this will call createInvoiceFromBooking()
+    return;
+  }
+
+  // Later you can add real "partial payment" logic for invoices here
   alert('Partially Paid functionality will be added here.');
 }
 
 function handlePaymentPaidFinal() {
-  // Here we'll later save full payment info etc.
+  if (PAYMENT_MODE === 'booking') {
+    // Should never be active in booking mode
+    return;
+  }
+
+  // Later you can add real "mark invoice as fully paid" logic here
   alert('Paid functionality will be added here.');
+}
+
+// Create invoice when coming from calendar booking + Payment Info
+function createInvoiceFromBooking() {
+  if (!PAYMENT_BOOKING_CTX || !PAYMENT_BOOKING_CTX.quotationId) {
+    console.warn('No booking context, skipping invoice creation.');
+    return;
+  }
+
+  const billedInput  = document.getElementById('paymentBilledAmount');
+  const advInput     = document.getElementById('paymentAdvancePaid');
+  const pendingInput = document.getElementById('paymentPending');
+
+  let billed = parseFloat(billedInput?.value || '0');
+  if (isNaN(billed)) billed = 0;
+
+  let advance = parseFloat(advInput?.value || '0');
+  if (isNaN(advance)) advance = 0;
+
+  // Optional: we can read rawPending if needed
+  let pendingRaw = 0;
+  if (pendingInput && pendingInput.dataset.rawPending != null) {
+    pendingRaw = parseFloat(pendingInput.dataset.rawPending || '0') || 0;
+  } else {
+    pendingRaw = billed - advance;
+  }
+
+  const allQ = loadFromLS(SAVED_QUOTATIONS_KEY, []);
+  const q = allQ.find(x => x.id === PAYMENT_BOOKING_CTX.quotationId);
+  if (!q) {
+    console.warn('Quotation not found for booking invoice creation.');
+    return;
+  }
+
+  // Build new invoice object based on quotation
+  const now = new Date().toISOString();
+  const allInvoices = loadFromLS(SAVED_INVOICES_KEY, []);
+  const newInvoiceId = uid('inv');
+
+  const newInvoice = {
+    ...q,
+    invoiceId: newInvoiceId,
+    type: 'invoice',
+    createdAt: now,
+    actual: billed,
+    final: billed,
+    advancePaid: advance,
+    pendingAmount: Math.max(0, pendingRaw),
+    fromBooking: true,
+  };
+
+  allInvoices.push(newInvoice);
+  saveToLS(SAVED_INVOICES_KEY, allInvoices);
+
+  // Auto-save + refresh Files → Invoices tab
+  if (typeof autoSaveDrive === 'function') {
+    autoSaveDrive('invoice created from booking');
+  }
+  renderFilesList();
+  navigate('files');
+  switchFilesTab('invoices');
+
+  // Try to generate PDF using your existing function, if present
+  try {
+    if (typeof exportQuotationPDF === 'function') {
+      // If you have a dedicated invoice PDF function, change this call name accordingly
+      exportQuotationPDF(newInvoice);
+    }
+  } catch (err) {
+    console.error('Error while exporting invoice PDF from booking:', err);
+  }
+}
+
+
+/**
+ * Create Invoice + PDF from the current booking context.
+ * Called automatically when closing Payment Info in BOOKING mode.
+ */
+function createInvoiceFromBooking() {
+  if (!PAYMENT_BOOKING_CTX || !PAYMENT_BOOKING_CTX.quotationId) {
+    console.warn('No booking context for invoice creation.');
+    return;
+  }
+
+  const quotations = loadFromLS(SAVED_QUOTATIONS_KEY, []);
+  const q = quotations.find(x => x.id === PAYMENT_BOOKING_CTX.quotationId);
+  if (!q) {
+    showMessage('Source quotation not found for this booking.');
+    return;
+  }
+
+  // Read Advance from the Payment Info modal (can be 0)
+  const advInput = document.getElementById('paymentAdvancePaid');
+  let advance = parseFloat(advInput?.value || '0');
+  if (isNaN(advance)) advance = 0;
+
+  const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
+
+  const newInvoice = {
+    ...q,
+    invoiceId: 'inv_' + Date.now() + '_' + Math.floor(Math.random() * 9999),
+    createdAt: new Date().toISOString(),
+    // simple metadata so you know how it was created
+    bookingEventId: PAYMENT_BOOKING_CTX.eventId || null,
+    advanceAtBooking: advance
+  };
+
+  invoices.push(newInvoice);
+  saveToLS(SAVED_INVOICES_KEY, invoices);
+
+  // Refresh UI → show under Files → Invoices
+  renderFilesList();
+  switchFilesTab('invoices');
+
+  // Auto-save to Drive (if integration is active)
+  if (typeof autoSaveDrive === 'function') {
+    autoSaveDrive('invoice generated from calendar booking');
+  }
+
+  // Generate the Invoice PDF (uses the same helper as Files screen)
+  try {
+    exportQuotationPDF(newInvoice);
+  } catch (err) {
+    console.error('exportQuotationPDF (booking) failed:', err);
+    showMessage('Invoice created, but PDF generation failed.');
+  }
+
+  showMessage('Invoice generated from calendar booking.', 'Saved');
 }
 
 
