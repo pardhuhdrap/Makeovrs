@@ -1176,42 +1176,103 @@ function setSingleEventBooking(eventId, booked=true){
    ------------------------- */
 
 function openContactOptions(rawContact) {
-  const contact = (rawContact || '').trim();
-  if (!contact) {
-    showMessage('No contact number found for this client.');
+  const raw = (rawContact || "").trim();
+  if (!raw) {
+    showMessage("No contact number found for this client.");
     return;
   }
 
-  // Clean phone (remove spaces, dashes, etc.)
-  const phoneDigits = contact.replace(/[^\d+]/g, '');
+  // Strip everything except digits and +
+  const cleaned = raw.replace(/[^\d+]/g, "");
 
-  // 1) Prefer Web Share API → OS chooser (WhatsApp / WhatsApp Business / SMS / Call, etc.)
-  if (navigator.share) {
-    const text = phoneDigits || contact;
-    navigator.share({
-      title: 'Client contact',
-      text
-    }).catch(() => {
-      // user cancelled or share failed; ignore
+  // For tel/sms we can use cleaned as-is (browser/OS handles it)
+  const telNumber = cleaned || raw;
+
+  // For WhatsApp we need only digits and preferably with country code
+  let waDigits = cleaned.replace(/[^\d]/g, "");
+
+  // If it looks like 10-digit Indian mobile, auto-add +91
+  if (waDigits.length === 10) {
+    waDigits = "91" + waDigits;
+  }
+
+  if (!waDigits) {
+    showMessage("Contact number looks invalid: " + raw);
+    return;
+  }
+
+  // Remove any previous chooser
+  const existing = document.getElementById("contactChooser");
+  if (existing) existing.remove();
+
+  // Build a tiny chooser popup
+  const box = document.createElement("div");
+  box.id = "contactChooser";
+  box.style.position = "fixed";
+  box.style.left = "50%";
+  box.style.bottom = "80px";
+  box.style.transform = "translateX(-50%)";
+  box.style.background = "#ffffff";
+  box.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
+  box.style.padding = "10px 12px";
+  box.style.borderRadius = "12px";
+  box.style.zIndex = "99999";
+  box.style.minWidth = "230px";
+  box.style.fontSize = "13px";
+
+  box.innerHTML = `
+    <div style="margin-bottom:8px;">
+      Contact <b>${raw}</b>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <button type="button"
+              data-action="wa"
+              style="padding:6px 8px; border-radius:8px; border:1px solid #e5e7eb; text-align:left;">
+        WhatsApp / WhatsApp Business
+      </button>
+      <button type="button"
+              data-action="sms"
+              style="padding:6px 8px; border-radius:8px; border:1px solid #e5e7eb; text-align:left;">
+        Message / SMS
+      </button>
+      <button type="button"
+              data-action="call"
+              style="padding:6px 8px; border-radius:8px; border:1px solid #e5e7eb; text-align:left;">
+        Phone Call
+      </button>
+      <button type="button"
+              data-action="close"
+              style="padding:6px 8px; border-radius:8px; border:1px solid #f3f4f6;
+                     background:#f9fafb; text-align:center; margin-top:2px;">
+        Cancel
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(box);
+
+  box.querySelectorAll("button[data-action]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const action = btn.dataset.action;
+
+      if (action === "wa") {
+        // Opens WhatsApp; if both WhatsApp + Business installed,
+        // Android will ask which one.
+        window.location.href = "https://wa.me/" + waDigits;
+      } else if (action === "sms") {
+        // Opens SMS app with this number
+        window.location.href = "sms:" + telNumber;
+      } else if (action === "call") {
+        // Opens dialer with this number
+        window.location.href = "tel:" + telNumber;
+      }
+
+      // Close chooser for all actions (including cancel)
+      box.remove();
     });
-    return;
-  }
-
-  // 2) Fallback: open dialer with number
-  if (phoneDigits) {
-    window.location.href = 'tel:' + phoneDigits;
-    return;
-  }
-
-  // 3) Fallback: if looks like email
-  if (contact.includes('@')) {
-    window.location.href = 'mailto:' + contact;
-    return;
-  }
-
-  // Last fallback: just show the value
-  showMessage('Cannot open contact. Value: ' + contact);
+  });
 }
+
 
 /* -------------------------
    Calendar rendering
