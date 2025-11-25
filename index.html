@@ -3866,11 +3866,32 @@ document.addEventListener('DOMContentLoaded', ()=>{
   applySettings();
   loadMasterData();
 
-  document.getElementById('addEventBtn')?.addEventListener('click', ()=>{ createEventPanel(); updateSummaryUI(); });
   document.getElementById('generateQuotationButton')?.addEventListener('click', saveQuotationMultiEvent);
   document.getElementById('quotationDiscount')?.addEventListener('input', updateSummaryUI);
   document.getElementById('invoiceDiscount')?.addEventListener('input', updateInvoiceSummaryUI);
 
+  document.getElementById('addEventBtn')?.addEventListener('click', () => {
+  const container = document.getElementById('eventsContainer');
+
+  if (container) {
+    // 1) Collapse all existing event bodies
+    container
+      .querySelectorAll('.event-panel .body')
+      .forEach(body => body.classList.add('hidden'));
+  }
+
+  // 2) Create the new event panel
+  const newId = createEventPanel();
+
+  // 3) Expand the new panel's body
+  const newPanel = document.getElementById(newId);
+  if (newPanel) {
+    const body = newPanel.querySelector('.body');
+    if (body) body.classList.remove('hidden');
+  }
+
+  updateSummaryUI();
+});
 
   if(document.getElementById('eventsContainer')?.children.length===0) createEventPanel();
 
