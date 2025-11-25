@@ -220,6 +220,7 @@ header {
         <div class="app-icon text-center" onclick="navigate('maps')"><i data-lucide="map-pin" class="w-8 h-8 app-color-text"></i><span class="mt-2 text-sm font-medium text-gray-700">Distance Calculator</span></div>
         <div class="app-icon" onclick="navigate('master')"><i data-lucide="database" class="w-8 h-8 app-color-text"></i><span class="mt-2 text-sm font-medium text-gray-700">Master Data</span></div>
         <div class="app-icon" onclick="navigate('files')"><i data-lucide="folder" class="w-8 h-8 app-color-text"></i><span class="mt-2 text-sm font-medium text-gray-700">Files</span></div>
+        <div class="app-icon" onclick="navigate('recycle')"><i data-lucide="trash-2" class="w-8 h-8 app-color-text"></i><span class="mt-2 text-sm font-medium text-gray-700">Recycle Bin</span></div>
       </div>
     </div>
 
@@ -731,7 +732,7 @@ header {
       </div>
     </div>
   </div>
-</div>
+ </div>
     
 
 
@@ -741,24 +742,25 @@ header {
       <h3 id="messageTitle" class="text-xl font-bold text-red-600 mb-3">Input Error</h3>
       <pre id="messageBody" class="text-gray-700 mb-4" style="white-space:pre-wrap;"></pre>
 
-      <div class="flex gap-2 justify-end">
-        <!-- This button is only shown for Invoice viewer -->
-        <button
-          id="messagePaidBtn"
-          type="button"
-          class="hidden px-4 py-2 rounded bg-green-600 text-white text-sm"
-        >
-          Paid
-        </button>
+      <div class="flex justify-between gap-2 w-full">
+    <!-- Paid button LEFT -->
+    <button
+      id="messagePaidBtn"
+      type="button"
+      class="hidden px-4 py-2 rounded bg-green-600 text-white text-sm"
+    >
+      Paid
+    </button>
 
-        <button
-          type="button"
-          onclick="closeMessage()"
-          class="px-4 py-2 rounded bg-blue-600 text-white text-sm"
-        >
-          OK
-        </button>
-      </div>
+    <!-- OK button RIGHT -->
+    <button
+      type="button"
+      onclick="closeMessage()"
+      class="px-4 py-2 rounded bg-blue-600 text-white text-sm"
+    >
+      OK
+    </button>
+</div>
     </div>
   </div>
 
@@ -844,11 +846,13 @@ header {
 
       <div class="flex gap-2 justify-end mt-4">
         <button
+          id="paymentPaidFinalBtn"
           type="button"
-          onclick="closePaymentInfoModal()"
-          class="px-4 py-2 rounded border border-gray-300 text-gray-700 text-sm"
+          onclick="handlePaymentPaidFinal()"
+          class="px-4 py-2 rounded bg-green-600 text-white text-sm disabled:opacity-50"
+          disabled
         >
-          Close
+          Paid
         </button>
 
         <button
@@ -862,25 +866,61 @@ header {
         </button>
 
         <button
-          id="paymentPaidFinalBtn"
           type="button"
-          onclick="handlePaymentPaidFinal()"
-          class="px-4 py-2 rounded bg-green-600 text-white text-sm disabled:opacity-50"
-          disabled
+          onclick="closePaymentInfoModal()"
+          class="px-4 py-2 rounded border bg-yellow-500 text-white text-sm"
         >
-          Paid
-        </button>
+          Close
+        </button>     
       </div>
     </div>
   </div>
-
-
 
   <!-- calendar popup container -->
   <div id="calendarPopupContainer" class="hidden"></div>
 
 </div>
 
+<!-- RECYCLE BIN -->
+<div id="recycle" class="screen-container translate-x-full">
+  <h2 class="text-2xl font-semibold mb-4 app-color-text border-b pb-2">
+    Recycle Bin
+  </h2>
+
+  <div class="bg-white p-4 rounded-xl shadow-lg space-y-4">
+    <!-- Tabs -->
+    <div class="flex items-center gap-2 mb-2">
+      <div id="recycleTabUser"
+           class="tab active"
+           onclick="switchRecycleTab('user')">
+        User Removed
+      </div>
+      <div id="recycleTabSystem"
+           class="tab"
+           onclick="switchRecycleTab('system')">
+        System Removed
+      </div>
+    </div>
+
+    <!-- User Removed tab content -->
+    <div id="recycleUserTab">
+      <div id="recycleUserList" class="space-y-2 text-sm">
+        <p class="text-sm text-gray-500 text-center p-4">
+          No user-removed items yet.
+        </p>
+      </div>
+    </div>
+
+    <!-- System Removed tab content -->
+    <div id="recycleSystemTab" class="hidden">
+      <div id="recycleSystemList" class="space-y-2 text-sm">
+        <p class="text-sm text-gray-500 text-center p-4">
+          No system-removed items yet.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
 
 
 <!-- Inserted settings-related script blocks from New.html -->
@@ -927,7 +967,7 @@ let navHistory = [];
 let currentScreen = 'dashboard';
 
 function navigate(id, opts = {}) {
-  const screens = ['dashboard','settings','maps','master','quotation','calendar','invoice','files'];
+  const screens = ['dashboard','settings','maps','master','quotation','calendar','invoice','files','recycle'];
 
   const pushHistory = (opts.pushHistory !== false);
   const skipInit    = (opts.skipInit === true);
@@ -965,6 +1005,7 @@ function navigate(id, opts = {}) {
     if (id === 'invoice')   populateInvoiceFields();
     if (id === 'calendar')  renderCalendar();
     if (id === 'files')     loadFilesUI();
+    if (id === 'recycle')   loadRecycleUI();  
   }
 
   createLucide();
@@ -982,6 +1023,9 @@ function goBack() {
 }
 
 const APP_NAME_KEY='app_name', APP_COLOR_KEY='app_color', MASTER_EVENT_NAMES_KEY='master_event_names', MASTER_PACKAGES_KEY='master_packages', MASTER_ADDONS_KEY='master_addons', SAVED_QUOTATIONS_KEY='saved_quotations', SAVED_INVOICES_KEY='saved_invoices'; 
+
+const RECYCLE_USER_KEY   = 'recycle_user_removed';
+const RECYCLE_SYSTEM_KEY = 'recycle_system_removed';
 
 let CURRENT_EDIT_QUOTATION_ID = null; 
 let CURRENT_EDIT_INVOICE_ID   = null;
@@ -1928,6 +1972,60 @@ function getFileDate(file) {
   // Example: if your file object has `file.date` as "2025-11-15"
   return new Date(file.date);
 }
+
+// -------------------------
+// Recycle Bin UI
+// -------------------------
+function switchRecycleTab(which) {
+  const isUser = (which === 'user');
+
+  document.getElementById('recycleTabUser')?.classList.toggle('active', isUser);
+  document.getElementById('recycleTabSystem')?.classList.toggle('active', !isUser);
+
+  document.getElementById('recycleUserTab')?.classList.toggle('hidden', !isUser);
+  document.getElementById('recycleSystemTab')?.classList.toggle('hidden', isUser);
+}
+
+function renderRecycleList(kind, items) {
+  const containerId = (kind === 'user') ? 'recycleUserList' : 'recycleSystemList';
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  if (!Array.isArray(items) || items.length === 0) {
+    container.innerHTML = `
+      <p class="text-sm text-gray-500 text-center p-4">
+        No ${kind === 'user' ? 'user-removed' : 'system-removed'} items yet.
+      </p>`;
+    return;
+  }
+
+  // Generic rendering: later we can specialize when we know what you store here
+  container.innerHTML = items.map((it, idx) => {
+    const label = it.label || it.clientName || it.id || `Item ${idx + 1}`;
+    const when  = it.removedAt ? new Date(it.removedAt).toLocaleString() : '';
+    const type  = it.type || '';
+    return `
+      <div class="flex items-center justify-between p-2 border-b bg-gray-50 rounded">
+        <div>
+          <div class="font-semibold">${label}</div>
+          <div class="text-[11px] text-gray-500">
+            ${type ? (type + ' • ') : ''}${when}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function loadRecycleUI() {
+  const userItems   = loadFromLS(RECYCLE_USER_KEY,   []);
+  const systemItems = loadFromLS(RECYCLE_SYSTEM_KEY, []);
+
+  renderRecycleList('user', userItems);
+  renderRecycleList('system', systemItems);
+  // default view
+  switchRecycleTab('user');
+}
+
 
 function matchesDateFilter(file, filterStr) {
   if (!filterStr) return true; // no filter -> match all
