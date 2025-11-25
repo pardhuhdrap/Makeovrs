@@ -1171,6 +1171,46 @@ function setSingleEventBooking(eventId, booked=true){
 }
 
 /* -------------------------
+   Contact helpers
+   ------------------------- */
+
+function openContactOptions(rawContact) {
+  const contact = (rawContact || '').trim();
+  if (!contact) {
+    showMessage('No contact number found for this client.');
+    return;
+  }
+
+  // 1) Try Web Share API -> OS chooser (WhatsApp, SMS, Call, etc.)
+  if (navigator.share) {
+    navigator.share({
+      title: 'Contact',
+      text: contact
+    }).catch(() => {
+      // user cancelled or share failed; silently ignore
+    });
+    return;
+  }
+
+  // 2) Fallback: try to treat as phone number
+  const phoneDigits = contact.replace(/[^\d+]/g, '');
+  if (phoneDigits) {
+    // opens dialer; from there user can choose normal call apps
+    window.location.href = 'tel:' + phoneDigits;
+    return;
+  }
+
+  // 3) Fallback: if it looks like email
+  if (contact.includes('@')) {
+    window.location.href = 'mailto:' + contact;
+    return;
+  }
+
+  // Last fallback: just show the contact value
+  showMessage('Cannot open contact. Value: ' + contact);
+}
+
+/* -------------------------
    Calendar rendering
    ------------------------- */
 let curYear = new Date().getFullYear(), curMonth = new Date().getMonth();
@@ -1257,7 +1297,17 @@ function openCalendarDatePopup(dateISO){
       const detailsHtml = `
   <div class="details">
     <div><strong>${ev.clientName || ''}</strong></div>
-    <div class="small">${ev.clientContact || ''}</div>
+    <div class="small" style="display:flex;align-items:center;gap:4px;">
+      <span>${ev.clientContact || ''}</span>
+      ${ev.clientContact ? `
+        <button type="button"
+                class="inline-flex items-center justify-center rounded-full border px-1.5 py-0.5 text-[11px]"
+                data-contact="${(ev.clientContact || '').replace(/"/g, '&quot;')}"
+                onclick="openContactOptions(this.dataset.contact)">
+          <i data-lucide="phone-call" class="w-3 h-3"></i>
+        </button>
+      ` : ''}
+    </div>
   </div>
 
   <div class="small"> ||
@@ -1266,6 +1316,7 @@ function openCalendarDatePopup(dateISO){
     ${ev.location ? (ev.time ? ' • ' : '') + 'Location: ' + ev.location : ''}
   </div>
 `;
+
       meta.innerHTML = detailsHtml;
       const controls = document.createElement('div'); controls.style.textAlign='right';
       const checkboxId = 'cb_' + (ev.eventId || Math.random().toString(36).slice(2,8));
@@ -1288,6 +1339,7 @@ function openCalendarDatePopup(dateISO){
   popup.appendChild(actions);
 
   container.appendChild(popup);
+  createLucide();
 
     // wire checkboxes robustly
   popup.querySelectorAll('.calendar-book-checkbox').forEach(cb=>{
