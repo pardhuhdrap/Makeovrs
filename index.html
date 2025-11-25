@@ -778,7 +778,14 @@ let navHistory = [];
 let currentScreen = 'dashboard';
 
 function navigate(id, opts = { pushHistory: true }) {
+  let navHistory = [];
+let currentScreen = 'dashboard';
+
+function navigate(id, opts = {}) {
   const screens = ['dashboard','settings','maps','master','quotation','calendar','invoice','files'];
+
+  const pushHistory = (opts.pushHistory !== false);
+  const skipInit    = (opts.skipInit === true);
 
   // Show only the requested screen
   screens.forEach(s => {
@@ -788,7 +795,7 @@ function navigate(id, opts = { pushHistory: true }) {
   });
 
   // History handling for back button
-  if (opts.pushHistory && currentScreen !== id) {
+  if (pushHistory && currentScreen !== id) {
     navHistory.push(currentScreen);
   }
   currentScreen = id;
@@ -801,20 +808,22 @@ function navigate(id, opts = { pushHistory: true }) {
     backBtn.classList.toggle('pointer-events-none', noHistory);
   }
 
-  // Screen-specific initialisation
-if (id === 'master')    loadMasterData();
-if (id === 'maps') {
-  applyDefaultMapValues();
-  // initialize maps & autocomplete once when maps screen is first shown
-  try { ensureMapsInitOnFirstShow(); } catch(e) { console.warn('Maps init failed', e); }
-}
-if (id === 'quotation') populateQuotationFields();
-if (id === 'invoice')   populateInvoiceFields();
-if (id === 'calendar')  renderCalendar();
-if (id === 'files')     loadFilesUI();
+  // Screen-specific initialisation (only if NOT skipping init)
+  if (!skipInit) {
+    if (id === 'master')    loadMasterData();
+    if (id === 'maps') {
+      applyDefaultMapValues();
+      try { ensureMapsInitOnFirstShow(); } catch(e) { console.warn('Maps init failed', e); }
+    }
+    if (id === 'quotation') populateQuotationFields();
+    if (id === 'invoice')   populateInvoiceFields();
+    if (id === 'calendar')  renderCalendar();
+    if (id === 'files')     loadFilesUI();
+  }
 
   createLucide();
 }
+
 
 function goBack() {
   if (navHistory.length === 0) {
@@ -3910,37 +3919,64 @@ function ensureMapsInitOnFirstShow(){
 // call this from navigation logic when maps screen is shown (maps initialization will be done by navigate('maps') handler)
 
 
-function confirmMapPrice(){
-  const raw = localStorage.getItem('map_return_screen'); if(!raw){ navigate('quotation'); return; }
-  try{
+function confirmMapPrice() {
+  const raw = localStorage.getItem('map_return_screen');
+  const navOpts = { pushHistory: false, skipInit: true };  // 👈 don't re-init quotation screen
+
+  if (!raw) {
+    document.getElementById('map-confirm-row')?.classList.add('hidden');
+    navigate('quotation', navOpts);
+    return;
+  }
+
+  try {
     const parsed = JSON.parse(raw);
-    if(parsed && parsed.screen === 'quotation' && parsed.panelId){
+    if (parsed && parsed.screen === 'quotation' && parsed.panelId) {
       const panelTransport = document.querySelector(`#${parsed.panelId} .event-transportPrice`);
-      const panelLoc = document.querySelector(`#${parsed.panelId} .event-eventLocationManual`);
-      if(panelTransport) panelTransport.value = (tempTransportPrice.price||0).toFixed(2);
+      const panelLoc       = document.querySelector(`#${parsed.panelId} .event-eventLocationManual`);
+
+      if (panelTransport) {
+        panelTransport.value = (tempTransportPrice.price || 0).toFixed(2);
+      }
+
       const routeDesc = tempTransportPrice.description || '';
-      try{
-        const toIndex = routeDesc.indexOf(' to ');
+      try {
+        const toIndex   = routeDesc.indexOf(' to ');
         const dashIndex = routeDesc.indexOf(' - ');
-        if(toIndex>=0 && dashIndex>toIndex){
-          const dest = routeDesc.substring(toIndex+4, dashIndex).trim();
-          if(panelLoc) { panelLoc.value = dest; panelLoc.classList.remove('field-error-orange'); panelLoc.classList.remove('field-error-red'); }
-        } else { if(panelLoc && routeDesc) panelLoc.value = routeDesc; }
-      }catch(e){}
+        if (toIndex >= 0 && dashIndex > toIndex) {
+          const dest = routeDesc.substring(toIndex + 4, dashIndex).trim();
+          if (panelLoc) {
+            panelLoc.value = dest;
+            panelLoc.classList.remove('field-error-orange', 'field-error-red');
+          }
+        } else if (panelLoc && routeDesc) {
+          panelLoc.value = routeDesc;
+        }
+      } catch (e) {
+        console.warn(e);
+      }
+
       localStorage.removeItem('map_return_screen');
-      document.getElementById('map-confirm-row').classList.add('hidden');
+      document.getElementById('map-confirm-row')?.classList.add('hidden');
+
       updateSummaryUI();
       if (typeof updateInvoiceSummaryUI === 'function') {
         updateInvoiceSummaryUI();
       }
-      navigate('quotation');
+
+      navigate('quotation', navOpts);
       return;
     }
-  }catch(e){}
+  } catch (e) {
+    console.warn(e);
+  }
+
+  // fallback
   localStorage.removeItem('map_return_screen');
-  document.getElementById('map-confirm-row').classList.add('hidden');
-  navigate('quotation');
+  document.getElementById('map-confirm-row')?.classList.add('hidden');
+  navigate('quotation', navOpts);
 }
+
 
 /* -------------------------
    Initialization wiring
