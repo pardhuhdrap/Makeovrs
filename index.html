@@ -3916,37 +3916,65 @@ function ensureMapsInitOnFirstShow(){
 // call this from navigation logic when maps screen is shown (maps initialization will be done by navigate('maps') handler)
 
 
-function confirmMapPrice(){
-  const raw = localStorage.getItem('map_return_screen'); if(!raw){ navigate('quotation'); return; }
-  try{
+function confirmMapPrice() {
+  const raw = localStorage.getItem('map_return_screen');
+  const navOpts = { pushHistory: false, skipInit: true };  // 👈 key fix
+
+  if (!raw) {
+    document.getElementById('map-confirm-row')?.classList.add('hidden');
+    navigate('quotation', navOpts);
+    return;
+  }
+
+  try {
     const parsed = JSON.parse(raw);
-    if(parsed && parsed.screen === 'quotation' && parsed.panelId){
+
+    if (parsed && parsed.screen === 'quotation' && parsed.panelId) {
+
       const panelTransport = document.querySelector(`#${parsed.panelId} .event-transportPrice`);
-      const panelLoc = document.querySelector(`#${parsed.panelId} .event-eventLocationManual`);
-      if(panelTransport) panelTransport.value = (tempTransportPrice.price||0).toFixed(2);
+      const panelLoc       = document.querySelector(`#${parsed.panelId} .event-eventLocationManual`);
+
+      if (panelTransport) {
+        panelTransport.value = (tempTransportPrice.price || 0).toFixed(2);
+      }
+
       const routeDesc = tempTransportPrice.description || '';
-      try{
-        const toIndex = routeDesc.indexOf(' to ');
+      try {
+        const toIndex   = routeDesc.indexOf(' to ');
         const dashIndex = routeDesc.indexOf(' - ');
-        if(toIndex>=0 && dashIndex>toIndex){
-          const dest = routeDesc.substring(toIndex+4, dashIndex).trim();
-          if(panelLoc) { panelLoc.value = dest; panelLoc.classList.remove('field-error-orange'); panelLoc.classList.remove('field-error-red'); }
-        } else { if(panelLoc && routeDesc) panelLoc.value = routeDesc; }
-      }catch(e){}
+        if (toIndex >= 0 && dashIndex > toIndex) {
+          const dest = routeDesc.substring(toIndex + 4, dashIndex).trim();
+          if (panelLoc) {
+            panelLoc.value = dest;
+            panelLoc.classList.remove('field-error-orange', 'field-error-red');
+          }
+        } else if (panelLoc && routeDesc) {
+          panelLoc.value = routeDesc;
+        }
+      } catch (e) {}
+
       localStorage.removeItem('map_return_screen');
-      document.getElementById('map-confirm-row').classList.add('hidden');
+      document.getElementById('map-confirm-row')?.classList.add('hidden');
+
       updateSummaryUI();
       if (typeof updateInvoiceSummaryUI === 'function') {
         updateInvoiceSummaryUI();
       }
-      navigate('quotation');
+
+      navigate('quotation', navOpts);  // 👈 return without resetting
       return;
     }
-  }catch(e){}
+
+  } catch (e) {
+    console.warn(e);
+  }
+
+  // fallback
   localStorage.removeItem('map_return_screen');
-  document.getElementById('map-confirm-row').classList.add('hidden');
-  navigate('quotation');
+  document.getElementById('map-confirm-row')?.classList.add('hidden');
+  navigate('quotation', navOpts);
 }
+
 
 /* -------------------------
    Initialization wiring
