@@ -1924,7 +1924,7 @@ function renderFilesList() {
       </div>
     `;
 
-// right side: same "View Quotation" button as calendar popup
+    // right side: "View" button (same viewer as calendar popup)
     const actions = document.createElement('div');
     actions.innerHTML = `
       <button
@@ -1934,8 +1934,6 @@ function renderFilesList() {
       </button>
     `;
 
-
-    // ❌ No per-row dropdown / OK button anymore
     item.appendChild(meta);
     item.appendChild(actions);
     qList.appendChild(item);
@@ -1944,7 +1942,6 @@ function renderFilesList() {
   document.getElementById('filesEmpty').classList.toggle('hidden', foundQ > 0);
 
   // ---------- Invoices ----------
-    // ---------- Invoices ----------
   const invList = document.getElementById('invoicesList');
   invList.innerHTML = '';
   let foundI = 0;
@@ -1984,7 +1981,7 @@ function renderFilesList() {
       </div>
     `;
 
-    // right side: "View" button, same style as quotation
+    // right side: "View" button for invoices
     const actions = document.createElement('div');
     actions.innerHTML = `
       <button
@@ -2000,7 +1997,7 @@ function renderFilesList() {
   });
 
   document.getElementById('invoicesEmpty').classList.toggle('hidden', foundI > 0);
-
+}
 
 // Healper-function
 function getCheckedQuoteIds() {
