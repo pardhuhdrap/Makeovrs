@@ -1721,8 +1721,20 @@ function renderFilesList() {
       </div>
     `;
 
+// right side: same "View Quotation" button as calendar popup
+    const actions = document.createElement('div');
+    actions.innerHTML = `
+      <button
+        class="py-1 px-2 rounded border text-sm"
+        onclick="openQuotationViewerById('${q.id}')">
+        View
+      </button>
+    `;
+
+
     // ❌ No per-row dropdown / OK button anymore
     item.appendChild(meta);
+    item.appendChild(actions);
     qList.appendChild(item);
   });
 
