@@ -3917,9 +3917,10 @@ function ensureMapsInitOnFirstShow(){
 
 
 function confirmMapPrice() {
-  const raw = localStorage.getItem('map_return_screen');
-  const navOpts = { pushHistory: false, skipInit: true };  // 👈 key fix
+  // ✅ do NOT push history, and do NOT re-run init logic on quotation screen
+  const navOpts = { pushHistory: false, skipInit: true };
 
+  const raw = localStorage.getItem('map_return_screen');
   if (!raw) {
     document.getElementById('map-confirm-row')?.classList.add('hidden');
     navigate('quotation', navOpts);
@@ -3930,43 +3931,56 @@ function confirmMapPrice() {
     const parsed = JSON.parse(raw);
 
     if (parsed && parsed.screen === 'quotation' && parsed.panelId) {
+      const panelTransport = document.querySelector(
+        `#${parsed.panelId} .event-transportPrice`
+      );
+      const panelLoc = document.querySelector(
+        `#${parsed.panelId} .event-eventLocationManual`
+      );
 
-      const panelTransport = document.querySelector(`#${parsed.panelId} .event-transportPrice`);
-      const panelLoc       = document.querySelector(`#${parsed.panelId} .event-eventLocationManual`);
-
-      if (panelTransport) {
-        panelTransport.value = (tempTransportPrice.price || 0).toFixed(2);
+      // ---- transport price ----
+      if (panelTransport && typeof tempTransportPrice === 'object') {
+        const price =
+          typeof tempTransportPrice.price === 'number'
+            ? tempTransportPrice.price
+            : 0;
+        panelTransport.value = price.toFixed(2);
       }
 
-      const routeDesc = tempTransportPrice.description || '';
-      try {
-        const toIndex   = routeDesc.indexOf(' to ');
-        const dashIndex = routeDesc.indexOf(' - ');
-        if (toIndex >= 0 && dashIndex > toIndex) {
-          const dest = routeDesc.substring(toIndex + 4, dashIndex).trim();
-          if (panelLoc) {
-            panelLoc.value = dest;
-            panelLoc.classList.remove('field-error-orange', 'field-error-red');
-          }
-        } else if (panelLoc && routeDesc) {
-          panelLoc.value = routeDesc;
-        }
-      } catch (e) {}
+      // ---- destination / location ----
+      if (panelLoc && typeof tempTransportPrice === 'object') {
+        const routeDesc = tempTransportPrice.description || '';
 
+        if (routeDesc) {
+          try {
+            const toIndex = routeDesc.indexOf(' to ');
+            const dashIndex = routeDesc.indexOf(' - ');
+            if (toIndex >= 0 && dashIndex > toIndex) {
+              const dest = routeDesc.substring(toIndex + 4, dashIndex).trim();
+              panelLoc.value = dest || routeDesc;
+            } else {
+              panelLoc.value = routeDesc;
+            }
+            panelLoc.classList.remove('field-error-orange', 'field-error-red');
+          } catch (e) {
+            console.warn('Route parsing failed', e);
+          }
+        }
+      }
+
+      // clean up + refresh summaries
       localStorage.removeItem('map_return_screen');
       document.getElementById('map-confirm-row')?.classList.add('hidden');
 
-      updateSummaryUI();
-      if (typeof updateInvoiceSummaryUI === 'function') {
+      if (typeof updateSummaryUI === 'function') updateSummaryUI();
+      if (typeof updateInvoiceSummaryUI === 'function')
         updateInvoiceSummaryUI();
-      }
 
-      navigate('quotation', navOpts);  // 👈 return without resetting
+      navigate('quotation', navOpts);
       return;
     }
-
   } catch (e) {
-    console.warn(e);
+    console.warn('confirmMapPrice parse error', e);
   }
 
   // fallback
@@ -3974,6 +3988,7 @@ function confirmMapPrice() {
   document.getElementById('map-confirm-row')?.classList.add('hidden');
   navigate('quotation', navOpts);
 }
+
 
 
 /* -------------------------
