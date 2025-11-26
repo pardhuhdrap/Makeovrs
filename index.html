@@ -2497,7 +2497,7 @@ async function createPdfBlobFromQuotation(q) {
 
     // first page: more top gap; other pages: slightly smaller top gap
     content.style.position = "absolute";
-    content.style.top = isFirstPage ? "265px" : "245px";
+    content.style.top = isFirstPage ? "265px" : "225px";
     content.style.left = "30px";
     content.style.right = "30px";
     content.style.bottom = "40px";   // bottom margin
@@ -2608,8 +2608,7 @@ html += `
           ${(displayDate || "-")}${
             eTime ? (" | " + eTime.replace(/</g,"&lt;")) : ""
           }
-        </td>
-        <td style="${tdPriceStyle}"></td>
+        </td>        
       </tr>
     `;
 
@@ -2682,20 +2681,17 @@ html += `
     summaryHTML += `
       <tr>
         <td style="${tdLabelStyle}">Actual Price</td>
-        <td style="${tdValueStyle}"></td>
         <td style="${tdPriceStyle}">${fmtPrice(actual)}</td>
       </tr>
       <tr>
         <td style="${tdLabelStyle}">Discount</td>
-        <td style="${tdValueStyle}"></td>
         <td style="${tdPriceStyle}">${fmtPrice(discount)}</td>
       </tr>
     `;
   }
   summaryHTML += `
     <tr>
-      <td style="${tdLabelStyle}">Final Price</td>
-      <td style="${tdValueStyle}"></td>
+      <td style="${tdLabelStyle}">Final Price</td>      
       <td style="${tdPriceStyle}">${fmtPrice(finalAmt)}</td>
     </tr>
   `;
