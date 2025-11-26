@@ -2776,6 +2776,7 @@ async function createPdfBlobFromQuotation(q) {
 
 
 
+
 async function exportQuotationPDF(q){ try{ const blob = await createPdfBlobFromQuotation(q); const a = document.createElement('a'); const url = URL.createObjectURL(blob); a.href = url; a.download = `${(q.clientName|| (q.invoiceId ? 'invoice' : 'quotation')).replace(/\s+/g,'_')}_${q.id || q.invoiceId || Date.now()}.pdf`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }catch(e){ console.error(e); showMessage('Failed to create PDF.'); } }
 
 // FILES → Quotations actions (uses the new PDF generator)
