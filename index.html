@@ -2443,6 +2443,7 @@ function getShortMonth(m) {
    subsequent pages use empty layout if provided)
    ------------------------- */
 // --- NEW table-style PDF generator with centered white box over letterhead ---
+// --- PDF generator with smart "white row" page breaks ---
 async function createPdfBlobFromQuotation(q){
   if (!q) throw new Error("No quotation data");
 
@@ -2455,12 +2456,11 @@ async function createPdfBlobFromQuotation(q){
 
   // Wrapper that html2canvas will capture
   const wrapper = document.createElement("div");
-  wrapper.style.width  = "794px";   // exact A4 width in px @96dpi
-  wrapper.style.height = "1123px";  // exact A4 height in px @96dpi
+  wrapper.style.width  = "794px";   // A4 width @96dpi
+  wrapper.style.height = "1123px";  // A4 height @96dpi
 
-  // IMPORTANT: take it out of the app layout so flex/scale can't touch it
   wrapper.style.position       = "fixed";
-  wrapper.style.left           = "-9999px";   // off-screen
+  wrapper.style.left           = "-9999px";
   wrapper.style.top            = "0";
   wrapper.style.zIndex         = "999999";
   wrapper.style.pointerEvents  = "none";
@@ -2476,7 +2476,6 @@ async function createPdfBlobFromQuotation(q){
   const tdValueStyle = "border:1px solid #000;padding:6px 8px;width:47%;vertical-align:middle;word-wrap:break-word;white-space:normal;text-align:center;background:transparent;";
   const tdPriceStyle = "border:1px solid #000;padding:6px 8px;width:25%;vertical-align:middle;word-wrap:break-word;white-space:normal;text-align:right;font-weight:bold;background:transparent;";
 
-  // Indian number formatting (1,25,000 instead of 125000)
   function indianFormat(num) {
     const x = Number(num || 0);
     if (!x) return "0";
@@ -2487,26 +2486,22 @@ async function createPdfBlobFromQuotation(q){
     const formattedRest = rest.replace(/\B(?=(\d{2})+(?!\d))/g, ",");
     return formattedRest + "," + last3;
   }
-
-  // For detail row (0 or empty shows "-NA-")
   function fmtPriceForDetailRow(num) {
     const n = Number(num || 0);
     if (!n) return "-NA-";
     return "Rs. " + indianFormat(n);
   }
-
-  // For summary cells (0 or empty returns blank)
   function fmtPrice(num) {
     const n = Number(num || 0);
     if (!n) return "";
     return "Rs. " + indianFormat(n);
   }
 
-  // White box that sits over the background image (centered content)
+  // White box over letterhead
   let html = `
     <div style="
       position: absolute;
-      top: 265px;               /* Move tables lower below heading */
+      top: 265px;
       left: 30px;
       right: 30px;
       padding: 20px 25px;
@@ -2515,7 +2510,7 @@ async function createPdfBlobFromQuotation(q){
     ">
   `;
 
-  // ---------- 1) CLIENT DETAILS TABLE ----------
+  // ---------- 1) CLIENT DETAILS ----------
   html += `<table style="${tableStyle}">`;
   html += `<tr>
     <td style="${tdLabelStyle}; font-size:16px;">Client Name</td>
@@ -2582,7 +2577,6 @@ async function createPdfBlobFromQuotation(q){
       </td>
     </tr>`;
 
-    // Package row
     if (pkgName || pkgPrice) {
       html += `<tr>
         <td style="${tdLabelStyle}">Package</td>
@@ -2595,7 +2589,6 @@ async function createPdfBlobFromQuotation(q){
       </tr>`;
     }
 
-    // Add-ons row
     if (addonData || addOnPrice) {
       html += `<tr>
         <td style="${tdLabelStyle}">Add-ons</td>
@@ -2608,7 +2601,6 @@ async function createPdfBlobFromQuotation(q){
       </tr>`;
     }
 
-    // Transport row
     if (transportPrice) {
       html += `<tr>
         <td style="${tdLabelStyle}">Transport</td>
@@ -2619,7 +2611,6 @@ async function createPdfBlobFromQuotation(q){
       </tr>`;
     }
 
-    // Notes / complimentary row
     if (eNotes) {
       html += `<tr>
         <td style="${tdLabelStyle}">Complimentary</td>
@@ -2632,7 +2623,7 @@ async function createPdfBlobFromQuotation(q){
     html += `</table>`;
   });
 
-  // ---------- 3) PRICE SUMMARY TABLE ----------
+  // ---------- 3) PRICE SUMMARY ----------
   const actual   = Number(q.actual   || 0);
   const discount = Number(q.discount || 0);
   const finalAmt = Number(q.final    || 0);
@@ -2665,20 +2656,17 @@ async function createPdfBlobFromQuotation(q){
   html += `</table>`;
   html += `</div>`; // end inner white box
 
-  // ---- attach content + off-screen capture & multi-page slicing ----
   const contentWrapper = document.createElement("div");
   contentWrapper.style.position = "relative";
   contentWrapper.style.zIndex   = "1";
   contentWrapper.innerHTML      = html;
   wrapper.appendChild(contentWrapper);
-
-  // Append wrapper to DOM so fonts/images/layout can settle
   document.body.appendChild(wrapper);
 
   try {
-    // 1) Ensure wrapper height matches full content so capture includes everything
+    // --- height adjust (unchanged) ---
     try {
-      await new Promise((r) => requestAnimationFrame(r));
+      await new Promise(r => requestAnimationFrame(r));
       const contentHeight =
         contentWrapper.scrollHeight ||
         contentWrapper.offsetHeight ||
@@ -2692,13 +2680,10 @@ async function createPdfBlobFromQuotation(q){
       wrapper.style.minHeight = fullHeightPx + "px";
       wrapper.style.overflow  = "visible";
 
-      await new Promise((r) => setTimeout(r, 60));
-      console.log("[PDF DEBUG] contentHeight:", contentHeight, "wrapper.height:", wrapper.style.height);
-    } catch (e) {
-      console.warn("PDF height adjust failed:", e);
-    }
+      await new Promise(r => setTimeout(r, 60));
+    } catch(e){}
 
-    // 2) Clone + off-screen capture: this avoids viewport scaling issues
+    // --- clone & capture (unchanged) ---
     const clone = wrapper.cloneNode(true);
     clone.style.position = "absolute";
     clone.style.left     = "-99999px";
@@ -2708,8 +2693,8 @@ async function createPdfBlobFromQuotation(q){
     clone.style.overflow = "visible";
     document.body.appendChild(clone);
 
-    await new Promise((r) => requestAnimationFrame(r));
-    await new Promise((r) => setTimeout(r, 80));
+    await new Promise(r => requestAnimationFrame(r));
+    await new Promise(r => setTimeout(r, 80));
 
     if (typeof html2canvas !== "function") {
       clone.remove();
@@ -2724,50 +2709,52 @@ async function createPdfBlobFromQuotation(q){
       useCORS:         true,
       allowTaint:      true,
       logging:         false,
-      backgroundColor: null   // keep transparent pixels so letterhead image shows cleanly
+      backgroundColor: null
     });
 
-    // remove clone asap
     clone.remove();
 
-    // 🔍 NEW: context for smart white-row slicing
+    // ========= UPDATED: smart "low-ink row" detection =========
     const ctx = canvas.getContext("2d");
 
-    function isRowMostlyWhite(y, width, sampleStepX = 4, whiteRatio = 0.98) {
-      if (!ctx) return false;
-      const imgData = ctx.getImageData(0, y, width, 1);
-      const data = imgData.data;
-      let whiteCount = 0;
+    // treat row as "blank enough" if >= 95% bright/transparent pixels
+    function isRowMostlyBlank(y, width) {
+      const stepX = 4;
+      const data = ctx.getImageData(0, y, width, 1).data;
+      let brightOrTransparent = 0;
       let total = 0;
 
-      for (let x = 0; x < width; x += sampleStepX) {
-        const idx = x * 4;
-        const r = data[idx];
-        const g = data[idx + 1];
-        const b = data[idx + 2];
-        const a = data[idx + 3];
-        // treat near-white & opaque as white
-        const isWhite = (a > 240 && r > 245 && g > 245 && b > 245);
-        if (isWhite) whiteCount++;
+      for (let x = 0; x < width; x += stepX) {
+        const i = x * 4;
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const a = data[i + 3];
+
+        const brightness = (r + g + b) / 3;
+        const isBright   = brightness > 240; // very light
+        const isTrans    = a < 15;          // transparent pixel (from your transparent rows)
+
+        if (isBright || isTrans) brightOrTransparent++;
         total++;
       }
-      return total > 0 && (whiteCount / total) >= whiteRatio;
+
+      if (!total) return false;
+      return (brightOrTransparent / total) >= 0.95;
     }
 
     function findWhiteBreakRow(startY, maxHeight, width) {
-      const imgH = canvas.height;
-      const endY = Math.min(startY + maxHeight, imgH - 1);
-      const minY = startY + 20; // avoid cutting right at top
-
+      const imgH   = canvas.height;
+      const endY   = Math.min(startY + maxHeight, imgH - 2);
+      const minY   = startY + 5;  // allow break even if only small gap
       for (let y = endY; y >= minY; y--) {
-        if (isRowMostlyWhite(y, width)) {
-          return y;
-        }
+        if (isRowMostlyBlank(y, width)) return y;
       }
       return null;
     }
+    // ==========================================================
 
-    // 3) Prepare PDF + common sizing vars
+    // 3) PDF sizing (unchanged)
     const { jsPDF } = window.jspdf;
     const pdf       = new jsPDF("p", "pt", "a4");
 
@@ -2785,60 +2772,48 @@ async function createPdfBlobFromQuotation(q){
     const pxPerPt           = imgPixelHeight / imgHeightPt;
     const pageImageHeightPt = pageHeightPt - marginPt * 2;
 
-    // 4) Preload letterhead image once (kept so we can draw header on every page)
+    // 4) letterhead image (unchanged)
     let bgImg = null;
     if (layoutData) {
       bgImg = new Image();
       bgImg.crossOrigin = "anonymous";
-      await new Promise((resolve) => {
+      await new Promise(resolve => {
         bgImg.onload  = () => resolve();
         bgImg.onerror = () => resolve();
         bgImg.src     = layoutData;
       });
     }
 
-    // 5) Slicing loop:
-    //    - Reserve header space (letterhead) at the top of each page
-    //    - Only draw the CONTENT part of the big canvas (no second header)
-    const TOP_GAP_CSS_PX   = 265;                 // white box top in CSS px
-    // MUST match the scale you passed into html2canvas(.)
+    // 5) slicing loop (only slice boundary changed)
+    const TOP_GAP_CSS_PX   = 265;
     const contentTopPx     = Math.round(TOP_GAP_CSS_PX * HTML2CANVAS_SCALE);
 
-    // full page height in *canvas* pixels
     const pagePixelHeight  = Math.max(
       1,
       Math.round(pageImageHeightPt * pxPerPt)
     );
-
-    // how many pixels per page are available for content,
-    // after leaving header gap `contentTopPx`
     const contentAreaPx    = pagePixelHeight - contentTopPx;
 
-    // start reading from the big canvas *below* the header
     let sy    = contentTopPx;
     let first = true;
 
     while (sy < imgPixelHeight) {
-      // default slice size
       let slicePx = Math.min(contentAreaPx, imgPixelHeight - sy);
 
-      // 🔍 NEW: try to move the slice bottom to the nearest white row
       const breakRow = findWhiteBreakRow(sy, slicePx, imgPixelWidth);
-      if (breakRow !== null && breakRow > sy + 10) {
+      if (breakRow !== null && breakRow > sy + 5) {
         slicePx = breakRow - sy;
       }
 
-      // Full page canvas (header + content slice)
       const pageCanvas  = document.createElement("canvas");
       pageCanvas.width  = imgPixelWidth;
       pageCanvas.height = pagePixelHeight;
       const pctx        = pageCanvas.getContext("2d");
 
-      // Draw letterhead once per page
       if (bgImg && bgImg.src) {
         try {
           pctx.drawImage(bgImg, 0, 0, pageCanvas.width, pageCanvas.height);
-        } catch (e) {
+        } catch(e) {
           pctx.fillStyle = "transparent";
           pctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
         }
@@ -2847,7 +2822,6 @@ async function createPdfBlobFromQuotation(q){
         pctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
       }
 
-      // Take a slice from the big canvas that contains only the tables/content
       const sliceCanvas  = document.createElement("canvas");
       sliceCanvas.width  = imgPixelWidth;
       sliceCanvas.height = slicePx;
@@ -2855,14 +2829,12 @@ async function createPdfBlobFromQuotation(q){
 
       sctx.drawImage(
         canvas,
-        0, sy, imgPixelWidth, slicePx,   // source (big canvas)
-        0, 0, imgPixelWidth, slicePx     // dest   (sliceCanvas)
+        0, sy, imgPixelWidth, slicePx,
+        0, 0, imgPixelWidth, slicePx
       );
 
-      // Draw that slice starting just below the header gap
       pctx.drawImage(sliceCanvas, 0, contentTopPx);
 
-      // Add page image to PDF
       const finalData     = pageCanvas.toDataURL("image/jpeg", 0.95);
       const sliceHeightPt = pageCanvas.height / pxPerPt;
 
@@ -2880,19 +2852,17 @@ async function createPdfBlobFromQuotation(q){
       sy   += slicePx;
     }
 
-    // cleanup wrapper after success
-    try { wrapper.remove(); } catch (e) {}
-
+    try { wrapper.remove(); } catch(e){}
     const blob = pdf.output("blob");
     return blob;
 
-  } catch (err) {
-    // ensure wrapper removed on error
-    try { wrapper.remove(); } catch (e) {}
+  } catch(err){
+    try { wrapper.remove(); } catch(e){}
     console.error("createPdfBlobFromQuotation error:", err);
     throw err;
   }
 }
+
 
 
 
