@@ -2708,7 +2708,7 @@ const tdPriceStyle = "border:1px solid #000;padding:6px 8px;width:25%;vertical-a
     const marginRightPt  = 20;
     const marginTopPt    = 20;
     const marginBottomPt = 40; 
-    const usableWidthPt     = pageWidthPt - marginPt * 2;
+    const usableWidthPt  = pageWidthPt - marginLeftPt - marginRightPt;
 
     const imgPixelWidth     = canvas.width;
     const imgPixelHeight    = canvas.height;
@@ -2717,7 +2717,7 @@ const tdPriceStyle = "border:1px solid #000;padding:6px 8px;width:25%;vertical-a
     const imgHeightPt       = (imgPixelHeight * imgWidthPt) / imgPixelWidth;
 
     const pxPerPt           = imgPixelHeight / imgHeightPt;
-    const pageImageHeightPt = pageHeightPt - marginPt * 2;
+    const pageImageHeightPt = pageHeightPt - marginTopPt - marginBottomPt;
 
     // 4) Preload letterhead image once (quotation / invoice layout)
     // 4) Preload letterhead image once (kept so we can draw header on every page)
