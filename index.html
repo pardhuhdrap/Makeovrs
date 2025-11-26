@@ -2575,23 +2575,22 @@ async function createPdfBlobFromQuotation(q) {
     const transportPrice = Number(ev.transportPrice || 0);
 
     // Event heading: "Event - X"
-    const eventHeader = document.createElement("div");
-    eventHeader.style.fontWeight = "bold";
-    eventHeader.style.fontSize = "15px";
-    eventHeader.style.margin = "10px 0 6px 2px";
-    eventHeader.textContent = `Event - ${index + 1}`;
-    blocks.push(eventHeader);
+    // Event heading: "Event - X"
+const eventHeader = document.createElement("div");
+eventHeader.style.fontWeight = "bold";
+eventHeader.style.fontSize = "15px";
+eventHeader.style.margin = "10px 0 6px 2px";
+eventHeader.textContent = `Event - ${index + 1}`;
 
-    // Event table (same rows & logic as your old snippet)
-    let html = `<table style="${tableStyle}">`;
+// Event table (same rows & logic as your old snippet)
+let html = `<table style="${tableStyle}">`;
 
-    html += `<tr>
-      <td style="${tdLabelStyle}">Event Name</td>
-      <td style="${tdValueStyle}">${eName.replace(/</g,"&lt;")}</td>
-      <td style="${tdPriceStyle}">${fmtPriceForDetailRow(pkgPrice)}</td>
-    </tr>`;
+html += `<tr>
+  <td style="${tdLabelStyle}">Event Name</td>
+  <td style="${tdValueStyle}">${eName.replace(/</g,"&lt;")}</td>
+  <td style="${tdPriceStyle}">${fmtPriceForDetailRow(pkgPrice)}</td>
+</tr>`;
 
-    // Date & Time row (NO transport price here)
 html += `<tr>
   <td style="${tdLabelStyle}">Date &amp; Time</td>
   <td style="${tdValueStyle}">
@@ -2600,7 +2599,6 @@ html += `<tr>
   <td style="${tdPriceStyle}"></td>
 </tr>`;
 
-// Location row WITH transport price in 3rd column
 if (eLocation.trim() !== "") {
   html += `<tr>
     <td style="${tdLabelStyle}">Location</td>
@@ -2611,29 +2609,34 @@ if (eLocation.trim() !== "") {
   </tr>`;
 }
 
+if (addonData || addOnPrice) {
+  html += `<tr>
+    <td style="${tdLabelStyle}">Add-ons</td>
+    <td style="${tdValueStyle}">
+      ${addonData.replace(/</g,"&lt;")}
+    </td>
+    <td style="${tdPriceStyle}">${fmtPriceForDetailRow(addOnPrice)}</td>
+  </tr>`;
+}
 
-    if (addonData || addOnPrice) {
-      html += `<tr>
-        <td style="${tdLabelStyle}">Add-ons</td>
-        <td style="${tdValueStyle}">
-          ${addonData.replace(/</g,"&lt;")}
-        </td>
-        <td style="${tdPriceStyle}">${fmtPriceForDetailRow(addOnPrice)}</td>
-      </tr>`;
-    }
+if (eNotes.trim() !== "") {
+  html += `<tr>
+    <td style="${tdLabelStyle}">Notes &amp; Complimentary</td>
+    <td colspan="2" style="${tdValueStyle}">
+      ${eNotes.replace(/</g,"&lt;")}
+    </td>
+  </tr>`;
+}
 
-    if (eNotes.trim() !== "") {
-      html += `<tr>
-        <td style="${tdLabelStyle}">Notes &amp; Complimentary</td>
-        <td colspan="2" style="${tdValueStyle}">
-          ${eNotes.replace(/</g,"&lt;")}
-        </td>
-      </tr>`;
-    }
+html += `</table>`;
 
-    html += `</table>`;
-    blocks.push(makeBlock(html));
-  });
+// 👉 Wrap header + table together so they move as one block
+const eventBlock = document.createElement("div");
+eventBlock.appendChild(eventHeader);
+eventBlock.appendChild(makeBlock(html));
+
+blocks.push(eventBlock);
+});
 
   // ---------- 3) PRICE SUMMARY TABLE – same logic as your snippet ----------
   const actual   = Number(q.actual   || 0);
