@@ -2881,6 +2881,37 @@ async function handleFileAction(id, action) {
 
     try {
       const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
+
+      // 🔁 DEDUPE: same client name + contact (case-insensitive)
+      const keyName = (q.clientName || '').trim().toLowerCase();
+      const keyContact = (q.clientContact || '').trim().toLowerCase();
+
+      const duplicate = invoices.find(inv => {
+        if (!inv) return false;
+        const invName = (inv.clientName || '').trim().toLowerCase();
+        const invContact = (inv.clientContact || '').trim().toLowerCase();
+        return invName && invContact &&
+               invName === keyName && invContact === keyContact;
+      });
+
+      if (duplicate) {
+        const goEdit = confirm(
+          'An invoice already exists in Files for this client & contact.\n\n' +
+          'Open the existing invoice instead of generating a new one?'
+        );
+
+        if (goEdit) {
+          const existingId = duplicate.invoiceId || duplicate.id;
+          CURRENT_EDIT_INVOICE_ID = existingId;
+          localStorage.setItem('CURRENT_EDIT_INVOICE', JSON.stringify(duplicate));
+          navigate('invoice');
+        }
+
+        // ❌ no new invoice when duplicate found (even if user chose "No")
+        return;
+      }
+
+      // ✅ No duplicate → create fresh invoice
       const newInvoice = {
         ...q,
         invoiceId: "inv_" + Date.now() + "_" + Math.floor(Math.random() * 9999),
