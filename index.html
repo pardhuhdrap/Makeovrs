@@ -2442,7 +2442,6 @@ function getShortMonth(m) {
    PDF creation helpers (multi-page: first page uses quotation/invoice layout,
    subsequent pages use empty layout if provided)
    ------------------------- */
-// --- NEW table-style PDF generator: real boxes, 3 columns ---
 // --- NEW table-style PDF generator with centered white box over letterhead ---
 async function createPdfBlobFromQuotation(q){
   if (!q) throw new Error("No quotation data");
@@ -2471,13 +2470,11 @@ async function createPdfBlobFromQuotation(q){
   wrapper.style.background     = "transparent";
   wrapper.style.boxSizing      = "border-box";
 
-  
-
   // ===== TABLE STYLES =====
- const tableStyle = "width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:14px;font-size:13px;background:transparent;";
-const tdLabelStyle = "border:1px solid #000;padding:6px 8px;width:28%;vertical-align:top;word-wrap:break-word;white-space:normal;text-align:left;background:transparent;";
-const tdValueStyle = "border:1px solid #000;padding:6px 8px;width:47%;vertical-align:middle;word-wrap:break-word;white-space:normal;text-align:center;background:transparent;";
-const tdPriceStyle = "border:1px solid #000;padding:6px 8px;width:25%;vertical-align:middle;word-wrap:break-word;white-space:normal;text-align:right;font-weight:bold;background:transparent;";
+  const tableStyle   = "width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:14px;font-size:13px;background:transparent;";
+  const tdLabelStyle = "border:1px solid #000;padding:6px 8px;width:28%;vertical-align:top;word-wrap:break-word;white-space:normal;text-align:left;background:transparent;";
+  const tdValueStyle = "border:1px solid #000;padding:6px 8px;width:47%;vertical-align:middle;word-wrap:break-word;white-space:normal;text-align:center;background:transparent;";
+  const tdPriceStyle = "border:1px solid #000;padding:6px 8px;width:25%;vertical-align:middle;word-wrap:break-word;white-space:normal;text-align:right;font-weight:bold;background:transparent;";
 
   // Indian number formatting (1,25,000 instead of 125000)
   function indianFormat(num) {
@@ -2554,42 +2551,78 @@ const tdPriceStyle = "border:1px solid #000;padding:6px 8px;width:25%;vertical-a
     const addOnPrice     = Number(ev.addOnPrice     || 0);
     const transportPrice = Number(ev.transportPrice || 0);
 
-    html += `<div style="font-weight:bold; font-size:15px; margin:10px 0 6px 2px;">Event - ${index + 1}</div>`;
     html += `<table style="${tableStyle}">`;
     html += `<tr>
-      <td style="${tdLabelStyle}">Event Name</td>
-      <td style="${tdValueStyle}">${eName.replace(/</g,"&lt;")}</td>
-      <td style="${tdPriceStyle}">${fmtPriceForDetailRow(pkgPrice)}</td>
+      <td style="${tdLabelStyle}">Event #</td>
+      <td style="${tdValueStyle}">${index + 1}</td>
+      <td style="${tdPriceStyle}">${fmtPriceForDetailRow(pkgPrice + addOnPrice + transportPrice)}</td>
     </tr>`;
     html += `<tr>
-      <td style="${tdLabelStyle}">Date & Time</td>
-      <td style="${tdValueStyle}">
-        ${displayDate || "-"} ${eTime ? (" | " + eTime.replace(/</g,"&lt;")) : ""}
+      <td style="${tdLabelStyle}">Event Name</td>
+      <td colspan="2" style="${tdValueStyle}">
+        ${eName.replace(/</g,"&lt;")}
       </td>
-      <td style="${tdPriceStyle}">${fmtPriceForDetailRow(transportPrice)}</td>
     </tr>`;
-    if (eLocation.trim() !== "") {
-  html += `<tr>
-    <td style="${tdLabelStyle}">Location</td>
-    <td colspan="2" style="${tdValueStyle}">
-      ${eLocation.replace(/</g,"&lt;")}
-    </td>
-  </tr>`;
-}
+    html += `<tr>
+      <td style="${tdLabelStyle}">Date</td>
+      <td colspan="2" style="${tdValueStyle}">
+        ${displayDate.replace(/</g,"&lt;")}
+      </td>
+    </tr>`;
+    html += `<tr>
+      <td style="${tdLabelStyle}">Time</td>
+      <td colspan="2" style="${tdValueStyle}">
+        ${eTime.replace(/</g,"&lt;")}
+      </td>
+    </tr>`;
+    html += `<tr>
+      <td style="${tdLabelStyle}">Location</td>
+      <td colspan="2" style="${tdValueStyle}">
+        ${eLocation.replace(/</g,"&lt;")}
+      </td>
+    </tr>`;
 
+    // Package row
+    if (pkgName || pkgPrice) {
+      html += `<tr>
+        <td style="${tdLabelStyle}">Package</td>
+        <td style="${tdValueStyle}">
+          ${pkgName.replace(/</g,"&lt;")}
+        </td>
+        <td style="${tdPriceStyle}">
+          ${fmtPriceForDetailRow(pkgPrice)}
+        </td>
+      </tr>`;
+    }
+
+    // Add-ons row
     if (addonData || addOnPrice) {
       html += `<tr>
         <td style="${tdLabelStyle}">Add-ons</td>
         <td style="${tdValueStyle}">
           ${addonData.replace(/</g,"&lt;")}
         </td>
-        <td style="${tdPriceStyle}">${fmtPriceForDetailRow(addOnPrice)}</td>
+        <td style="${tdPriceStyle}">
+          ${fmtPriceForDetailRow(addOnPrice)}
+        </td>
       </tr>`;
     }
 
-    if (eNotes.trim() !== "") {
+    // Transport row
+    if (transportPrice) {
       html += `<tr>
-        <td style="${tdLabelStyle}">Notes &amp; Complimentary</td>
+        <td style="${tdLabelStyle}">Transport</td>
+        <td style="${tdValueStyle}">As discussed</td>
+        <td style="${tdPriceStyle}">
+          ${fmtPriceForDetailRow(transportPrice)}
+        </td>
+      </tr>`;
+    }
+
+    // Notes / complimentary row
+    if (eNotes) {
+      html += `<tr>
+        <td style="${tdLabelStyle}">Complimentary</td>
         <td colspan="2" style="${tdValueStyle}">
           ${eNotes.replace(/</g,"&lt;")}
         </td>
@@ -2632,7 +2665,7 @@ const tdPriceStyle = "border:1px solid #000;padding:6px 8px;width:25%;vertical-a
   html += `</table>`;
   html += `</div>`; // end inner white box
 
-    // ---- NEW: attach content + stable off-screen capture & multi-page slicing ----
+  // ---- attach content + off-screen capture & multi-page slicing ----
   const contentWrapper = document.createElement("div");
   contentWrapper.style.position = "relative";
   contentWrapper.style.zIndex   = "1";
@@ -2665,7 +2698,7 @@ const tdPriceStyle = "border:1px solid #000;padding:6px 8px;width:25%;vertical-a
       console.warn("PDF height adjust failed:", e);
     }
 
-    // 2) Clone + off-screen capture: this avoids viewport scaling issues (GitHub vs localhost)
+    // 2) Clone + off-screen capture: this avoids viewport scaling issues
     const clone = wrapper.cloneNode(true);
     clone.style.position = "absolute";
     clone.style.left     = "-99999px";
@@ -2687,19 +2720,56 @@ const tdPriceStyle = "border:1px solid #000;padding:6px 8px;width:25%;vertical-a
     const HTML2CANVAS_SCALE = 2;
 
     const canvas = await html2canvas(clone, {
-      scale:          HTML2CANVAS_SCALE,
-      useCORS:        true,
-      allowTaint:     true,
-      logging:        false,
+      scale:           HTML2CANVAS_SCALE,
+      useCORS:         true,
+      allowTaint:      true,
+      logging:         false,
       backgroundColor: null   // keep transparent pixels so letterhead image shows cleanly
     });
 
     // remove clone asap
     clone.remove();
 
+    // 🔍 NEW: context for smart white-row slicing
+    const ctx = canvas.getContext("2d");
+
+    function isRowMostlyWhite(y, width, sampleStepX = 4, whiteRatio = 0.98) {
+      if (!ctx) return false;
+      const imgData = ctx.getImageData(0, y, width, 1);
+      const data = imgData.data;
+      let whiteCount = 0;
+      let total = 0;
+
+      for (let x = 0; x < width; x += sampleStepX) {
+        const idx = x * 4;
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        const a = data[idx + 3];
+        // treat near-white & opaque as white
+        const isWhite = (a > 240 && r > 245 && g > 245 && b > 245);
+        if (isWhite) whiteCount++;
+        total++;
+      }
+      return total > 0 && (whiteCount / total) >= whiteRatio;
+    }
+
+    function findWhiteBreakRow(startY, maxHeight, width) {
+      const imgH = canvas.height;
+      const endY = Math.min(startY + maxHeight, imgH - 1);
+      const minY = startY + 20; // avoid cutting right at top
+
+      for (let y = endY; y >= minY; y--) {
+        if (isRowMostlyWhite(y, width)) {
+          return y;
+        }
+      }
+      return null;
+    }
+
     // 3) Prepare PDF + common sizing vars
     const { jsPDF } = window.jspdf;
-    const pdf  = new jsPDF("p", "pt", "a4");
+    const pdf       = new jsPDF("p", "pt", "a4");
 
     const pageWidthPt       = pdf.internal.pageSize.getWidth();
     const pageHeightPt      = pdf.internal.pageSize.getHeight();
@@ -2713,102 +2783,108 @@ const tdPriceStyle = "border:1px solid #000;padding:6px 8px;width:25%;vertical-a
     const imgHeightPt       = (imgPixelHeight * imgWidthPt) / imgPixelWidth;
 
     const pxPerPt           = imgPixelHeight / imgHeightPt;
-    const pageImageHeightPt = pageHeightPt - marginPt * 3;
+    const pageImageHeightPt = pageHeightPt - marginPt * 2;
 
-    // 4) Preload letterhead image once (quotation / invoice layout)
     // 4) Preload letterhead image once (kept so we can draw header on every page)
-let bgImg = null;
-if (layoutData) {
-  bgImg = new Image();
-  bgImg.crossOrigin = "anonymous";
-  await new Promise((resolve) => {
-    bgImg.onload  = () => resolve();
-    bgImg.onerror = () => resolve();
-    bgImg.src     = layoutData;
-  });
-}
-
-// 5) Slicing loop:
-//    - Reserve header space (letterhead) at the top of each page
-//    - Only draw the CONTENT part of the big canvas (no second header)
-const TOP_GAP_CSS_PX   = 265;                 // white box top in CSS px
-// MUST match the scale you passed into html2canvas(...)
-const contentTopPx     = Math.round(TOP_GAP_CSS_PX * HTML2CANVAS_SCALE);
-
-// full page height in *canvas* pixels
-const pagePixelHeight  = Math.max(
-  1,
-  Math.round(pageImageHeightPt * pxPerPt)
-);
-
-// how many pixels per page are available for content,
-// after leaving header gap `contentTopPx`
-const contentAreaPx    = pagePixelHeight - contentTopPx;
-
-// start reading from the big canvas *below* the header
-let sy    = contentTopPx;
-let first = true;
-
-while (sy < imgPixelHeight) {
-  const slicePx = Math.min(contentAreaPx, imgPixelHeight - sy);
-
-  // Full page canvas (header + content slice)
-  const pageCanvas  = document.createElement("canvas");
-  pageCanvas.width  = imgPixelWidth;
-  pageCanvas.height = pagePixelHeight;
-  const pctx        = pageCanvas.getContext("2d");
-
-  // Draw letterhead once per page
-  if (bgImg && bgImg.src) {
-    try {
-      pctx.drawImage(bgImg, 0, 0, pageCanvas.width, pageCanvas.height);
-    } catch (e) {
-      pctx.fillStyle = "transparent";
-      pctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+    let bgImg = null;
+    if (layoutData) {
+      bgImg = new Image();
+      bgImg.crossOrigin = "anonymous";
+      await new Promise((resolve) => {
+        bgImg.onload  = () => resolve();
+        bgImg.onerror = () => resolve();
+        bgImg.src     = layoutData;
+      });
     }
-  } else {
-    pctx.fillStyle = "transparent";
-    pctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-  }
 
-  // Take a slice from the big canvas that contains only the tables/content
-  const sliceCanvas  = document.createElement("canvas");
-  sliceCanvas.width  = imgPixelWidth;
-  sliceCanvas.height = slicePx;
-  const sctx         = sliceCanvas.getContext("2d");
+    // 5) Slicing loop:
+    //    - Reserve header space (letterhead) at the top of each page
+    //    - Only draw the CONTENT part of the big canvas (no second header)
+    const TOP_GAP_CSS_PX   = 265;                 // white box top in CSS px
+    // MUST match the scale you passed into html2canvas(.)
+    const contentTopPx     = Math.round(TOP_GAP_CSS_PX * HTML2CANVAS_SCALE);
 
-  sctx.drawImage(
-    canvas,
-    0, sy, imgPixelWidth, slicePx,   // source (big canvas)
-    0, 0, imgPixelWidth, slicePx     // dest   (sliceCanvas)
-  );
+    // full page height in *canvas* pixels
+    const pagePixelHeight  = Math.max(
+      1,
+      Math.round(pageImageHeightPt * pxPerPt)
+    );
 
-  // Draw that slice starting just below the header gap
-  pctx.drawImage(sliceCanvas, 0, contentTopPx);
+    // how many pixels per page are available for content,
+    // after leaving header gap `contentTopPx`
+    const contentAreaPx    = pagePixelHeight - contentTopPx;
 
-  // Add page image to PDF
-  const finalData     = pageCanvas.toDataURL("image/jpeg", 0.95);
-  const sliceHeightPt = pageCanvas.height / pxPerPt;
+    // start reading from the big canvas *below* the header
+    let sy    = contentTopPx;
+    let first = true;
 
-  if (!first) pdf.addPage();
-  pdf.addImage(
-    finalData,
-    "JPEG",
-    marginPt,
-    marginPt,
-    imgWidthPt,
-    sliceHeightPt
-  );
+    while (sy < imgPixelHeight) {
+      // default slice size
+      let slicePx = Math.min(contentAreaPx, imgPixelHeight - sy);
 
-  first = false;
-  sy   += slicePx;
-}
+      // 🔍 NEW: try to move the slice bottom to the nearest white row
+      const breakRow = findWhiteBreakRow(sy, slicePx, imgPixelWidth);
+      if (breakRow !== null && breakRow > sy + 10) {
+        slicePx = breakRow - sy;
+      }
 
-// cleanup wrapper after success
-try { wrapper.remove(); } catch (e) {}
+      // Full page canvas (header + content slice)
+      const pageCanvas  = document.createElement("canvas");
+      pageCanvas.width  = imgPixelWidth;
+      pageCanvas.height = pagePixelHeight;
+      const pctx        = pageCanvas.getContext("2d");
 
-const blob = pdf.output("blob");
-return blob;
+      // Draw letterhead once per page
+      if (bgImg && bgImg.src) {
+        try {
+          pctx.drawImage(bgImg, 0, 0, pageCanvas.width, pageCanvas.height);
+        } catch (e) {
+          pctx.fillStyle = "transparent";
+          pctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+        }
+      } else {
+        pctx.fillStyle = "transparent";
+        pctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+      }
+
+      // Take a slice from the big canvas that contains only the tables/content
+      const sliceCanvas  = document.createElement("canvas");
+      sliceCanvas.width  = imgPixelWidth;
+      sliceCanvas.height = slicePx;
+      const sctx         = sliceCanvas.getContext("2d");
+
+      sctx.drawImage(
+        canvas,
+        0, sy, imgPixelWidth, slicePx,   // source (big canvas)
+        0, 0, imgPixelWidth, slicePx     // dest   (sliceCanvas)
+      );
+
+      // Draw that slice starting just below the header gap
+      pctx.drawImage(sliceCanvas, 0, contentTopPx);
+
+      // Add page image to PDF
+      const finalData     = pageCanvas.toDataURL("image/jpeg", 0.95);
+      const sliceHeightPt = pageCanvas.height / pxPerPt;
+
+      if (!first) pdf.addPage();
+      pdf.addImage(
+        finalData,
+        "JPEG",
+        marginPt,
+        marginPt,
+        imgWidthPt,
+        sliceHeightPt
+      );
+
+      first = false;
+      sy   += slicePx;
+    }
+
+    // cleanup wrapper after success
+    try { wrapper.remove(); } catch (e) {}
+
+    const blob = pdf.output("blob");
+    return blob;
 
   } catch (err) {
     // ensure wrapper removed on error
@@ -2817,6 +2893,7 @@ return blob;
     throw err;
   }
 }
+
 
 
 
