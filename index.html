@@ -2444,38 +2444,17 @@ function getShortMonth(m) {
    ------------------------- */
 // --- NEW table-style PDF generator with centered white box over letterhead ---
 // --- PDF generator with smart "white row" page breaks ---
-async function createPdfBlobFromQuotation(q){
+// ===== NEW DOM–pagination PDF generator (no canvas slicing) =====
+async function createPdfBlobFromQuotation(q) {
   if (!q) throw new Error("No quotation data");
 
-  // Decide which letterhead to use
+  // Decide which letterhead to use (same logic as before)
   const layoutKey = (q && (q.invoiceId || q.invoiceId === 0))
     ? INVOICE_LAYOUT_KEY
     : QUOTATION_LAYOUT_KEY;
-
   const layoutData = localStorage.getItem(layoutKey) || "";
 
-  // Wrapper that html2canvas will capture
-  const wrapper = document.createElement("div");
-  wrapper.style.width  = "794px";   // A4 width @96dpi
-  wrapper.style.height = "1123px";  // A4 height @96dpi
-
-  wrapper.style.position       = "fixed";
-  wrapper.style.left           = "-9999px";
-  wrapper.style.top            = "0";
-  wrapper.style.zIndex         = "999999";
-  wrapper.style.pointerEvents  = "none";
-  wrapper.style.transform      = "none";
-  wrapper.style.overflow       = "hidden";
-  wrapper.style.display        = "block";
-  wrapper.style.background     = "transparent";
-  wrapper.style.boxSizing      = "border-box";
-
-  // ===== TABLE STYLES =====
-  const tableStyle   = "width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:14px;font-size:13px;background:transparent;";
-  const tdLabelStyle = "border:1px solid #000;padding:6px 8px;width:28%;vertical-align:top;word-wrap:break-word;white-space:normal;text-align:left;background:transparent;";
-  const tdValueStyle = "border:1px solid #000;padding:6px 8px;width:47%;vertical-align:middle;word-wrap:break-word;white-space:normal;text-align:center;background:transparent;";
-  const tdPriceStyle = "border:1px solid #000;padding:6px 8px;width:25%;vertical-align:middle;word-wrap:break-word;white-space:normal;text-align:right;font-weight:bold;background:transparent;";
-
+  // ---- helpers for amounts (same behaviour as before) ----
   function indianFormat(num) {
     const x = Number(num || 0);
     if (!x) return "0";
@@ -2486,51 +2465,103 @@ async function createPdfBlobFromQuotation(q){
     const formattedRest = rest.replace(/\B(?=(\d{2})+(?!\d))/g, ",");
     return formattedRest + "," + last3;
   }
+
   function fmtPriceForDetailRow(num) {
     const n = Number(num || 0);
     if (!n) return "-NA-";
     return "Rs. " + indianFormat(n);
   }
+
   function fmtPrice(num) {
     const n = Number(num || 0);
     if (!n) return "";
     return "Rs. " + indianFormat(n);
   }
 
-  // White box over letterhead
-  let html = `
-    <div style="
-      position: absolute;
-      top: 265px;
-      left: 30px;
-      right: 30px;
-      padding: 20px 25px;
-      background: transparent;
-      border-radius: 6px;
-    ">
+  // ---- create a full A4 page with letterhead + content box ----
+  function createPdfPage() {
+    const page = document.createElement("div");
+    page.className = "pdf-page";
+
+    // A4 at 96dpi: 794 x 1123
+    page.style.width = "794px";
+    page.style.height = "1123px";
+    page.style.position = "relative";
+    page.style.boxSizing = "border-box";
+    page.style.overflow = "hidden";
+    page.style.backgroundColor = "#ffffff";
+
+    if (layoutData) {
+      // letterhead as background
+      page.style.backgroundImage = `url(${layoutData})`;
+      page.style.backgroundSize = "cover";
+      page.style.backgroundRepeat = "no-repeat";
+      page.style.backgroundPosition = "top left";
+    }
+
+    const content = document.createElement("div");
+    content.className = "pdf-content";
+
+    // same white box position as before
+    content.style.position = "absolute";
+    content.style.top = "265px";
+    content.style.left = "30px";
+    content.style.right = "30px";
+    content.style.bottom = "40px";   // bottom margin
+    content.style.padding = "20px 25px";
+    content.style.background = "transparent";
+    content.style.boxSizing = "border-box";
+    content.style.fontFamily = "sans-serif";
+    content.style.fontSize = "13px";
+
+    page.appendChild(content);
+    return { page, content };
+  }
+
+  // ---- build individual BLOCKS (tables) as DOM nodes ----
+
+  const tableStyle =
+    "width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:14px;font-size:13px;background:transparent;";
+  const tdLabelStyle =
+    "border:1px solid #000;padding:6px 8px;width:28%;vertical-align:top;word-wrap:break-word;white-space:normal;text-align:left;background:transparent;";
+  const tdValueStyle =
+    "border:1px solid #000;padding:6px 8px;width:47%;vertical-align:middle;word-wrap:break-word;white-space:normal;text-align:center;background:transparent;";
+  const tdPriceStyle =
+    "border:1px solid #000;padding:6px 8px;width:25%;vertical-align:middle;word-wrap:break-word;white-space:normal;text-align:right;font-weight:bold;background:transparent;";
+
+  function makeBlock(html) {
+    const wrap = document.createElement("div");
+    wrap.innerHTML = html.trim();
+    // return the first element node inside
+    return wrap.firstElementChild;
+  }
+
+  const blocks = [];
+
+  // 1) Client details table
+  const clientTableHTML = `
+    <table style="${tableStyle}">
+      <tr>
+        <td style="${tdLabelStyle}; font-size:16px;">Client Name</td>
+        <td colspan="2" style="${tdValueStyle}">
+          <span style="color:#AA336A; font-weight:bold; font-size:16px;">
+            ${(q.clientName || "").toString().replace(/</g, "&lt;")}
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td style="${tdLabelStyle}; font-size:16px;">Client Contact</td>
+        <td colspan="2" style="${tdValueStyle}">
+          <span style="color:#AA336A; font-weight:bold; font-size:16px;">
+            ${(q.clientContact || "").toString().replace(/</g, "&lt;")}
+          </span>
+        </td>
+      </tr>
+    </table>
   `;
+  blocks.push(makeBlock(clientTableHTML));
 
-  // ---------- 1) CLIENT DETAILS ----------
-  html += `<table style="${tableStyle}">`;
-  html += `<tr>
-    <td style="${tdLabelStyle}; font-size:16px;">Client Name</td>
-    <td colspan="2" style="${tdValueStyle}">
-      <span style="color:#AA336A; font-weight:bold; font-size:16px;">
-        ${(q.clientName || "").toString().replace(/</g,"&lt;")}
-      </span>
-    </td>
-  </tr>`;
-  html += `<tr>
-    <td style="${tdLabelStyle}; font-size:16px;">Client Contact</td>
-    <td colspan="2" style="${tdValueStyle}">
-      <span style="color:#AA336A; font-weight:bold; font-size:16px;">
-        ${(q.clientContact || "").toString().replace(/</g,"&lt;")}
-      </span>
-    </td>
-  </tr>`;
-  html += `</table>`;
-
-  // ---------- 2) EVENT TABLE(S) ----------
+  // 2) Event tables
   const events = Array.isArray(q.events) ? q.events : [];
   events.forEach((ev, index) => {
     const eName       = (ev.name        || "").toString();
@@ -2546,325 +2577,202 @@ async function createPdfBlobFromQuotation(q){
     const addOnPrice     = Number(ev.addOnPrice     || 0);
     const transportPrice = Number(ev.transportPrice || 0);
 
-    html += `<table style="${tableStyle}">`;
-    html += `<tr>
-      <td style="${tdLabelStyle}">Event #</td>
-      <td style="${tdValueStyle}">${index + 1}</td>
-      <td style="${tdPriceStyle}">${fmtPriceForDetailRow(pkgPrice + addOnPrice + transportPrice)}</td>
-    </tr>`;
-    html += `<tr>
-      <td style="${tdLabelStyle}">Event Name</td>
-      <td colspan="2" style="${tdValueStyle}">
-        ${eName.replace(/</g,"&lt;")}
-      </td>
-    </tr>`;
-    html += `<tr>
-      <td style="${tdLabelStyle}">Date</td>
-      <td colspan="2" style="${tdValueStyle}">
-        ${displayDate.replace(/</g,"&lt;")}
-      </td>
-    </tr>`;
-    html += `<tr>
-      <td style="${tdLabelStyle}">Time</td>
-      <td colspan="2" style="${tdValueStyle}">
-        ${eTime.replace(/</g,"&lt;")}
-      </td>
-    </tr>`;
-    html += `<tr>
-      <td style="${tdLabelStyle}">Location</td>
-      <td colspan="2" style="${tdValueStyle}">
-        ${eLocation.replace(/</g,"&lt;")}
-      </td>
-    </tr>`;
+    let html = `<table style="${tableStyle}">`;
+
+    html += `
+      <tr>
+        <td style="${tdLabelStyle}">Event #</td>
+        <td style="${tdValueStyle}">${index + 1}</td>
+        <td style="${tdPriceStyle}">${fmtPriceForDetailRow(pkgPrice + addOnPrice + transportPrice)}</td>
+      </tr>
+      <tr>
+        <td style="${tdLabelStyle}">Event Name</td>
+        <td colspan="2" style="${tdValueStyle}">
+          ${eName.replace(/</g, "&lt;")}
+        </td>
+      </tr>
+      <tr>
+        <td style="${tdLabelStyle}">Date</td>
+        <td colspan="2" style="${tdValueStyle}">
+          ${displayDate.replace(/</g, "&lt;")}
+        </td>
+      </tr>
+      <tr>
+        <td style="${tdLabelStyle}">Time</td>
+        <td colspan="2" style="${tdValueStyle}">
+          ${eTime.replace(/</g, "&lt;")}
+        </td>
+      </tr>
+      <tr>
+        <td style="${tdLabelStyle}">Location</td>
+        <td colspan="2" style="${tdValueStyle}">
+          ${eLocation.replace(/</g, "&lt;")}
+        </td>
+      </tr>
+    `;
 
     if (pkgName || pkgPrice) {
-      html += `<tr>
-        <td style="${tdLabelStyle}">Package</td>
-        <td style="${tdValueStyle}">
-          ${pkgName.replace(/</g,"&lt;")}
-        </td>
-        <td style="${tdPriceStyle}">
-          ${fmtPriceForDetailRow(pkgPrice)}
-        </td>
-      </tr>`;
+      html += `
+        <tr>
+          <td style="${tdLabelStyle}">Package</td>
+          <td style="${tdValueStyle}">
+            ${pkgName.replace(/</g, "&lt;")}
+          </td>
+          <td style="${tdPriceStyle}">
+            ${fmtPriceForDetailRow(pkgPrice)}
+          </td>
+        </tr>
+      `;
     }
 
     if (addonData || addOnPrice) {
-      html += `<tr>
-        <td style="${tdLabelStyle}">Add-ons</td>
-        <td style="${tdValueStyle}">
-          ${addonData.replace(/</g,"&lt;")}
-        </td>
-        <td style="${tdPriceStyle}">
-          ${fmtPriceForDetailRow(addOnPrice)}
-        </td>
-      </tr>`;
+      html += `
+        <tr>
+          <td style="${tdLabelStyle}">Add-ons</td>
+          <td style="${tdValueStyle}">
+            ${addonData.replace(/</g, "&lt;")}
+          </td>
+          <td style="${tdPriceStyle}">
+            ${fmtPriceForDetailRow(addOnPrice)}
+          </td>
+        </tr>
+      `;
     }
 
     if (transportPrice) {
-      html += `<tr>
-        <td style="${tdLabelStyle}">Transport</td>
-        <td style="${tdValueStyle}">As discussed</td>
-        <td style="${tdPriceStyle}">
-          ${fmtPriceForDetailRow(transportPrice)}
-        </td>
-      </tr>`;
+      html += `
+        <tr>
+          <td style="${tdLabelStyle}">Transport</td>
+          <td style="${tdValueStyle}">As discussed</td>
+          <td style="${tdPriceStyle}">
+            ${fmtPriceForDetailRow(transportPrice)}
+          </td>
+        </tr>
+      `;
     }
 
     if (eNotes) {
-      html += `<tr>
-        <td style="${tdLabelStyle}">Complimentary</td>
-        <td colspan="2" style="${tdValueStyle}">
-          ${eNotes.replace(/</g,"&lt;")}
-        </td>
-      </tr>`;
+      html += `
+        <tr>
+          <td style="${tdLabelStyle}">Complimentary</td>
+          <td colspan="2" style="${tdValueStyle}">
+            ${eNotes.replace(/</g, "&lt;")}
+          </td>
+        </tr>
+      `;
     }
 
     html += `</table>`;
+    blocks.push(makeBlock(html));
   });
 
-  // ---------- 3) PRICE SUMMARY ----------
+  // 3) Summary title + table as two blocks so title can move with its table
+  const isInvoice = !!(q && (q.invoiceId || q.invoiceId === 0));
   const actual   = Number(q.actual   || 0);
   const discount = Number(q.discount || 0);
   const finalAmt = Number(q.final    || 0);
-  const isInvoice = !!(q && (q.invoiceId || q.invoiceId === 0));
 
-  html += `<div style="font-weight:bold; font-size:15px; margin:10px 0 6px 2px;">
-    ${isInvoice ? "Invoice Summary" : "Quotation Summary"}
-  </div>`;
-  html += `<table style="${tableStyle}">`;
+  const summaryTitle = document.createElement("div");
+  summaryTitle.style.fontWeight = "bold";
+  summaryTitle.style.fontSize = "15px";
+  summaryTitle.style.margin = "10px 0 6px 2px";
+  summaryTitle.textContent = isInvoice ? "Invoice Summary" : "Quotation Summary";
+  blocks.push(summaryTitle);
 
+  let summaryHTML = `<table style="${tableStyle}">`;
   if (discount > 0) {
-    html += `<tr>
-      <td style="${tdLabelStyle}">Actual Price</td>
-      <td style="${tdValueStyle}"></td>
-      <td style="${tdPriceStyle}">${fmtPrice(actual)}</td>
-    </tr>`;
-    html += `<tr>
-      <td style="${tdLabelStyle}">Discount</td>
-      <td style="${tdValueStyle}"></td>
-      <td style="${tdPriceStyle}">${fmtPrice(discount)}</td>
-    </tr>`;
+    summaryHTML += `
+      <tr>
+        <td style="${tdLabelStyle}">Actual Price</td>
+        <td style="${tdValueStyle}"></td>
+        <td style="${tdPriceStyle}">${fmtPrice(actual)}</td>
+      </tr>
+      <tr>
+        <td style="${tdLabelStyle}">Discount</td>
+        <td style="${tdValueStyle}"></td>
+        <td style="${tdPriceStyle}">${fmtPrice(discount)}</td>
+      </tr>
+    `;
   }
+  summaryHTML += `
+    <tr>
+      <td style="${tdLabelStyle}">Final Price</td>
+      <td style="${tdValueStyle}"></td>
+      <td style="${tdPriceStyle}">${fmtPrice(finalAmt)}</td>
+    </tr>
+  `;
+  summaryHTML += `</table>`;
+  blocks.push(makeBlock(summaryHTML));
 
-  html += `<tr>
-    <td style="${tdLabelStyle}">Final Price</td>
-    <td style="${tdValueStyle}"></td>
-    <td style="${tdPriceStyle}">${fmtPrice(finalAmt)}</td>
-  </tr>`;
+  // ---- Build paginated pages in an off-screen root ----
+  const root = document.createElement("div");
+  root.style.position = "fixed";
+  root.style.left = "-99999px";
+  root.style.top = "0";
+  root.style.zIndex = "999999";
+  root.style.width = "794px";
+  root.style.boxSizing = "border-box";
+  document.body.appendChild(root);
 
-  html += `</table>`;
-  html += `</div>`; // end inner white box
+  let { page: currentPage, content: currentContent } = createPdfPage();
+  root.appendChild(currentPage);
 
-  const contentWrapper = document.createElement("div");
-  contentWrapper.style.position = "relative";
-  contentWrapper.style.zIndex   = "1";
-  contentWrapper.innerHTML      = html;
-  wrapper.appendChild(contentWrapper);
-  document.body.appendChild(wrapper);
+  const CONTENT_MAX_HEIGHT = () => currentContent.clientHeight || 0;
+
+  blocks.forEach(block => {
+    currentContent.appendChild(block);
+    const maxH = CONTENT_MAX_HEIGHT();
+    if (currentContent.scrollHeight > maxH + 1) {
+      // doesn’t fit → move block to next page
+      currentContent.removeChild(block);
+      ({ page: currentPage, content: currentContent } = createPdfPage());
+      root.appendChild(currentPage);
+      currentContent.appendChild(block);
+    }
+  });
 
   try {
-    // --- height adjust (unchanged) ---
-    try {
-      await new Promise(r => requestAnimationFrame(r));
-      const contentHeight =
-        contentWrapper.scrollHeight ||
-        contentWrapper.offsetHeight ||
-        contentWrapper.getBoundingClientRect().height;
+    // ---- Capture each page with html2canvas and add to jsPDF ----
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF("p", "pt", "a4");
 
-      const extraPad     = 24;
-      const minBase      = parseInt(wrapper.style.minHeight, 10) || 1123;
-      const fullHeightPx = Math.max(contentHeight + extraPad, minBase);
-
-      wrapper.style.height    = fullHeightPx + "px";
-      wrapper.style.minHeight = fullHeightPx + "px";
-      wrapper.style.overflow  = "visible";
-
-      await new Promise(r => setTimeout(r, 60));
-    } catch(e){}
-
-    // --- clone & capture (unchanged) ---
-    const clone = wrapper.cloneNode(true);
-    clone.style.position = "absolute";
-    clone.style.left     = "-99999px";
-    clone.style.top      = "0";
-    clone.style.width    = wrapper.style.width || "794px";
-    clone.style.height   = wrapper.style.height || wrapper.style.minHeight || "1123px";
-    clone.style.overflow = "visible";
-    document.body.appendChild(clone);
-
-    await new Promise(r => requestAnimationFrame(r));
-    await new Promise(r => setTimeout(r, 80));
-
-    if (typeof html2canvas !== "function") {
-      clone.remove();
-      wrapper.remove();
-      throw new Error("html2canvas is not loaded.");
-    }
-
+    const pageEls = Array.from(root.querySelectorAll(".pdf-page"));
     const HTML2CANVAS_SCALE = 2;
 
-    const canvas = await html2canvas(clone, {
-      scale:           HTML2CANVAS_SCALE,
-      useCORS:         true,
-      allowTaint:      true,
-      logging:         false,
-      backgroundColor: null
-    });
+    for (let i = 0; i < pageEls.length; i++) {
+      const pageEl = pageEls[i];
 
-    clone.remove();
+      // small delay to let layout settle
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise(r => requestAnimationFrame(r));
 
-    // ========= UPDATED: smart "low-ink row" detection =========
-    const ctx = canvas.getContext("2d");
-
-    // treat row as "blank enough" if >= 95% bright/transparent pixels
-    function isRowMostlyBlank(y, width) {
-      const stepX = 4;
-      const data = ctx.getImageData(0, y, width, 1).data;
-      let brightOrTransparent = 0;
-      let total = 0;
-
-      for (let x = 0; x < width; x += stepX) {
-        const i = x * 4;
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
-        const a = data[i + 3];
-
-        const brightness = (r + g + b) / 3;
-        const isBright   = brightness > 240; // very light
-        const isTrans    = a < 15;          // transparent pixel (from your transparent rows)
-
-        if (isBright || isTrans) brightOrTransparent++;
-        total++;
-      }
-
-      if (!total) return false;
-      return (brightOrTransparent / total) >= 0.95;
-    }
-
-    function findWhiteBreakRow(startY, maxHeight, width) {
-      const imgH   = canvas.height;
-      const endY   = Math.min(startY + maxHeight, imgH - 2);
-      const minY   = startY + 5;  // allow break even if only small gap
-      for (let y = endY; y >= minY; y--) {
-        if (isRowMostlyBlank(y, width)) return y;
-      }
-      return null;
-    }
-    // ==========================================================
-
-    // 3) PDF sizing (unchanged)
-    const { jsPDF } = window.jspdf;
-    const pdf       = new jsPDF("p", "pt", "a4");
-
-    const pageWidthPt       = pdf.internal.pageSize.getWidth();
-    const pageHeightPt      = pdf.internal.pageSize.getHeight();
-    const marginPt          = 20;
-    const usableWidthPt     = pageWidthPt - marginPt * 2;
-
-    const imgPixelWidth     = canvas.width;
-    const imgPixelHeight    = canvas.height;
-
-    const imgWidthPt        = usableWidthPt;
-    const imgHeightPt       = (imgPixelHeight * imgWidthPt) / imgPixelWidth;
-
-    const pxPerPt           = imgPixelHeight / imgHeightPt;
-    const pageImageHeightPt = pageHeightPt - marginPt * 2;
-
-    // 4) letterhead image (unchanged)
-    let bgImg = null;
-    if (layoutData) {
-      bgImg = new Image();
-      bgImg.crossOrigin = "anonymous";
-      await new Promise(resolve => {
-        bgImg.onload  = () => resolve();
-        bgImg.onerror = () => resolve();
-        bgImg.src     = layoutData;
+      // eslint-disable-next-line no-await-in-loop
+      const canvas = await html2canvas(pageEl, {
+        scale: HTML2CANVAS_SCALE,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        backgroundColor: "#ffffff"
       });
+
+      const imgData = canvas.toDataURL("image/jpeg", 0.95);
+      const pw = pdf.internal.pageSize.getWidth();
+      const ph = pdf.internal.pageSize.getHeight();
+
+      if (i > 0) pdf.addPage();
+      pdf.addImage(imgData, "JPEG", 0, 0, pw, ph);
     }
 
-    // 5) slicing loop (only slice boundary changed)
-    const TOP_GAP_CSS_PX   = 265;
-    const contentTopPx     = Math.round(TOP_GAP_CSS_PX * HTML2CANVAS_SCALE);
-
-    const pagePixelHeight  = Math.max(
-      1,
-      Math.round(pageImageHeightPt * pxPerPt)
-    );
-    const contentAreaPx    = pagePixelHeight - contentTopPx;
-
-    let sy    = contentTopPx;
-    let first = true;
-
-    while (sy < imgPixelHeight) {
-      let slicePx = Math.min(contentAreaPx, imgPixelHeight - sy);
-
-      const breakRow = findWhiteBreakRow(sy, slicePx, imgPixelWidth);
-      if (breakRow !== null && breakRow > sy + 5) {
-        slicePx = breakRow - sy;
-      }
-
-      const pageCanvas  = document.createElement("canvas");
-      pageCanvas.width  = imgPixelWidth;
-      pageCanvas.height = pagePixelHeight;
-      const pctx        = pageCanvas.getContext("2d");
-
-      if (bgImg && bgImg.src) {
-        try {
-          pctx.drawImage(bgImg, 0, 0, pageCanvas.width, pageCanvas.height);
-        } catch(e) {
-          pctx.fillStyle = "transparent";
-          pctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-        }
-      } else {
-        pctx.fillStyle = "transparent";
-        pctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-      }
-
-      const sliceCanvas  = document.createElement("canvas");
-      sliceCanvas.width  = imgPixelWidth;
-      sliceCanvas.height = slicePx;
-      const sctx         = sliceCanvas.getContext("2d");
-
-      sctx.drawImage(
-        canvas,
-        0, sy, imgPixelWidth, slicePx,
-        0, 0, imgPixelWidth, slicePx
-      );
-
-      pctx.drawImage(sliceCanvas, 0, contentTopPx);
-
-      const finalData     = pageCanvas.toDataURL("image/jpeg", 0.95);
-      const sliceHeightPt = pageCanvas.height / pxPerPt;
-
-      if (!first) pdf.addPage();
-      pdf.addImage(
-        finalData,
-        "JPEG",
-        marginPt,
-        marginPt,
-        imgWidthPt,
-        sliceHeightPt
-      );
-
-      first = false;
-      sy   += slicePx;
-    }
-
-    try { wrapper.remove(); } catch(e){}
     const blob = pdf.output("blob");
+    root.remove();
     return blob;
 
-  } catch(err){
-    try { wrapper.remove(); } catch(e){}
-    console.error("createPdfBlobFromQuotation error:", err);
+  } catch (err) {
+    console.error("createPdfBlobFromQuotation (DOM pagination) error:", err);
+    root.remove();
     throw err;
   }
 }
-
-
-
 
 
 
