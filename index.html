@@ -2503,7 +2503,7 @@ async function createPdfBlobFromQuotation(q) {
 
     // same white box position as before
     content.style.position = "absolute";
-    content.style.top = "255px";
+    content.style.top = isFirstPage ? "265px" : "265px";
     content.style.left = "30px";
     content.style.right = "30px";
     content.style.bottom = "40px";   // bottom margin
@@ -2682,7 +2682,7 @@ blocks.push(eventBlock);
   root.style.boxSizing = "border-box";
   document.body.appendChild(root);
 
-  let { page: currentPage, content: currentContent } = createPdfPage();
+  let ({ page: currentPage, content: currentContent } = createPdfPage(false));
   root.appendChild(currentPage);
 
   const CONTENT_MAX_HEIGHT = () => currentContent.clientHeight || 0;
