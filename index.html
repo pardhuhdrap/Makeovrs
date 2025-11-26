@@ -2604,7 +2604,7 @@ html += `
     html += `
       <tr>
         <td style="${tdLabelStyle}">Date &amp; Time</td>
-        <td style="${tdValueStyle}">
+        <td colspan="2" style="${tdValueStyle}">
           ${(displayDate || "-")}${
             eTime ? (" | " + eTime.replace(/</g,"&lt;")) : ""
           }
