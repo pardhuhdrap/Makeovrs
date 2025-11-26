@@ -2703,7 +2703,7 @@ const tdPriceStyle = "border:1px solid #000;padding:6px 8px;width:25%;vertical-a
 
     const pageWidthPt       = pdf.internal.pageSize.getWidth();
     const pageHeightPt      = pdf.internal.pageSize.getHeight();
-    const marginPt          = 15;
+    const marginPt          = 20;
     const usableWidthPt     = pageWidthPt - marginPt * 2;
 
     const imgPixelWidth     = canvas.width;
@@ -2713,7 +2713,7 @@ const tdPriceStyle = "border:1px solid #000;padding:6px 8px;width:25%;vertical-a
     const imgHeightPt       = (imgPixelHeight * imgWidthPt) / imgPixelWidth;
 
     const pxPerPt           = imgPixelHeight / imgHeightPt;
-    const pageImageHeightPt = pageHeightPt - marginPt * 2;
+    const pageImageHeightPt = pageHeightPt - marginPt * 3;
 
     // 4) Preload letterhead image once (quotation / invoice layout)
     // 4) Preload letterhead image once (kept so we can draw header on every page)
