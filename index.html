@@ -1382,238 +1382,6 @@ function refreshPanelsMasterData(){
 }
 
 /* -------------------------
-   Calendar popup (event list)
-   - robust lookup for events (handles old entries without eventId)
-   - shows time and location
-   - includes button to open full quotation
-   ------------------------- */
-function openCalendarDatePopup(dateISO) {
-  // Ensure eventIds persist for older entries (persist on demand)
-  persistMissingEventIds();
-
-  const idx = buildCalendarEventIndex();
-  const events = idx[dateISO] || [];
-  const container = document.getElementById('calendarPopupContainer');
-  container.innerHTML = '';
-  container.classList.remove('hidden');
-
-  const popup = document.createElement('div');
-  popup.className = 'calendar-popup';
-
-  const header = document.createElement('div');
-  header.innerHTML = `
-    <h3>Events on ${dateISO}</h3>
-    <div style="font-size:13px;color:#666;margin-bottom:8px">
-      ${events.length} event(s)
-    </div>`;
-  popup.appendChild(header);
-
-  if (events.length === 0) {
-    const p = document.createElement('div');
-    p.className = 'p-2 text-sm text-gray-600';
-    p.textContent = 'No events on this date.';
-    popup.appendChild(p);
-  } else {
-    events.forEach(ev => {
-      const row = document.createElement('div');
-      row.className = 'event-row';
-
-      const meta = document.createElement('div');
-      meta.className = 'meta';
-
-      const detailsHtml = `
-        <div class="details">
-          <div><strong>${ev.clientName || ''}</strong></div>
-          <div class="small" style="display:flex;align-items:center;gap:4px;">
-            <span>${ev.clientContact || ''}</span>
-            ${ev.clientContact ? `
-              <button type="button"
-                      class="inline-flex items-center justify-center rounded-full border px-1.5 py-0.5 text-[11px]"
-                      data-contact="${(ev.clientContact || '').replace(/"/g, '&quot;')}"
-                      onclick="openContactOptions(this.dataset.contact)">
-                <i data-lucide="phone-call" class="w-3 h-3"></i>
-              </button>
-            ` : ''}
-          </div>
-        </div>
-
-        <div class="small">
-          ${ev.eventName || '(No name)'} • 
-          ${ev.time ? 'Time: ' + ev.time : ''}
-          ${ev.location ? (ev.time ? ' • ' : '') + 'Location: ' + ev.location : ''}
-        </div>
-      `;
-
-      meta.innerHTML = detailsHtml;
-
-      const controls = document.createElement('div');
-      controls.style.textAlign = 'right';
-
-      const checkboxId =
-        'cb_' + (ev.eventId || Math.random().toString(36).slice(2, 8));
-      const bookChecked = ev.booked ? 'checked' : '';
-
-      controls.innerHTML = `
-        <div style="margin-bottom:6px">
-          <label style="display:flex;align-items:center;gap:8px">
-            <input id="${checkboxId}"
-                   type="checkbox"
-                   class="calendar-book-checkbox"
-                   data-eventid="${ev.eventId || ''}"
-                   ${bookChecked} />
-            Booked
-          </label>
-        </div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;">
-          <button class="py-1 px-2 rounded border text-sm"
-                  onclick="openQuotationViewerById('${ev.quotationId}')">
-            View Quotation
-          </button>
-        </div>
-      `;
-
-      row.appendChild(meta);
-      row.appendChild(controls);
-      popup.appendChild(row);
-    });
-
-    const note = document.createElement('div');
-    note.style.fontSize = '12px';
-    note.style.color = '#444';
-    note.style.marginTop = '8px';
-    note.innerHTML = `
-      <strong>Deduplication:</strong>
-      If a client has multiple quotations with identical contact, only the newest
-      quotation is shown in the calendar. If contact differs, multiple quotations
-      are shown.
-    `;
-    popup.appendChild(note);
-  }
-
-  const actions = document.createElement('div');
-  actions.style.marginTop = '12px';
-  actions.style.display = 'flex';
-  actions.style.justifyContent = 'space-between';
-
-  const closeBtn = document.createElement('button');
-  closeBtn.className = 'py-2 px-3 rounded border';
-  closeBtn.textContent = 'Close';
-  closeBtn.onclick = () => {
-    container.innerHTML = '';
-    container.classList.add('hidden');
-    renderCalendar();
-  };
-
-  actions.appendChild(closeBtn);
-  popup.appendChild(actions);
-
-  container.appendChild(popup);
-  createLucide();
-
-  // 🔁 Wire "Booked" checkboxes
-  popup.querySelectorAll('.calendar-book-checkbox').forEach(cb => {
-    cb.addEventListener('change', (e) => {
-      const checked = e.target.checked;
-      const eventId = e.target.dataset.eventid;
-
-      const idx2 = buildCalendarEventIndex();
-      let evObj = null;
-
-      // 1) Find event by eventId
-      if (eventId) {
-        for (const date in idx2) {
-          const arr = idx2[date];
-          for (const it of arr) {
-            if (it.eventId === eventId) {
-              evObj = it;
-              break;
-            }
-          }
-          if (evObj) break;
-        }
-      }
-
-      // 2) Fallback: by row text (older data)
-      if (!evObj) {
-        const row = e.target.closest('.event-row');
-        if (row) {
-          const nameText =
-            (row.querySelector('.details strong')?.textContent || '').trim();
-          if (nameText) {
-            for (const date in idx2) {
-              const arr = idx2[date];
-              for (const it of arr) {
-                if (it.eventName === nameText) {
-                  evObj = it;
-                  break;
-                }
-              }
-              if (evObj) break;
-            }
-          }
-        }
-      }
-
-      if (!evObj) {
-        alert('Event metadata not found. (This should not happen — please check console.)');
-        console.error('Calendar: event not found for checkbox', e.target);
-        return;
-      }
-
-      // How many events does this quotation have?
-      let quotationEventCount = 0;
-      for (const d in idx2) {
-        const arr = idx2[d];
-        quotationEventCount += arr.filter(it => it.quotationId === evObj.quotationId).length;
-      }
-      const hasMultipleEvents = quotationEventCount > 1;
-
-      if (checked) {
-        // Marking as booked
-        if (hasMultipleEvents) {
-          const yesWhole = confirm(
-            "Are whole event's booked as per quotation? (Yes = mark all events in this quotation as booked)"
-          );
-          if (yesWhole) {
-            setQuotationBookings(evObj.quotationId, true);
-          } else {
-            setSingleEventBooking(evObj.eventId, true);
-          }
-        } else {
-          // Single-event quotation: just mark this event
-          setSingleEventBooking(evObj.eventId, true);
-        }
-      } else {
-        // Unmarking booked
-        if (hasMultipleEvents) {
-          const yesWhole = confirm(
-            "Unmark whole quotation's events as booked? (Yes = unmark all events of this quotation)"
-          );
-          if (yesWhole) {
-            setQuotationBookings(evObj.quotationId, false);
-          } else {
-            setSingleEventBooking(evObj.eventId, false);
-          }
-        } else {
-          // Single-event quotation: just unmark this event
-          setSingleEventBooking(evObj.eventId, false);
-        }
-      }
-
-      // Re-render popup + calendar to reflect new state
-      openCalendarDatePopup(dateISO);
-      renderCalendar();
-
-      // Optional: auto-save to Drive
-      if (typeof autoSaveDrive === 'function') {
-        autoSaveDrive('calendar booking changed');
-      }
-    });
-  });
-}
-
-
-/* -------------------------
    Calendar data index & dedupe
    ------------------------- */
 /* Deduplicate quotations by clientName + clientContact (keep latest) */
@@ -1866,6 +1634,178 @@ function changeMonth(delta){
 
 
 /* -------------------------
+   Calendar popup (event list)
+   - robust lookup for events (handles old entries without eventId)
+   - shows time and location
+   - includes button to open full quotation
+   ------------------------- */
+function openCalendarDatePopup(dateISO){
+  // Ensure eventIds persist for older entries (persist on demand)
+  persistMissingEventIds();
+
+  const idx = buildCalendarEventIndex();
+  const events = idx[dateISO] || [];
+  const container = document.getElementById('calendarPopupContainer');
+  container.innerHTML = ''; container.classList.remove('hidden');
+
+  const popup = document.createElement('div'); popup.className='calendar-popup';
+  const header = document.createElement('div');
+  header.innerHTML = `<h3>Events on ${dateISO}</h3><div style="font-size:13px;color:#666;margin-bottom:8px">${events.length} event(s)</div>`;
+  popup.appendChild(header);
+
+  if(events.length === 0){
+    const p = document.createElement('div'); p.className='p-2 text-sm text-gray-600'; p.textContent = 'No events on this date.'; popup.appendChild(p);
+  } else {
+    events.forEach(ev=>{
+      const row = document.createElement('div'); row.className='event-row';
+      const meta = document.createElement('div'); meta.className='meta';
+      const detailsHtml = `
+  <div class="details">
+    <div><strong>${ev.clientName || ''}</strong></div>
+    <div class="small" style="display:flex;align-items:center;gap:4px;">
+      <span>${ev.clientContact || ''}</span>
+      ${ev.clientContact ? `
+        <button type="button"
+                class="inline-flex items-center justify-center rounded-full border px-1.5 py-0.5 text-[11px]"
+                data-contact="${(ev.clientContact || '').replace(/"/g, '&quot;')}"
+                onclick="openContactOptions(this.dataset.contact)">
+          <i data-lucide="phone-call" class="w-3 h-3"></i>
+        </button>
+      ` : ''}
+    </div>
+  </div>
+
+  <div class="small"> ||
+    ${ev.eventName || '(No name)'} • 	
+    ${ev.time ? 'Time: ' + ev.time : ''}
+    ${ev.location ? (ev.time ? ' • ' : '') + 'Location: ' + ev.location : ''}
+  </div>
+`;
+
+      meta.innerHTML = detailsHtml;
+      const controls = document.createElement('div'); controls.style.textAlign='right';
+      const checkboxId = 'cb_' + (ev.eventId || Math.random().toString(36).slice(2,8));
+      const bookChecked = ev.booked ? 'checked' : '';
+      controls.innerHTML = `<div style="margin-bottom:6px"><label style="display:flex;align-items:center;gap:8px"><input id="${checkboxId}" type="checkbox" class="calendar-book-checkbox" data-eventid="${ev.eventId||''}" ${bookChecked} /> Booked</label></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;"><button class="py-1 px-2 rounded border text-sm" onclick="openQuotationViewerById('${ev.quotationId}')">View Quotation</button></div>`;
+      row.appendChild(meta); row.appendChild(controls);
+      popup.appendChild(row);
+    });
+
+    const note = document.createElement('div'); note.style.fontSize='12px'; note.style.color='#444'; note.style.marginTop='8px';
+    note.innerHTML = `<strong>Deduplication:</strong> If a client has multiple quotations with identical contact, only the newest quotation is shown in the calendar. If contact differs, multiple quotations are shown.`;
+    popup.appendChild(note);
+  }
+
+  const actions = document.createElement('div'); actions.style.marginTop='12px'; actions.style.display='flex'; actions.style.justifyContent='space-between';
+  const closeBtn = document.createElement('button'); closeBtn.className='py-2 px-3 rounded border'; closeBtn.textContent='Close';
+  closeBtn.onclick = ()=>{ container.innerHTML=''; container.classList.add('hidden'); renderCalendar(); };
+  actions.appendChild(closeBtn);
+  popup.appendChild(actions);
+
+  container.appendChild(popup);
+  createLucide();
+
+    // wire checkboxes robustly
+  popup.querySelectorAll('.calendar-book-checkbox').forEach(cb=>{
+    cb.addEventListener('change', async (e)=>{
+      const checked = e.target.checked;
+      const eventId = e.target.dataset.eventid;
+
+      // Build index to find event object & quotation id
+      const idx2 = buildCalendarEventIndex();
+
+      // Search by eventId first
+      let evObj = null;
+      if (eventId) {
+        for (const date in idx2) {
+          const arr = idx2[date];
+          for (const it of arr) {
+            if (it.eventId === eventId) {
+              evObj = it;
+              break;
+            }
+          }
+          if (evObj) break;
+        }
+      }
+
+      // fallback: try to find by row text (existing logic)
+      if (!evObj) {
+        const row = e.target.closest('.event-row');
+        if (row) {
+          const nameText  = (row.querySelector('.details strong')?.textContent || '').trim();
+          const smallText = (row.querySelector('.small')?.textContent || '').trim();
+          if (nameText) {
+            for (const date in idx2) {
+              const arr = idx2[date];
+              for (const it of arr) {
+                if (it.eventName === nameText /* && it.date === dateISO */) {
+                  evObj = it;
+                  break;
+                }
+              }
+              if (evObj) break;
+            }
+          }
+        }
+      }
+
+      if (!evObj) {
+        alert('Event metadata not found. (This should not happen — please check console.)');
+        console.error('Calendar: event not found for checkbox', e.target);
+        return;
+      }
+
+      // ✅ NEW: figure out how many events this quotation has
+      let quotationEventCount = 0;
+      for (const d in idx2) {
+        const arr = idx2[d];
+        quotationEventCount += arr.filter(it => it.quotationId === evObj.quotationId).length;
+      }
+      const hasMultipleEvents = quotationEventCount > 1;
+
+      if (checked) {
+        // Marking as booked
+        if (hasMultipleEvents) {
+          const yesWhole = confirm("Are whole event's booked as per quotation? (Yes = mark all events in this quotation as booked)");
+          if (yesWhole) {
+            setQuotationBookings(evObj.quotationId, true);   // all events of that quotation
+          } else {
+            setSingleEventBooking(evObj.eventId, true);      // only this event
+          }
+        } else {
+          // Single-event quotation: no question, just toggle this event
+          setSingleEventBooking(evObj.eventId, true);
+        }
+      } else {
+        // Unmarking booked
+        if (hasMultipleEvents) {
+          const yesWhole = confirm("Unmark whole quotation's events as booked? (Yes = unmark all events of this quotation)");
+          if (yesWhole) {
+            setQuotationBookings(evObj.quotationId, false);
+          } else {
+            setSingleEventBooking(evObj.eventId, false);
+          }
+        } else {
+          // Single-event quotation: no question, just unmark this event
+          setSingleEventBooking(evObj.eventId, false);
+        }
+      }
+
+      // Re-render popup and calendar to reflect new states
+      openCalendarDatePopup(dateISO);
+      renderCalendar();
+       // 🔁 Auto-save to Drive (if signed in)
+  if (typeof autoSaveDrive === 'function') {
+    autoSaveDrive('calendar booking changed');
+  }
+    });
+  });
+
+}
+
+/* -------------------------
    Quotation save: create eventId for each event and persist
    ------------------------- */
 function collectEventsFromPanelsForSave(){
@@ -1975,7 +1915,7 @@ function saveQuotationMultiEvent() {
   const clientName = (document.getElementById('clientNameInput')?.value || '').trim();
   const clientContact = (document.getElementById('clientContactInput')?.value || '').trim();
 
-  //  basic validation → stay on quotation screen
+  // ❌ basic validation → stay on quotation screen
   if (!clientName || !clientContact) {
     showMessage('Client name and contact are required.');
     return;
@@ -3034,334 +2974,7 @@ async function handleInvoiceAction(invoiceId, action) {
   }
 }
 
- // ---- Payment Info helpers ----
-/**
- * Open Payment Info modal.
- *  - default mode: 'invoice'
- *  - booking init: openPaymentInfoModal({ mode:'booking', quotationId, eventId })
- */
-// ---- Payment Info helpers (booking + invoice modes) ----
-
-// mode: 'invoice' (from Files → View → Paid button) or 'booking' (from calendar)
-let PAYMENT_MODE = 'invoice';
-let PAYMENT_BOOKING_CTX = null; // { quotationId, eventId } when coming from calendar
-
-/**
- * Open Payment Info modal.
- *  - default mode: 'invoice'
- *  - booking init: openPaymentInfoModal({ mode:'booking', quotationId, eventId })
- */
-function openPaymentInfoModal(options) {
-  const opts = options || {};
-
-  // Decide mode
-  PAYMENT_MODE = opts.mode === 'booking' ? 'booking' : 'invoice';
-
-  if (PAYMENT_MODE === 'invoice') {
-    // Close the invoice viewer popup (but keep CURRENT_VIEWED_INVOICE)
-    closeMessage();
-  }
-
-  const modal = document.getElementById('paymentInfoModal');
-  if (!modal) return;
-
-  const billedInput  = document.getElementById('paymentBilledAmount');
-  const revisedInput = document.getElementById('paymentRevisedAmount');
-  const revisedChk   = document.getElementById('paymentRevisedEnable');
-  const advInput     = document.getElementById('paymentAdvancePaid');
-  const finalInput   = document.getElementById('paymentFinalPaid');
-  const pendingInput = document.getElementById('paymentPending');
-
-  const partialBtn   = document.getElementById('paymentPartialBtn');
-  const paidBtn      = document.getElementById('paymentPaidFinalBtn');
-
-  let billed = 0;
-
-  if (PAYMENT_MODE === 'invoice') {
-    // From Files → View → Paid button
-    const ctx = window.CURRENT_VIEWED_INVOICE || null;
-    billed = (ctx && typeof ctx.actual === 'number') ? ctx.actual : 0;
-    PAYMENT_BOOKING_CTX = null;
-  } else {
-    // Booking mode: coming from calendar; we only know quotationId/eventId
-    PAYMENT_BOOKING_CTX = {
-      quotationId: opts.quotationId || null,
-      eventId: opts.eventId || null,
-    };
-
-    // Get quotation to estimate billed amount (use quotation.final / actual / total)
-    const allQ = loadFromLS(SAVED_QUOTATIONS_KEY, []);
-    const q = allQ.find(x => x.id === PAYMENT_BOOKING_CTX.quotationId);
-
-    if (q) {
-      const finalAmt  = Number(q.final || 0);
-      const actualAmt = Number(q.actual || 0);
-      const totalAmt  = Number(q.total || 0);
-
-      if (finalAmt) billed = finalAmt;
-      else if (actualAmt) billed = actualAmt;
-      else if (totalAmt) billed = totalAmt;
-      else billed = 0;
-    } else {
-      billed = 0;
-    }
-  }
-
-  if (billedInput) billedInput.value = billed.toFixed(2);
-
-  // Reset common fields
-  if (revisedChk) revisedChk.checked = false;
-  if (revisedInput) {
-    revisedInput.value = '';
-    revisedInput.disabled = true;
-    revisedInput.classList.remove('field-error-red');
-  }
-  if (advInput) advInput.value = '';
-  if (finalInput) finalInput.value = '';
-  if (pendingInput) pendingInput.value = '0.00';
-
-  // Mode-specific enabling/disabling
-  if (PAYMENT_MODE === 'booking') {
-    // Booking screen: only Advance + Partially Paid + Close are usable
-    if (revisedChk)   revisedChk.disabled = true;
-    if (revisedInput) revisedInput.disabled = true;
-    if (finalInput)   finalInput.disabled = true;
-
-    if (paidBtn) {
-      paidBtn.disabled = true;
-      paidBtn.classList.add('opacity-50');
-    }
-
-    // Partial button will be enabled by recalc() when Pending > 0
-    if (partialBtn) {
-      partialBtn.disabled = true;
-      partialBtn.classList.add('opacity-50');
-    }
-  } else {
-    // Invoice mode: behaves as before
-    if (revisedChk)   revisedChk.disabled = false;
-    if (revisedInput) revisedInput.disabled = true; // only when checkbox is ticked
-    if (finalInput)   finalInput.disabled = false;
-
-    if (partialBtn) {
-      partialBtn.disabled = true;
-      partialBtn.classList.remove('opacity-50');
-    }
-    if (paidBtn) {
-      paidBtn.disabled = true;
-      paidBtn.classList.remove('opacity-50');
-    }
-  }
-
-  recalcPaymentPending();
-  modal.style.display = 'flex';
-}
-
-function closePaymentInfoModal() {
-  const modal = document.getElementById('paymentInfoModal');
-  if (modal) modal.style.display = 'none';
-
-  // If we came from calendar booking, closing should create invoice
-  if (PAYMENT_MODE === 'booking') {
-    createInvoiceFromBooking();
-  }
-
-  // reset mode
-  PAYMENT_MODE = 'invoice';
-  PAYMENT_BOOKING_CTX = null;
-}
-
-/**
- * Revised Amount checkbox toggler
- */
-function toggleRevisedAmount() {
-  const revisedChk   = document.getElementById('paymentRevisedEnable');
-  const revisedInput = document.getElementById('paymentRevisedAmount');
-
-  if (!revisedChk || !revisedInput) return;
-
-  if (revisedChk.checked) {
-    revisedInput.disabled = false;
-  } else {
-    revisedInput.disabled = true;
-    revisedInput.value = '';
-    revisedInput.classList.remove('field-error-red');
-  }
-
-  recalcPaymentPending();
-}
-
-/**
- * Recalculate Pending and button states
- */
-function recalcPaymentPending() {
-  const billedInput  = document.getElementById('paymentBilledAmount');
-  const revisedInput = document.getElementById('paymentRevisedAmount');
-  const revisedChk   = document.getElementById('paymentRevisedEnable');
-  const advInput     = document.getElementById('paymentAdvancePaid');
-  const finalInput   = document.getElementById('paymentFinalPaid');
-  const pendingInput = document.getElementById('paymentPending');
-
-  const partialBtn   = document.getElementById('paymentPartialBtn');
-  const paidBtn      = document.getElementById('paymentPaidFinalBtn');
-
-  let billed = parseFloat(billedInput?.value || '0');
-  if (isNaN(billed)) billed = 0;
-
-  const revisedEnabled = !!revisedChk?.checked;
-  let revised = parseFloat(revisedInput?.value || '0');
-  if (isNaN(revised)) revised = 0;
-
-  // Revised must be > 0 if enabled
-  if (revisedEnabled && (!revised || revised <= 0)) {
-    revisedInput?.classList.add('field-error-red');
-  } else {
-    revisedInput?.classList.remove('field-error-red');
-  }
-
-  // base amount for calculation
-  let base = billed;
-  if (revisedEnabled && revised > 0) {
-    base = revised;
-  }
-
-  let adv = parseFloat(advInput?.value || '0');
-  if (isNaN(adv)) adv = 0;
-
-  let final = parseFloat(finalInput?.value || '0');
-  if (isNaN(final)) final = 0;
-
-  // raw Pending = Point 1 or 2  -  (Point 3 + Point 4)
-  const rawPending = base - (adv + final);
-
-  // Display as positive number but keep sign in data
-  const displayPending = Math.abs(rawPending);
-
-  if (pendingInput) {
-    pendingInput.value = displayPending.toFixed(2);
-    pendingInput.dataset.rawPending = String(rawPending);
-  }
-
-  const isBooking = (PAYMENT_MODE === 'booking');
-
-  // Button states:
-  //  - Partially Paid enabled if Pending > 0
-  //  - Paid enabled if Pending <= 0 (only in invoice mode)
-  if (partialBtn) {
-    partialBtn.disabled = !(rawPending > 0);
-    partialBtn.classList.toggle('opacity-50', partialBtn.disabled);
-  }
-  if (paidBtn) {
-    if (isBooking) {
-      paidBtn.disabled = true;
-      paidBtn.classList.add('opacity-50');
-    } else {
-      paidBtn.disabled = !(rawPending <= 0);
-      paidBtn.classList.toggle('opacity-50', paidBtn.disabled);
-    }
-  }
-}
-
-function handlePaymentPartial() {
-  if (PAYMENT_MODE === 'booking') {
-    // In booking mode, treat this as "Save advance & create invoice"
-    closePaymentInfoModal(); // this will call createInvoiceFromBooking()
-    return;
-  }
-
-  // Later you can add real "partial payment" logic for invoices here
-  alert('Partially Paid functionality will be added here.');
-}
-
-function handlePaymentPaidFinal() {
-  if (PAYMENT_MODE === 'booking') {
-    // Should never be active in booking mode
-    return;
-  }
-
-  // Later you can add real "mark invoice as fully paid" logic here
-  alert('Paid functionality will be added here.');
-}
-
-/**
- * Create invoice when coming from calendar booking + Payment Info
- * Uses quotation as base and advance from the modal.
- */
-function createInvoiceFromBooking() {
-  if (!PAYMENT_BOOKING_CTX || !PAYMENT_BOOKING_CTX.quotationId) {
-    console.warn('No booking context, skipping invoice creation.');
-    return;
-  }
-
-  // Read numbers from the modal
-  const billedInput  = document.getElementById('paymentBilledAmount');
-  const advInput     = document.getElementById('paymentAdvancePaid');
-  const pendingInput = document.getElementById('paymentPending');
-
-  let billed = parseFloat(billedInput?.value || '0');
-  if (isNaN(billed)) billed = 0;
-
-  let advance = parseFloat(advInput?.value || '0');
-  if (isNaN(advance)) advance = 0;
-
-  let pendingRaw = 0;
-  if (pendingInput && pendingInput.dataset.rawPending != null) {
-    pendingRaw = parseFloat(pendingInput.dataset.rawPending || '0') || 0;
-  } else {
-    pendingRaw = billed - advance;
-  }
-
-  const allQ = loadFromLS(SAVED_QUOTATIONS_KEY, []);
-  const q = allQ.find(x => x.id === PAYMENT_BOOKING_CTX.quotationId);
-  if (!q) {
-    console.warn('Quotation not found for booking invoice creation.');
-    showMessage('Source quotation not found for this booking.');
-    return;
-  }
-
-  const allInvoices = loadFromLS(SAVED_INVOICES_KEY, []);
-  const newInvoiceId = uid('inv');
-
-  // Clone quotation as base and attach invoice metadata
-  const newInvoice = {
-    ...q,
-    type: 'invoice',
-    invoiceId: newInvoiceId,
-    createdAt: new Date().toISOString(),
-    actual: billed,
-    final: billed,
-    advancePaid: advance,
-    pendingAmount: Math.max(0, pendingRaw),
-    fromBooking: true,
-    bookingEventId: PAYMENT_BOOKING_CTX.eventId || null,
-    advanceAtBooking: advance
-  };
-
-  allInvoices.push(newInvoice);
-  saveToLS(SAVED_INVOICES_KEY, allInvoices);
-
-  // Auto-save + refresh Files → Invoices tab
-  if (typeof autoSaveDrive === 'function') {
-    autoSaveDrive('invoice created from booking');
-  }
-  renderFilesList();
-  navigate('files');
-  switchFilesTab('invoices');
-
-  // Try to generate PDF using your existing function, if present
-  try {
-    if (typeof exportQuotationPDF === 'function') {
-      // If you have a dedicated invoice PDF function, change this call name accordingly
-      exportQuotationPDF(newInvoice);
-    }
-  } catch (err) {
-    console.error('Error while exporting invoice PDF from booking:', err);
-    showMessage('Invoice created, but PDF generation failed.');
-    return;
-  }
-
-  showMessage('Invoice generated from calendar booking.', 'Saved');
-} 
+  
 
 /* -------------------------
    Open quotation viewer by id (from calendar popup)
@@ -3574,6 +3187,141 @@ function openInvoiceViewerById(invId){
     paidBtn.classList.remove('hidden');
     paidBtn.onclick = openPaymentInfoModal;
   }
+}
+
+// ---- Payment Info helpers ----
+
+function openPaymentInfoModal() {
+  // Close the invoice viewer popup (but keep CURRENT_VIEWED_INVOICE)
+  closeMessage();
+
+  const modal = document.getElementById('paymentInfoModal');
+  if (!modal) return;
+
+  const billedInput  = document.getElementById('paymentBilledAmount');
+  const revisedInput = document.getElementById('paymentRevisedAmount');
+  const revisedChk   = document.getElementById('paymentRevisedEnable');
+  const advInput     = document.getElementById('paymentAdvancePaid');
+  const finalInput   = document.getElementById('paymentFinalPaid');
+  const pendingInput = document.getElementById('paymentPending');
+
+  const ctx = window.CURRENT_VIEWED_INVOICE || null;
+  const billed = (ctx && typeof ctx.actual === 'number')
+    ? ctx.actual
+    : 0;
+
+  if (billedInput) billedInput.value = billed.toFixed(2);
+
+  // Reset other fields
+  if (revisedChk) revisedChk.checked = false;
+  if (revisedInput) {
+    revisedInput.value = '';
+    revisedInput.disabled = true;
+    revisedInput.classList.remove('field-error-red');
+  }
+  if (advInput) advInput.value = '';
+  if (finalInput) finalInput.value = '';
+  if (pendingInput) pendingInput.value = '0.00';
+
+  // Reset buttons
+  const partialBtn = document.getElementById('paymentPartialBtn');
+  const paidBtn    = document.getElementById('paymentPaidFinalBtn');
+  if (partialBtn) partialBtn.disabled = true;
+  if (paidBtn)    paidBtn.disabled    = true;
+
+  recalcPaymentPending();
+
+  modal.style.display = 'flex';
+}
+
+function closePaymentInfoModal() {
+  const modal = document.getElementById('paymentInfoModal');
+  if (modal) modal.style.display = 'none';
+}
+
+// Enable/disable Revised Amount field
+function toggleRevisedAmount() {
+  const chk   = document.getElementById('paymentRevisedEnable');
+  const input = document.getElementById('paymentRevisedAmount');
+  if (!chk || !input) return;
+
+  if (chk.checked) {
+    input.disabled = false;
+  } else {
+    input.disabled = true;
+    input.classList.remove('field-error-red');
+    // optional: keep or clear value
+    // input.value = '';
+  }
+  recalcPaymentPending();
+}
+
+// Core math for Pending + button enabling
+function recalcPaymentPending() {
+  const billedInput  = document.getElementById('paymentBilledAmount');
+  const revisedInput = document.getElementById('paymentRevisedAmount');
+  const revisedChk   = document.getElementById('paymentRevisedEnable');
+  const advInput     = document.getElementById('paymentAdvancePaid');
+  const finalInput   = document.getElementById('paymentFinalPaid');
+  const pendingInput = document.getElementById('paymentPending');
+
+  const partialBtn   = document.getElementById('paymentPartialBtn');
+  const paidBtn      = document.getElementById('paymentPaidFinalBtn');
+
+  let billed = parseFloat(billedInput?.value || '0');
+  if (isNaN(billed)) billed = 0;
+
+  const revisedEnabled = !!revisedChk?.checked;
+  let revised = parseFloat(revisedInput?.value || '0');
+  if (isNaN(revised)) revised = 0;
+
+  // Revised must be > 0 if enabled
+  if (revisedEnabled && (!revised || revised <= 0)) {
+    revisedInput?.classList.add('field-error-red');
+  } else {
+    revisedInput?.classList.remove('field-error-red');
+  }
+
+  // base amount for calculation
+  let base = billed;
+  if (revisedEnabled && revised > 0) {
+    base = revised;
+  }
+
+  let adv = parseFloat(advInput?.value || '0');
+  if (isNaN(adv)) adv = 0;
+
+  let final = parseFloat(finalInput?.value || '0');
+  if (isNaN(final)) final = 0;
+
+  // raw Pending = Point 1 or 2  -  (Point 3 + Point 4)
+  const rawPending = base - (adv + final);
+
+  // As you mentioned: display as normal number (no - sign),
+  // but internally treat as negative if < 0
+  const displayPending = Math.abs(rawPending);
+
+  if (pendingInput) {
+    pendingInput.value = displayPending.toFixed(2);
+    pendingInput.dataset.rawPending = String(rawPending);
+  }
+
+  // Button states:
+  //  - Partially Paid enabled if Pending > 0
+  //  - Paid enabled if Pending <= 0
+  if (partialBtn) partialBtn.disabled = !(rawPending > 0);
+  if (paidBtn)    paidBtn.disabled    = !(rawPending <= 0);
+}
+
+// Placeholder handlers (you will define logic later)
+function handlePaymentPartial() {
+  // Here we'll later save partial payment info etc.
+  alert('Partially Paid functionality will be added here.');
+}
+
+function handlePaymentPaidFinal() {
+  // Here we'll later save full payment info etc.
+  alert('Paid functionality will be added here.');
 }
 
 
@@ -4359,7 +4107,7 @@ function updateInvoiceSummaryUI(){
   if (finalEl)  finalEl.textContent  = `₹${final.toFixed(2)}`;
 }
 
-// ⬇️ NOW PASTE THIS WHOLE FUNCTION HERE
+//⬇️ NOW PASTE THIS WHOLE FUNCTION HERE
 function updateInvoiceSummaryUI() {
   const panels = Array.from(
     document.querySelectorAll('#invoiceEventsContainer > .event-panel')
