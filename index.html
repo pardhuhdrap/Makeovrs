@@ -1686,7 +1686,10 @@ function openCalendarDatePopup(dateISO){
       const controls = document.createElement('div'); controls.style.textAlign='right';
       const checkboxId = 'cb_' + (ev.eventId || Math.random().toString(36).slice(2,8));
       const bookChecked = ev.booked ? 'checked' : '';
-      controls.innerHTML = `<div style="margin-bottom:6px"><label style="display:flex;align-items:center;gap:8px"><input id="${checkboxId}" type="checkbox" class="calendar-book-checkbox" data-eventid="${ev.eventId||''}" ${bookChecked} /> Booked</label></div>
+      controls.innerHTML = `<div style="margin-bottom:6px">
+        <label style="display:flex;align-items:center;gap:8px">
+          <input id="${checkboxId}" type="checkbox" class="calendar-book-checkbox" data-eventid="${ev.eventId||''}" ${bookChecked} /> Booked</label>
+          </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;"><button class="py-1 px-2 rounded border text-sm" onclick="openQuotationViewerById('${ev.quotationId}')">View Quotation</button></div>`;
       row.appendChild(meta); row.appendChild(controls);
       popup.appendChild(row);
@@ -1766,32 +1769,51 @@ function openCalendarDatePopup(dateISO){
       const hasMultipleEvents = quotationEventCount > 1;
 
       if (checked) {
-        // Marking as booked
-        if (hasMultipleEvents) {
-          const yesWhole = confirm("Are whole event's booked as per quotation? (Yes = mark all events in this quotation as booked)");
-          if (yesWhole) {
-            setQuotationBookings(evObj.quotationId, true);   // all events of that quotation
-          } else {
-            setSingleEventBooking(evObj.eventId, true);      // only this event
-          }
-        } else {
-          // Single-event quotation: no question, just toggle this event
-          setSingleEventBooking(evObj.eventId, true);
-        }
-      } else {
-        // Unmarking booked
-        if (hasMultipleEvents) {
-          const yesWhole = confirm("Unmark whole quotation's events as booked? (Yes = unmark all events of this quotation)");
-          if (yesWhole) {
-            setQuotationBookings(evObj.quotationId, false);
-          } else {
-            setSingleEventBooking(evObj.eventId, false);
-          }
-        } else {
-          // Single-event quotation: no question, just unmark this event
-          setSingleEventBooking(evObj.eventId, false);
-        }
-      }
+  // ✅ MARKING as booked
+  if (hasMultipleEvents) {
+    const yesWhole = confirm("Are whole event's booked as per quotation? (Yes = mark all events in this quotation as booked)");
+    if (yesWhole) {
+      setQuotationBookings(evObj.quotationId, true);   // all events of that quotation
+    } else {
+      setSingleEventBooking(evObj.eventId, true);      // only this event
+    }
+  } else {
+    // Single-event quotation: no question, just toggle this event
+    setSingleEventBooking(evObj.eventId, true);
+  }
+
+  // 🔵 NEW #1 – ask to generate invoice for this quotation
+  if (evObj.quotationId) {
+    const genInv = window.confirm(
+      'Do you want to generate an invoice for this quotation now?'
+    );
+
+    if (genInv && typeof handleFileAction === 'function') {
+      // Reuse existing "generate invoice" logic (same as Files → Generate Invoice)
+      handleFileAction(evObj.quotationId, 'generate_invoice');
+    }
+  }
+
+  // 🔵 NEW #2 – open Payment Information screen in restricted mode
+  if (typeof openPaymentInfoRestricted === 'function') {
+    openPaymentInfoRestricted(evObj);
+  }
+
+} else {
+  // ❌ UNMARKING booked (your original logic unchanged)
+  if (hasMultipleEvents) {
+    const yesWhole = confirm("Unmark whole quotation's events as booked? (Yes = unmark all events of this quotation)");
+    if (yesWhole) {
+      setQuotationBookings(evObj.quotationId, false);
+    } else {
+      setSingleEventBooking(evObj.eventId, false);
+    }
+  } else {
+    // Single-event quotation: no question, just unmark this event
+    setSingleEventBooking(evObj.eventId, false);
+  }
+}
+
 
       // Re-render popup and calendar to reflect new states
       openCalendarDatePopup(dateISO);
