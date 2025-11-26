@@ -2577,48 +2577,28 @@ async function createPdfBlobFromQuotation(q) {
 
     let html = `<table style="${tableStyle}">`;
 
-    // Event Name + Package Selected in two lines, with underlines
-// Event Name + Package Selected (underline ONLY Event Name & Haldi Ceremony)
+  // Row 1: Event Name - Haldi Ceremony
 html += `
   <tr>
-    <td style="${tdLabelStyle}">
-      <!-- Event Name with underline -->
-      <div style="font-weight:bold; display:inline-block; border-bottom:1px solid #000;">
-        Event Name
-      </div>
-
-      <br>
-
-      <!-- Package Selected WITHOUT underline -->
-      <div style="margin-top:4px;">
-        Package Selected
-      </div>
-    </td>
-
-    <td style="${tdValueStyle}">
-      <!-- Haldi Ceremony with underline -->
-      <div style="font-size:14px; font-weight:bold; display:inline-block; border-bottom:1px solid #000;">
-        ${eName.replace(/</g,"&lt;")}
-      </div>
-
-      <br>
-
-      <!-- Premium Photography WITHOUT underline -->
-      <div style="font-size:14px; margin-top:4px;">
-        ${pkgName.replace(/</g,"&lt;")}
-      </div>
-    </td>
-
-    <!-- Centered vertically & right aligned price -->
-    <td style="${tdPriceStyle}; display:flex; align-items:center; justify-content:flex-end;">
-      <span style="transform: translateY(4px);">
-        ${fmtPriceForDetailRow(pkgPrice)}
-      </span>
+    <td style="${tdLabelStyle}">Event Name</td>
+    <td colspan="2" style="${tdValueStyle}">
+      ${eName.replace(/</g,"&lt;")}
     </td>
   </tr>
 `;
 
-
+// Row 2: Package Selected - Photography  + price
+html += `
+  <tr>
+    <td style="${tdLabelStyle}">Package Selected</td>
+    <td style="${tdValueStyle}">
+      ${pkgName.replace(/</g,"&lt;")}
+    </td>
+    <td style="${tdPriceStyle}; text-align:right;">
+      ${fmtPriceForDetailRow(pkgPrice)}
+    </td>
+  </tr>
+`;
 
     // Date & Time row (no price here)
     html += `
