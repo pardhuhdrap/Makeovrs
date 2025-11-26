@@ -2437,14 +2437,8 @@ function getShortMonth(m) {
 
 
 
-/* PDF creation helpers (keeps layout use consistent) */
-/* -------------------------
-   PDF creation helpers (multi-page: first page uses quotation/invoice layout,
-   subsequent pages use empty layout if provided)
-   ------------------------- */
-// --- NEW table-style PDF generator with centered white box over letterhead ---
-// --- PDF generator with smart "white row" page breaks ---
-// ===== NEW DOM–pagination PDF generator (no canvas slicing) =====
+// --- NEW table-style PDF generator with DOM pagination ---
+// Keeps letterhead background + proper tables + Event headers
 async function createPdfBlobFromQuotation(q) {
   if (!q) throw new Error("No quotation data");
 
@@ -2479,7 +2473,7 @@ async function createPdfBlobFromQuotation(q) {
   }
 
   // ---- create a full A4 page with letterhead + content box ----
-  function createPdfPage() {
+  function createPdfPage(isFirstPage) {
     const page = document.createElement("div");
     page.className = "pdf-page";
 
@@ -2501,9 +2495,9 @@ async function createPdfBlobFromQuotation(q) {
     const content = document.createElement("div");
     content.className = "pdf-content";
 
-    // same white box position as before
+    // first page: more top gap; other pages: slightly smaller top gap
     content.style.position = "absolute";
-    content.style.top = isFirstPage ? "265px" : "265px";
+    content.style.top = isFirstPage ? "265px" : "140px";
     content.style.left = "30px";
     content.style.right = "30px";
     content.style.bottom = "40px";   // bottom margin
@@ -2535,7 +2529,7 @@ async function createPdfBlobFromQuotation(q) {
 
   const blocks = [];
 
-  // ---------- 1) CLIENT DETAILS TABLE (same as before) ----------
+  // ---------- 1) CLIENT DETAILS TABLE ----------
   const clientTableHTML = `
     <table style="${tableStyle}">
       <tr>
@@ -2558,7 +2552,7 @@ async function createPdfBlobFromQuotation(q) {
   `;
   blocks.push(makeBlock(clientTableHTML));
 
-  // ---------- 2) EVENT TABLE(S) – your old perfect layout ----------
+  // ---------- 2) EVENT TABLE(S) ----------
   const events = Array.isArray(q.events) ? q.events : [];
   events.forEach((ev, index) => {
     const eName       = (ev.name        || "").toString();
@@ -2574,71 +2568,95 @@ async function createPdfBlobFromQuotation(q) {
     const addOnPrice     = Number(ev.addOnPrice     || 0);
     const transportPrice = Number(ev.transportPrice || 0);
 
-    // Event heading: "Event - X"
-    // Event heading: "Event - X"
-const eventHeader = document.createElement("div");
-eventHeader.style.fontWeight = "bold";
-eventHeader.style.fontSize = "15px";
-eventHeader.style.margin = "10px 0 6px 2px";
-eventHeader.textContent = `Event - ${index + 1}`;
+    // header "Event - N"
+    const eventHeader = document.createElement("div");
+    eventHeader.style.fontWeight = "bold";
+    eventHeader.style.fontSize = "15px";
+    eventHeader.style.margin = "10px 0 6px 2px";
+    eventHeader.textContent = `Event - ${index + 1}`;
 
-// Event table (same rows & logic as your old snippet)
-let html = `<table style="${tableStyle}">`;
+    let html = `<table style="${tableStyle}">`;
 
-html += `<tr>
-  <td style="${tdLabelStyle}">Event Name</td>
-  <td style="${tdValueStyle}">${eName.replace(/</g,"&lt;")}</td>
-  <td style="${tdPriceStyle}">${fmtPriceForDetailRow(pkgPrice)}</td>
-</tr>`;
+    // Event Name row (right column = package price)
+    html += `
+      <tr>
+        <td style="${tdLabelStyle}">Event Name</td>
+        <td style="${tdValueStyle}">
+          ${eName.replace(/</g,"&lt;")}
+          ${pkgName ? `<div style="margin-top:4px;font-size:11px;color:#555;">${pkgName.replace(/</g,"&lt;")}</div>` : ""}
+        </td>
+        <td style="${tdPriceStyle}">
+          ${fmtPriceForDetailRow(pkgPrice)}
+        </td>
+      </tr>
+    `;
 
-html += `<tr>
-  <td style="${tdLabelStyle}">Date &amp; Time</td>
-  <td style="${tdValueStyle}">
-    ${displayDate || "-"}${eTime ? (" | " + eTime.replace(/</g,"&lt;")) : ""}
-  </td>
-  <td style="${tdPriceStyle}"></td>
-</tr>`;
+    // Date & Time row (no price here)
+    html += `
+      <tr>
+        <td style="${tdLabelStyle}">Date &amp; Time</td>
+        <td style="${tdValueStyle}">
+          ${(displayDate || "-")}${
+            eTime ? (" | " + eTime.replace(/</g,"&lt;")) : ""
+          }
+        </td>
+        <td style="${tdPriceStyle}"></td>
+      </tr>
+    `;
 
-if (eLocation.trim() !== "") {
-  html += `<tr>
-    <td style="${tdLabelStyle}">Location</td>
-    <td style="${tdValueStyle}">
-      ${eLocation.replace(/</g,"&lt;")}
-    </td>
-    <td style="${tdPriceStyle}">${fmtPriceForDetailRow(transportPrice)}</td>
-  </tr>`;
-}
+    // Location row (right column = transport price)
+    if (eLocation.trim() !== "") {
+      html += `
+        <tr>
+          <td style="${tdLabelStyle}">Location</td>
+          <td style="${tdValueStyle}">
+            ${eLocation.replace(/</g,"&lt;")}
+          </td>
+          <td style="${tdPriceStyle}">
+            ${fmtPriceForDetailRow(transportPrice)}
+          </td>
+        </tr>
+      `;
+    }
 
-if (addonData || addOnPrice) {
-  html += `<tr>
-    <td style="${tdLabelStyle}">Add-ons</td>
-    <td style="${tdValueStyle}">
-      ${addonData.replace(/</g,"&lt;")}
-    </td>
-    <td style="${tdPriceStyle}">${fmtPriceForDetailRow(addOnPrice)}</td>
-  </tr>`;
-}
+    // Add-ons (details + price)
+    if (addonData || addOnPrice) {
+      html += `
+        <tr>
+          <td style="${tdLabelStyle}">Add-ons</td>
+          <td style="${tdValueStyle}">
+            ${addonData.replace(/</g,"&lt;")}
+          </td>
+          <td style="${tdPriceStyle}">
+            ${fmtPriceForDetailRow(addOnPrice)}
+          </td>
+        </tr>
+      `;
+    }
 
-if (eNotes.trim() !== "") {
-  html += `<tr>
-    <td style="${tdLabelStyle}">Notes &amp; Complimentary</td>
-    <td colspan="2" style="${tdValueStyle}">
-      ${eNotes.replace(/</g,"&lt;")}
-    </td>
-  </tr>`;
-}
+    // Notes / Complimentary
+    if (eNotes.trim() !== "") {
+      html += `
+        <tr>
+          <td style="${tdLabelStyle}">Notes &amp; Complimentary</td>
+          <td colspan="2" style="${tdValueStyle}">
+            ${eNotes.replace(/</g,"&lt;")}
+          </td>
+        </tr>
+      `;
+    }
 
-html += `</table>`;
+    html += `</table>`;
 
-// 👉 Wrap header + table together so they move as one block
-const eventBlock = document.createElement("div");
-eventBlock.appendChild(eventHeader);
-eventBlock.appendChild(makeBlock(html));
+    // Wrap header + table together so they move as one block
+    const eventBlock = document.createElement("div");
+    eventBlock.appendChild(eventHeader);
+    eventBlock.appendChild(makeBlock(html));
 
-blocks.push(eventBlock);
-});
+    blocks.push(eventBlock);
+  });
 
-  // ---------- 3) PRICE SUMMARY TABLE – same logic as your snippet ----------
+  // ---------- 3) PRICE SUMMARY (title + table as one block) ----------
   const actual   = Number(q.actual   || 0);
   const discount = Number(q.discount || 0);
   const finalAmt = Number(q.final    || 0);
@@ -2649,28 +2667,35 @@ blocks.push(eventBlock);
   summaryTitle.style.fontSize = "15px";
   summaryTitle.style.margin = "10px 0 6px 2px";
   summaryTitle.textContent = isInvoice ? "Invoice Summary" : "Quotation Summary";
-  blocks.push(summaryTitle);
 
   let summaryHTML = `<table style="${tableStyle}">`;
   if (discount > 0) {
-    summaryHTML += `<tr>
-      <td style="${tdLabelStyle}">Actual Price</td>
-      <td style="${tdValueStyle}"></td>
-      <td style="${tdPriceStyle}">${fmtPrice(actual)}</td>
-    </tr>`;
-    summaryHTML += `<tr>
-      <td style="${tdLabelStyle}">Discount</td>
-      <td style="${tdValueStyle}"></td>
-      <td style="${tdPriceStyle}">${fmtPrice(discount)}</td>
-    </tr>`;
+    summaryHTML += `
+      <tr>
+        <td style="${tdLabelStyle}">Actual Price</td>
+        <td style="${tdValueStyle}"></td>
+        <td style="${tdPriceStyle}">${fmtPrice(actual)}</td>
+      </tr>
+      <tr>
+        <td style="${tdLabelStyle}">Discount</td>
+        <td style="${tdValueStyle}"></td>
+        <td style="${tdPriceStyle}">${fmtPrice(discount)}</td>
+      </tr>
+    `;
   }
-  summaryHTML += `<tr>
-    <td style="${tdLabelStyle}">Final Price</td>
-    <td style="${tdValueStyle}"></td>
-    <td style="${tdPriceStyle}">${fmtPrice(finalAmt)}</td>
-  </tr>`;
+  summaryHTML += `
+    <tr>
+      <td style="${tdLabelStyle}">Final Price</td>
+      <td style="${tdValueStyle}"></td>
+      <td style="${tdPriceStyle}">${fmtPrice(finalAmt)}</td>
+    </tr>
+  `;
   summaryHTML += `</table>`;
-  blocks.push(makeBlock(summaryHTML));
+
+  const summaryBlock = document.createElement("div");
+  summaryBlock.appendChild(summaryTitle);
+  summaryBlock.appendChild(makeBlock(summaryHTML));
+  blocks.push(summaryBlock);
 
   // ---- Build paginated pages in an off-screen root ----
   const root = document.createElement("div");
@@ -2682,18 +2707,25 @@ blocks.push(eventBlock);
   root.style.boxSizing = "border-box";
   document.body.appendChild(root);
 
-  let ({ page: currentPage, content: currentContent } = createPdfPage(false));
+  let current = createPdfPage(true);
+  let currentPage = current.page;
+  let currentContent = current.content;
   root.appendChild(currentPage);
 
-  const CONTENT_MAX_HEIGHT = () => currentContent.clientHeight || 0;
+  function contentMaxHeight() {
+    // how tall the content area can be
+    return currentContent.clientHeight || currentContent.offsetHeight || 0;
+  }
 
   blocks.forEach(block => {
     currentContent.appendChild(block);
-    const maxH = CONTENT_MAX_HEIGHT();
+    const maxH = contentMaxHeight();
     if (currentContent.scrollHeight > maxH + 1) {
       // doesn’t fit → move block to next page
       currentContent.removeChild(block);
-      ({ page: currentPage, content: currentContent } = createPdfPage());
+      const next = createPdfPage(false);
+      currentPage = next.page;
+      currentContent = next.content;
       root.appendChild(currentPage);
       currentContent.appendChild(block);
     }
@@ -2710,7 +2742,7 @@ blocks.push(eventBlock);
     for (let i = 0; i < pageEls.length; i++) {
       const pageEl = pageEls[i];
 
-      // small delay to let layout settle
+      // let layout settle
       // eslint-disable-next-line no-await-in-loop
       await new Promise(r => requestAnimationFrame(r));
 
@@ -2741,6 +2773,7 @@ blocks.push(eventBlock);
     throw err;
   }
 }
+
 
 
 
