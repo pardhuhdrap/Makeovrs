@@ -2553,98 +2553,137 @@ async function createPdfBlobFromQuotation(q) {
   blocks.push(makeBlock(clientTableHTML));
 
   // ---------- 2) EVENT TABLE(S) ----------
+  const events = Array.isArray(q.events) ? q.events : [];
+  events.forEach((ev, index) => {
+    const eName       = (ev.name        || "").toString();
+    const eDate       = (ev.date        || "").toString();
+    const displayDate = formatDateShortMonth(eDate);
+    const eTime       = (ev.time        || "").toString();
+    const eLocation   = (ev.location    || "").toString();
+    const eNotes      = (ev.notes       || "").toString();
+    const pkgName     = (ev.packageName || "").toString();
+    const addonData   = (ev.addonDetails|| "").toString();
+
+    const pkgPrice       = Number(ev.packagePrice   || 0);
+    const addOnPrice     = Number(ev.addOnPrice     || 0);
+    const transportPrice = Number(ev.transportPrice || 0);
+
+    // header "Event - N"
+    const eventHeader = document.createElement("div");
+    eventHeader.style.fontWeight = "bold";
+    eventHeader.style.fontSize = "15px";
+    eventHeader.style.margin = "10px 0 6px 2px";
+    eventHeader.textContent = `Event - ${index + 1}`;
+
     let html = `<table style="${tableStyle}">`;
 
-  // Row 1: Event Name (no price here)
-  html += `
-    <tr>
-      <td style="${tdLabelStyle}">Event Name</td>
-      <td style="${tdValueStyle}">
+    // Event Name + Package Selected in two lines, with underlines
+// Event Name + Package Selected (underline ONLY Event Name & Haldi Ceremony)
+html += `
+  <tr>
+    <td style="${tdLabelStyle}">
+      <!-- Event Name with underline -->
+      <div style="font-weight:bold; display:inline-block; border-bottom:1px solid #000;">
+        Event Name
+      </div>
+
+      <br>
+
+      <!-- Package Selected WITHOUT underline -->
+      <div style="margin-top:4px;">
+        Package Selected
+      </div>
+    </td>
+
+    <td style="${tdValueStyle}">
+      <!-- Haldi Ceremony with underline -->
+      <div style="font-size:14px; font-weight:bold; display:inline-block; border-bottom:1px solid #000;">
         ${eName.replace(/</g,"&lt;")}
-      </td>
-      <td style="${tdPriceStyle}"></td>
-    </tr>
-  `;
+      </div>
 
-  // Row 2: Package (package selected + package price)
-  if (pkgName || pkgPrice) {
+      <br>
+
+      <!-- Premium Photography WITHOUT underline -->
+      <div style="font-size:14px; margin-top:4px;">
+        ${pkgName.replace(/</g,"&lt;")}
+      </div>
+    </td>
+
+    <!-- Centered vertically & right aligned price -->
+    <td style="${tdPriceStyle}; display:flex; align-items:center; justify-content:flex-end;">
+      <span style="transform: translateY(4px);">
+        ${fmtPriceForDetailRow(pkgPrice)}
+      </span>
+    </td>
+  </tr>
+`;
+
+
+
+    // Date & Time row (no price here)
     html += `
       <tr>
-        <td style="${tdLabelStyle}">Package</td>
+        <td style="${tdLabelStyle}">Date &amp; Time</td>
         <td style="${tdValueStyle}">
-          ${pkgName.replace(/</g,"&lt;")}
+          ${(displayDate || "-")}${
+            eTime ? (" | " + eTime.replace(/</g,"&lt;")) : ""
+          }
         </td>
-        <td style="${tdPriceStyle}">
-          ${fmtPriceForDetailRow(pkgPrice)}
-        </td>
+        <td style="${tdPriceStyle}"></td>
       </tr>
     `;
-  }
 
-  // Row 3: Date & Time (no price)
-  html += `
-    <tr>
-      <td style="${tdLabelStyle}">Date &amp; Time</td>
-      <td style="${tdValueStyle}">
-        ${(displayDate || "-")}${
-          eTime ? (" | " + eTime.replace(/</g,"&lt;")) : ""
-        }
-      </td>
-      <td style="${tdPriceStyle}"></td>
-    </tr>
-  `;
+    // Location row (right column = transport price)
+    if (eLocation.trim() !== "") {
+      html += `
+        <tr>
+          <td style="${tdLabelStyle}">Location</td>
+          <td style="${tdValueStyle}">
+            ${eLocation.replace(/</g,"&lt;")}
+          </td>
+          <td style="${tdPriceStyle}">
+            ${fmtPriceForDetailRow(transportPrice)}
+          </td>
+        </tr>
+      `;
+    }
 
-  // Row 4: Location (with Transport price)
-  if (eLocation.trim() !== "" || transportPrice) {
-    html += `
-      <tr>
-        <td style="${tdLabelStyle}">Location</td>
-        <td style="${tdValueStyle}">
-          ${eLocation.replace(/</g,"&lt;")}
-        </td>
-        <td style="${tdPriceStyle}">
-          ${fmtPriceForDetailRow(transportPrice)}
-        </td>
-      </tr>
-    `;
-  }
+    // Add-ons (details + price)
+    if (addonData || addOnPrice) {
+      html += `
+        <tr>
+          <td style="${tdLabelStyle}">Add-ons</td>
+          <td style="${tdValueStyle}">
+            ${addonData.replace(/</g,"&lt;")}
+          </td>
+          <td style="${tdPriceStyle}">
+            ${fmtPriceForDetailRow(addOnPrice)}
+          </td>
+        </tr>
+      `;
+    }
 
-  // Add-ons
-  if (addonData || addOnPrice) {
-    html += `
-      <tr>
-        <td style="${tdLabelStyle}">Add-ons</td>
-        <td style="${tdValueStyle}">
-          ${addonData.replace(/</g,"&lt;")}
-        </td>
-        <td style="${tdPriceStyle}">
-          ${fmtPriceForDetailRow(addOnPrice)}
-        </td>
-      </tr>
-    `;
-  }
+    // Notes / Complimentary
+    if (eNotes.trim() !== "") {
+      html += `
+        <tr>
+          <td style="${tdLabelStyle}">Notes &amp; Complimentary</td>
+          <td colspan="2" style="${tdValueStyle}">
+            ${eNotes.replace(/</g,"&lt;")}
+          </td>
+        </tr>
+      `;
+    }
 
-  // Notes / Complimentary
-  if (eNotes.trim() !== "") {
-    html += `
-      <tr>
-        <td style="${tdLabelStyle}">Notes &amp; Complimentary</td>
-        <td colspan="2" style="${tdValueStyle}">
-          ${eNotes.replace(/</g,"&lt;")}
-        </td>
-      </tr>
-    `;
-  }
+    html += `</table>`;
 
-  html += `</table>`;
+    // Wrap header + table together so they move as one block
+    const eventBlock = document.createElement("div");
+    eventBlock.appendChild(eventHeader);
+    eventBlock.appendChild(makeBlock(html));
 
-  // Wrap header + table so they move together
-  const eventBlock = document.createElement("div");
-  eventBlock.appendChild(eventHeader);
-  eventBlock.appendChild(makeBlock(html));
-
-  blocks.push(eventBlock);
-
+    blocks.push(eventBlock);
+  });
 
   // ---------- 3) PRICE SUMMARY (title + table as one block) ----------
   const actual   = Number(q.actual   || 0);
