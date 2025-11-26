@@ -2448,13 +2448,13 @@ function getShortMonth(m) {
 async function createPdfBlobFromQuotation(q) {
   if (!q) throw new Error("No quotation data");
 
-  // Decide which letterhead to use (same logic as before)
+  // Decide which letterhead to use
   const layoutKey = (q && (q.invoiceId || q.invoiceId === 0))
     ? INVOICE_LAYOUT_KEY
     : QUOTATION_LAYOUT_KEY;
   const layoutData = localStorage.getItem(layoutKey) || "";
 
-  // ---- helpers for amounts (same behaviour as before) ----
+  // ---- helpers for amounts ----
   function indianFormat(num) {
     const x = Number(num || 0);
     if (!x) return "0";
@@ -2492,7 +2492,6 @@ async function createPdfBlobFromQuotation(q) {
     page.style.backgroundColor = "#ffffff";
 
     if (layoutData) {
-      // letterhead as background
       page.style.backgroundImage = `url(${layoutData})`;
       page.style.backgroundSize = "cover";
       page.style.backgroundRepeat = "no-repeat";
@@ -2519,7 +2518,6 @@ async function createPdfBlobFromQuotation(q) {
   }
 
   // ---- build individual BLOCKS (tables) as DOM nodes ----
-
   const tableStyle =
     "width:100%;border-collapse:collapse;border:1px solid #000;margin-bottom:14px;font-size:13px;background:transparent;";
   const tdLabelStyle =
@@ -2532,13 +2530,12 @@ async function createPdfBlobFromQuotation(q) {
   function makeBlock(html) {
     const wrap = document.createElement("div");
     wrap.innerHTML = html.trim();
-    // return the first element node inside
     return wrap.firstElementChild;
   }
 
   const blocks = [];
 
-  // 1) Client details table
+  // ---------- 1) CLIENT DETAILS TABLE (same as before) ----------
   const clientTableHTML = `
     <table style="${tableStyle}">
       <tr>
@@ -2561,7 +2558,7 @@ async function createPdfBlobFromQuotation(q) {
   `;
   blocks.push(makeBlock(clientTableHTML));
 
-  // 2) Event tables
+  // ---------- 2) EVENT TABLE(S) – your old perfect layout ----------
   const events = Array.isArray(q.events) ? q.events : [];
   events.forEach((ev, index) => {
     const eName       = (ev.name        || "").toString();
@@ -2577,100 +2574,68 @@ async function createPdfBlobFromQuotation(q) {
     const addOnPrice     = Number(ev.addOnPrice     || 0);
     const transportPrice = Number(ev.transportPrice || 0);
 
+    // Event heading: "Event - X"
+    const eventHeader = document.createElement("div");
+    eventHeader.style.fontWeight = "bold";
+    eventHeader.style.fontSize = "15px";
+    eventHeader.style.margin = "10px 0 6px 2px";
+    eventHeader.textContent = `Event - ${index + 1}`;
+    blocks.push(eventHeader);
+
+    // Event table (same rows & logic as your old snippet)
     let html = `<table style="${tableStyle}">`;
 
-    html += `
-      <tr>
-        <td style="${tdLabelStyle}">Event #</td>
-        <td style="${tdValueStyle}">${index + 1}</td>
-        <td style="${tdPriceStyle}">${fmtPriceForDetailRow(pkgPrice + addOnPrice + transportPrice)}</td>
-      </tr>
-      <tr>
-        <td style="${tdLabelStyle}">Event Name</td>
-        <td colspan="2" style="${tdValueStyle}">
-          ${eName.replace(/</g, "&lt;")}
-        </td>
-      </tr>
-      <tr>
-        <td style="${tdLabelStyle}">Date</td>
-        <td colspan="2" style="${tdValueStyle}">
-          ${displayDate.replace(/</g, "&lt;")}
-        </td>
-      </tr>
-      <tr>
-        <td style="${tdLabelStyle}">Time</td>
-        <td colspan="2" style="${tdValueStyle}">
-          ${eTime.replace(/</g, "&lt;")}
-        </td>
-      </tr>
-      <tr>
+    html += `<tr>
+      <td style="${tdLabelStyle}">Event Name</td>
+      <td style="${tdValueStyle}">${eName.replace(/</g,"&lt;")}</td>
+      <td style="${tdPriceStyle}">${fmtPriceForDetailRow(pkgPrice)}</td>
+    </tr>`;
+
+    html += `<tr>
+      <td style="${tdLabelStyle}">Date &amp; Time</td>
+      <td style="${tdValueStyle}">
+        ${displayDate || "-"}${eTime ? (" | " + eTime.replace(/</g,"&lt;")) : ""}
+      </td>
+      <td style="${tdPriceStyle}">${fmtPriceForDetailRow(transportPrice)}</td>
+    </tr>`;
+
+    if (eLocation.trim() !== "") {
+      html += `<tr>
         <td style="${tdLabelStyle}">Location</td>
         <td colspan="2" style="${tdValueStyle}">
-          ${eLocation.replace(/</g, "&lt;")}
+          ${eLocation.replace(/</g,"&lt;")}
         </td>
-      </tr>
-    `;
-
-    if (pkgName || pkgPrice) {
-      html += `
-        <tr>
-          <td style="${tdLabelStyle}">Package</td>
-          <td style="${tdValueStyle}">
-            ${pkgName.replace(/</g, "&lt;")}
-          </td>
-          <td style="${tdPriceStyle}">
-            ${fmtPriceForDetailRow(pkgPrice)}
-          </td>
-        </tr>
-      `;
+      </tr>`;
     }
 
     if (addonData || addOnPrice) {
-      html += `
-        <tr>
-          <td style="${tdLabelStyle}">Add-ons</td>
-          <td style="${tdValueStyle}">
-            ${addonData.replace(/</g, "&lt;")}
-          </td>
-          <td style="${tdPriceStyle}">
-            ${fmtPriceForDetailRow(addOnPrice)}
-          </td>
-        </tr>
-      `;
+      html += `<tr>
+        <td style="${tdLabelStyle}">Add-ons</td>
+        <td style="${tdValueStyle}">
+          ${addonData.replace(/</g,"&lt;")}
+        </td>
+        <td style="${tdPriceStyle}">${fmtPriceForDetailRow(addOnPrice)}</td>
+      </tr>`;
     }
 
-    if (transportPrice) {
-      html += `
-        <tr>
-          <td style="${tdLabelStyle}">Transport</td>
-          <td style="${tdValueStyle}">As discussed</td>
-          <td style="${tdPriceStyle}">
-            ${fmtPriceForDetailRow(transportPrice)}
-          </td>
-        </tr>
-      `;
-    }
-
-    if (eNotes) {
-      html += `
-        <tr>
-          <td style="${tdLabelStyle}">Complimentary</td>
-          <td colspan="2" style="${tdValueStyle}">
-            ${eNotes.replace(/</g, "&lt;")}
-          </td>
-        </tr>
-      `;
+    if (eNotes.trim() !== "") {
+      html += `<tr>
+        <td style="${tdLabelStyle}">Notes &amp; Complimentary</td>
+        <td colspan="2" style="${tdValueStyle}">
+          ${eNotes.replace(/</g,"&lt;")}
+        </td>
+      </tr>`;
     }
 
     html += `</table>`;
     blocks.push(makeBlock(html));
   });
 
-  // 3) Summary title + table as two blocks so title can move with its table
-  const isInvoice = !!(q && (q.invoiceId || q.invoiceId === 0));
+  // ---------- 3) PRICE SUMMARY TABLE – same logic as your snippet ----------
   const actual   = Number(q.actual   || 0);
   const discount = Number(q.discount || 0);
   const finalAmt = Number(q.final    || 0);
+  const isInvoice = !!(q && (q.invoiceId || q.invoiceId === 0));
 
   const summaryTitle = document.createElement("div");
   summaryTitle.style.fontWeight = "bold";
@@ -2681,26 +2646,22 @@ async function createPdfBlobFromQuotation(q) {
 
   let summaryHTML = `<table style="${tableStyle}">`;
   if (discount > 0) {
-    summaryHTML += `
-      <tr>
-        <td style="${tdLabelStyle}">Actual Price</td>
-        <td style="${tdValueStyle}"></td>
-        <td style="${tdPriceStyle}">${fmtPrice(actual)}</td>
-      </tr>
-      <tr>
-        <td style="${tdLabelStyle}">Discount</td>
-        <td style="${tdValueStyle}"></td>
-        <td style="${tdPriceStyle}">${fmtPrice(discount)}</td>
-      </tr>
-    `;
-  }
-  summaryHTML += `
-    <tr>
-      <td style="${tdLabelStyle}">Final Price</td>
+    summaryHTML += `<tr>
+      <td style="${tdLabelStyle}">Actual Price</td>
       <td style="${tdValueStyle}"></td>
-      <td style="${tdPriceStyle}">${fmtPrice(finalAmt)}</td>
-    </tr>
-  `;
+      <td style="${tdPriceStyle}">${fmtPrice(actual)}</td>
+    </tr>`;
+    summaryHTML += `<tr>
+      <td style="${tdLabelStyle}">Discount</td>
+      <td style="${tdValueStyle}"></td>
+      <td style="${tdPriceStyle}">${fmtPrice(discount)}</td>
+    </tr>`;
+  }
+  summaryHTML += `<tr>
+    <td style="${tdLabelStyle}">Final Price</td>
+    <td style="${tdValueStyle}"></td>
+    <td style="${tdPriceStyle}">${fmtPrice(finalAmt)}</td>
+  </tr>`;
   summaryHTML += `</table>`;
   blocks.push(makeBlock(summaryHTML));
 
@@ -2773,6 +2734,7 @@ async function createPdfBlobFromQuotation(q) {
     throw err;
   }
 }
+
 
 
 
