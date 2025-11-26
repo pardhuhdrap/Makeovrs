@@ -1929,6 +1929,37 @@ function saveQuotationMultiEvent() {
 
   try {
     const existing = loadFromLS(SAVED_QUOTATIONS_KEY, []);
+
+    // 🔁 DUPLICATE CHECK (case-insensitive: name + contact)
+    const nameKey    = clientName.toLowerCase();
+    const contactKey = clientContact.toLowerCase();
+
+    const duplicate = existing.find(qItem => {
+      const n = (qItem.clientName    || '').trim().toLowerCase();
+      const c = (qItem.clientContact || '').trim().toLowerCase();
+      const sameClient = n === nameKey && c === contactKey;
+
+      // while editing, ignore the same record
+      if (CURRENT_EDIT_QUOTATION_ID && qItem.id === CURRENT_EDIT_QUOTATION_ID) {
+        return false;
+      }
+      return sameClient;
+    });
+
+    if (duplicate) {
+      const go = window.confirm(
+        'A quotation already exists for this client name and contact.\n\n' +
+        'Do you want to open that quotation in edit mode instead?'
+      );
+      if (go) {
+        // put original quotation into edit buffer and go to quotation screen
+        localStorage.setItem('CURRENT_EDIT_QUOTATION', JSON.stringify(duplicate));
+        navigate('quotation', { skipInit: false });
+      }
+      // ⛔ stop saving in both cases (Yes or No)
+      return;
+    }
+
     let savedQuotation;
 
     if (CURRENT_EDIT_QUOTATION_ID) {
@@ -1976,7 +2007,7 @@ function saveQuotationMultiEvent() {
     CURRENT_EDIT_QUOTATION_ID = null;
 
     // ✅ success prompt
-    showMessage('Quotation saved to Files \u2192 Quotations', 'Saved');
+    showMessage('Quotation saved to Files → Quotations', 'Saved');
 
     // refresh calendar dots
     renderCalendar();
@@ -1996,6 +2027,7 @@ function saveQuotationMultiEvent() {
     showMessage('Failed to save quotation. Please try again.', 'Error');
   }
 }
+
 
 /* -------------------------
    Files UI & PDF helpers
@@ -2447,6 +2479,11 @@ async function createPdfBlobFromQuotation(q) {
     ? INVOICE_LAYOUT_KEY
     : QUOTATION_LAYOUT_KEY;
   const layoutData = localStorage.getItem(layoutKey) || "";
+
+  function normalizePhone(contact) {
+  // Keep digits only: "+91 98765-43210" -> "919876543210"
+  return (contact || '').replace(/\D+/g, '');
+}
 
   // ---- helpers for amounts ----
   function indianFormat(num) {
@@ -5214,21 +5251,51 @@ document.getElementById('invoiceAddEventBtn')?.addEventListener('click', () => {
       };
     });
 
-    const actual = events.reduce(
+        const actual = events.reduce(
       (s,e)=> s + (Number(e.packagePrice||0) + Number(e.addOnPrice||0) + Number(e.transportPrice||0)),
       0
     );
     const discount = parseFloat(document.getElementById('invoiceDiscount')?.value || 0) || 0;
     const final = Math.max(0, actual - discount);
 
-if (typeof updateInvoiceSummaryUI === 'function') {
-    updateInvoiceSummaryUI();
-  }
+    if (typeof updateInvoiceSummaryUI === 'function') {
+      updateInvoiceSummaryUI();
+    }
 
     const base = { clientName, clientContact, events, actual, final };
     if (discount > 0) base.discount = Number(discount.toFixed(2));
 
     const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
+
+    // 🔁 DUPLICATE CHECK (case-insensitive: name + contact)
+    const nameKey    = clientName.toLowerCase();
+    const contactKey = clientContact.toLowerCase();
+
+    const duplicateInvoice = invoices.find(inv => {
+      const n = (inv.clientName    || '').trim().toLowerCase();
+      const c = (inv.clientContact || '').trim().toLowerCase();
+      const sameClient = n === nameKey && c === contactKey;
+
+      // while editing, ignore the same record
+      if (CURRENT_EDIT_INVOICE_ID && (inv.invoiceId || inv.id) === CURRENT_EDIT_INVOICE_ID) {
+        return false;
+      }
+      return sameClient;
+    });
+
+    if (duplicateInvoice) {
+      const go = window.confirm(
+        'An invoice already exists for this client name and contact.\n\n' +
+        'Do you want to open that invoice in edit mode instead?'
+      );
+      if (go) {
+        localStorage.setItem('CURRENT_EDIT_INVOICE', JSON.stringify(duplicateInvoice));
+        navigate('invoice', { skipInit: false });
+      }
+      // ⛔ stop saving in both cases (Yes or No)
+      return;
+    }
+
     let savedInvoice;
 
     if (CURRENT_EDIT_INVOICE_ID) {
@@ -5268,10 +5335,11 @@ if (typeof updateInvoiceSummaryUI === 'function') {
     renderFilesList();
 
     // 🔁 Auto-save to Drive (if signed in)
-  if (typeof autoSaveDrive === 'function') {
-    autoSaveDrive('invoice saved from invoice screen');
-  }
+    if (typeof autoSaveDrive === 'function') {
+      autoSaveDrive('invoice saved from invoice screen');
+    }
   });
+
 
 
   // init
