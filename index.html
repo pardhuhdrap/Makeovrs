@@ -2591,22 +2591,26 @@ async function createPdfBlobFromQuotation(q) {
       <td style="${tdPriceStyle}">${fmtPriceForDetailRow(pkgPrice)}</td>
     </tr>`;
 
-    html += `<tr>
-      <td style="${tdLabelStyle}">Date &amp; Time</td>
-      <td style="${tdValueStyle}">
-        ${displayDate || "-"}${eTime ? (" | " + eTime.replace(/</g,"&lt;")) : ""}
-      </td>
-      <td style="${tdPriceStyle}">${fmtPriceForDetailRow(transportPrice)}</td>
-    </tr>`;
+    // Date & Time row (NO transport price here)
+html += `<tr>
+  <td style="${tdLabelStyle}">Date &amp; Time</td>
+  <td style="${tdValueStyle}">
+    ${displayDate || "-"}${eTime ? (" | " + eTime.replace(/</g,"&lt;")) : ""}
+  </td>
+  <td style="${tdPriceStyle}"></td>
+</tr>`;
 
-    if (eLocation.trim() !== "") {
-      html += `<tr>
-        <td style="${tdLabelStyle}">Location</td>
-        <td colspan="2" style="${tdValueStyle}">
-          ${eLocation.replace(/</g,"&lt;")}
-        </td>
-      </tr>`;
-    }
+// Location row WITH transport price in 3rd column
+if (eLocation.trim() !== "") {
+  html += `<tr>
+    <td style="${tdLabelStyle}">Location</td>
+    <td style="${tdValueStyle}">
+      ${eLocation.replace(/</g,"&lt;")}
+    </td>
+    <td style="${tdPriceStyle}">${fmtPriceForDetailRow(transportPrice)}</td>
+  </tr>`;
+}
+
 
     if (addonData || addOnPrice) {
       html += `<tr>
