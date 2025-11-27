@@ -118,22 +118,30 @@ header {
   background: #ffe6e6 !important;
 }
 
-@media (max-width: 480px) {
+/* Make all footer buttons share the row evenly */
+#modalButtonRow button {
+  flex: 1 1 0;
+  min-width: 0;
+}
 
-  /* Make button row tighter */
-  #modalButtonRow {
-    justify-content: flex-end !important;
-    gap: 4px !important;            
-    flex-wrap: wrap !important;      
+/* Remove big gaps between buttons, they will fill from left to right */
+#modalButtonRow {
+  gap: 0;
+}
+
+/* Mobile optimisation: slightly smaller buttons so they don't overflow */
+@media (max-width: 480px) {
+  #modalButtonRow button {
+    padding: 6px 4px !important;
+    font-size: 11px !important;
+    white-space: nowrap !important;  /* text stays on one line */
   }
 
-  /* Reduce button size */
-  #modalButtonRow button {
-    padding: 5px 8px !important;
-    font-size: 11px !important;
-    white-space: nowrap !important; /* prevents breaking text */
+  #modalButtonRow {
+    flex-wrap: wrap;                 /* if still too tight, buttons wrap to next line */
   }
 }
+
 
 </style>
 </head>
@@ -691,7 +699,7 @@ header {
             <option value="download">Download</option>
             <option value="share">Share</option>
             <option value="edit">Edit</option> 
-            <option value="generate_invoice">Generate Invoice</option>
+            <option value="generate_invoice">Bill-It</option>
           </select>
 
           <button id="quoteBulkOk"
@@ -843,7 +851,7 @@ header {
       <h3 id="messageTitle" class="text-xl font-bold text-red-600 mb-3">Input Error</h3>
       <pre id="messageBody" class="text-gray-700 mb-4" style="white-space:pre-wrap;"></pre>
 
-            <div class="flex flex-wrap gap-2 w-full justify-end items-center" id="modalButtonRow">
+            <div class="flex flex-wrap w-full" id="modalButtonRow">
         <!-- These are hidden by default and shown per-screen in JS -->
 
         <button
@@ -3506,7 +3514,7 @@ msg += `</div>`;
   }
   if (genInvBtn) {
     genInvBtn.classList.remove('hidden');
-    genInvBtn.onclick = () => handleFileAction(quoteId, 'bill_it');
+    genInvBtn.onclick = () => handleFileAction(quoteId, 'generate_invoice');
   }
   if (editBtn) {
     editBtn.classList.remove('hidden');
