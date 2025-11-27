@@ -5682,6 +5682,7 @@ document.getElementById('invoiceAddEventBtn')?.addEventListener('click', () => {
 });
 
     // Invoice save button
+// Invoice save button
 document.getElementById('generateInvoiceButton')?.addEventListener('click', () => {
   const clientName = (document.getElementById('invoiceClientNameInput')?.value || '').trim();
   const clientContact = (document.getElementById('invoiceClientContactInput')?.value || '').trim();
@@ -5788,16 +5789,13 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
 
   const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
 
-  // 🔁 DUPLICATE CHECK (case-insensitive: name + contact)
+  // (Optional) duplicate check – keep if you were using it before
   const nameKey    = clientName.toLowerCase();
   const contactKey = clientContact.toLowerCase();
-
   const duplicateInvoice = invoices.find(inv => {
     const n = (inv.clientName    || '').trim().toLowerCase();
     const c = (inv.clientContact || '').trim().toLowerCase();
     const sameClient = n === nameKey && c === contactKey;
-
-    // while editing, ignore the same record
     if (CURRENT_EDIT_INVOICE_ID && (inv.invoiceId || inv.id) === CURRENT_EDIT_INVOICE_ID) {
       return false;
     }
@@ -5813,7 +5811,6 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
       localStorage.setItem('CURRENT_EDIT_INVOICE', JSON.stringify(duplicateInvoice));
       navigate('invoice', { skipInit: false });
     }
-    // ⛔ stop saving in both cases (Yes or No)
     return;
   }
 
@@ -5821,9 +5818,9 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
   // 🔴 Special handling for VOID invoices
   // ==============================
   // When editing an invoice that is currently status: 'void',
-  // ask whether to save as VALID (normal) or keep as VOID.
-  let forcedStatus = null;     // 'valid' | 'void' | null (no override)
-  let forcedVoidedAt = null;   // timestamp when keeping as void
+  // ask whether to save as VALID (normal) or keep it VOID.
+  let forcedStatus = null;     // 'valid' | 'void' | null
+  let forcedVoidedAt = null;
 
   if (CURRENT_EDIT_INVOICE_ID) {
     const editing = invoices.find(inv =>
@@ -5837,7 +5834,7 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
       );
 
       if (makeValid) {
-        // user wants a normal invoice
+        // user wants to validate (will be shown orange as "valid-from-void")
         forcedStatus   = 'valid';
         forcedVoidedAt = null;
       } else {
@@ -5861,16 +5858,15 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
       let status   = old.status;
       let voidedAt = old.voidedAt;
 
-            // apply forced choice (only when it was a void invoice we edited)
+      // apply forced choice (only when it was a void invoice we edited)
       if (forcedStatus === 'valid') {
-        // mark as "validated from void" so we can show it in orange
+        // mark as "validated from void" → will show orange in list
         status   = 'valid-from-void';
         voidedAt = undefined;
       } else if (forcedStatus === 'void') {
         status   = 'void';
         voidedAt = forcedVoidedAt || new Date().toISOString();
       }
-
 
       savedInvoice = {
         ...old,
@@ -5917,8 +5913,6 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
     autoSaveDrive('invoice saved from invoice screen');
   }
 });
-
-
 
   // init
   renderFilesList();
