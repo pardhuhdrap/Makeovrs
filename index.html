@@ -3433,32 +3433,33 @@ msg += `</div>`;
     const safeQuoteId = String(q.id || '').replace(/"/g, '&quot;');
 
 msg += `
-  <hr style="margin:12px 0;" />
+  <hr class="my-3" />
+
   <div class="flex flex-wrap gap-2 justify-end mt-2">
 
     <button
-      class="px-2 py-1 rounded text-white text-sm bg-blue-600"
+      class="px-4 py-2 rounded text-white text-sm bg-blue-600"
       onclick="handleFileAction('${safeQuoteId}','download')"
     >
       Download
     </button>
 
     <button
-      class="px-2 py-1 rounded text-white text-sm bg-indigo-600"
+      class="px-4 py-2 rounded text-white text-sm bg-indigo-600"
       onclick="handleFileAction('${safeQuoteId}','share')"
     >
       Share
     </button>
 
     <button
-      class="px-2 py-1 rounded text-white text-sm bg-green-600"
+      class="px-4 py-2 rounded text-white text-sm bg-green-600"
       onclick="handleFileAction('${safeQuoteId}','generate_invoice')"
     >
       Generate Invoice
     </button>
 
     <button
-      class="px-2 py-1 rounded text-white text-sm bg-orange-600"
+      class="px-4 py-2 rounded text-white text-sm bg-orange-600"
       onclick="handleFileAction('${safeQuoteId}','edit')"
     >
       Edit
@@ -3573,7 +3574,8 @@ function openInvoiceViewerById(invId){
   const safeInvId = String(inv.invoiceId || inv.id || '').replace(/"/g, '&quot;');
 
 msg += `
-  <hr style="margin:12px 0;" />
+  <hr class="my-3" />
+
   <div class="flex flex-wrap gap-2 justify-end mt-2">
 
     <button
@@ -3591,7 +3593,7 @@ msg += `
     </button>
 
     <button
-      class="px-4 py-2 rounded text-white text-sm bg-orange-500"
+      class="px-4 py-2 rounded text-white text-sm bg-orange-600"
       onclick="handleInvoiceAction('${safeInvId}','edit')"
     >
       Edit
