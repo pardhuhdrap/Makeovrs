@@ -1075,13 +1075,6 @@ function showMessage(msg, title = 'Notice') {
 function closeMessage(){
   const m = document.getElementById('messageModal');
   if (m) m.style.display = 'none';
-
-  // hide & reset the special "Paid" button used only by invoice viewer
-  const paidBtn = document.getElementById('messagePaidBtn');
-  if (paidBtn) {
-    paidBtn.classList.add('hidden');
-    paidBtn.onclick = null;
-  }
 }
 
 let navHistory = [];
