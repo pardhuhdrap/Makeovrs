@@ -2667,66 +2667,119 @@ function renderFilesList() {
 
   // ---------- Invoices ----------
   const invList = document.getElementById('invoicesList');
+  const invoicesEmpty = document.getElementById('invoicesEmpty');
+  if (!invList) return;
+
   invList.innerHTML = '';
-  let foundI = 0;
+  let foundInv = 0;
 
   invoices.slice().reverse().forEach(inv => {
-    const created = inv.createdAt ? new Date(inv.createdAt) : null;
+    // --- date filter ---
+    const created =
+      inv.createdAt
+        ? new Date(inv.createdAt)
+        : (inv.date ? new Date(inv.date) : null);
 
-    // Date filter
     if (!recordMatchesDate(created)) return;
 
-    // Client name filter
-    if (
-      searchQuery &&
-      !(String(inv.clientName || '').toLowerCase().includes(searchQuery))
-    ) return;
+    // --- search filter (same style as quotations) ---
+    const text = [
+      inv.clientName,
+      inv.clientContact,
+      inv.invoiceNo,
+      inv.quotationNo,
+      inv.id,
+      inv.invoiceId,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
 
-        foundI++;
+    if (searchQuery && !text.includes(searchQuery)) return;
 
-    const item = document.createElement('div');
-    const isVoid = String(inv.status || '').toLowerCase() === 'void';
+    foundInv++;
 
-    item.className = 'file-item' + (isVoid ? ' bg-red-50' : '');
+    const idForInvoice = inv.invoiceId || inv.id || '';
 
-    const meta = document.createElement('div');
-    meta.className = 'meta';
+    // ---------- STATUS COLORS ----------
+    // default (normal invoice)
+    let borderColor = '#e5e7eb';   // light gray
+    let chipBg      = '#f3f4f6';   // gray chip
+    let chipText    = '#374151';
+    let statusLabel = (inv.status || 'normal').toUpperCase();
 
-    const idForInvoice = inv.invoiceId || inv.id;
+    if (inv.status === 'void') {
+      // RED for void invoices
+      borderColor = '#fecaca';
+      chipBg      = '#fee2e2';
+      chipText    = '#b91c1c';
+      statusLabel = 'VOID';
+    } else if (inv.status === 'valid-from-void') {
+      // ORANGE for invoices that were void earlier but now re-validated
+      borderColor = '#fed7aa';
+      chipBg      = '#ffedd5';
+      chipText    = '#9a3412';
+      statusLabel = 'VALID (edited)';
+    }
 
-    meta.innerHTML = `
-      <input type="checkbox"
-             class="invoice-select"
-             data-id="${idForInvoice}"
-             style="width:18px;height:18px;margin-right:8px" />
-      <div>
-        <div class="font-semibold ${isVoid ? 'text-red-600' : ''}">
-          ${inv.clientName || 'Unnamed'}
-          ${isVoid ? '<span class="ml-2 text-xs font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 align-middle">VOID</span>' : ''}
+    const card = document.createElement('div');
+    card.className =
+      'flex items-center justify-between border rounded-lg px-3 py-2 mb-1 bg-white shadow-sm';
+    card.style.borderLeftWidth = '4px';
+    card.style.borderLeftStyle = 'solid';
+    card.style.borderLeftColor = borderColor;
+
+    card.innerHTML = `
+      <div class="flex items-center gap-3">
+        <input
+          type="checkbox"
+          class="invoice-select"
+          value="${idForInvoice}"
+        />
+        <div>
+          <div class="font-medium text-sm">
+            ${inv.clientName || 'Unnamed'} — ${inv.clientContact || ''}
+          </div>
+          <div class="text-xs text-gray-500">
+            ${inv.invoiceNo || idForInvoice}
+          </div>
         </div>
-        <div class="text-xs text-gray-500">
-          ${created ? created.toLocaleString() : 'No date'}
-        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span
+          class="text-[11px] px-2 py-[1px] rounded-full"
+          style="background:${chipBg};color:${chipText};"
+        >
+          ${statusLabel}
+        </span>
+        <button
+          class="text-xs text-blue-600 hover:underline"
+          onclick="handleInvoiceAction('${idForInvoice}','view')"
+        >
+          View
+        </button>
+        <button
+          class="text-xs text-blue-600 hover:underline"
+          onclick="handleInvoiceAction('${idForInvoice}','edit')"
+        >
+          Edit
+        </button>
+        <button
+          class="text-xs text-red-600 hover:underline"
+          onclick="handleInvoiceAction('${idForInvoice}','delete')"
+        >
+          Delete
+        </button>
       </div>
     `;
 
-    // right side: "View" button for invoices
-    const actions = document.createElement('div');
-    actions.innerHTML = `
-      <button
-        class="py-1 px-2 rounded border text-sm"
-        onclick="openInvoiceViewerById('${idForInvoice}')">
-        View
-      </button>
-    `;
-
-    item.appendChild(meta);
-    item.appendChild(actions);
-    invList.appendChild(item);
+    invList.appendChild(card);
   });
 
-  document.getElementById('invoicesEmpty').classList.toggle('hidden', foundI > 0);
-}
+  if (invoicesEmpty) {
+    invoicesEmpty.classList.toggle('hidden', foundInv > 0);
+  }
+
 
 // Healper-function
 function getCheckedQuoteIds() {
@@ -5840,14 +5893,16 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
       let status   = old.status;
       let voidedAt = old.voidedAt;
 
-      // apply forced choice (only when it was a void invoice we edited)
+            // apply forced choice (only when it was a void invoice we edited)
       if (forcedStatus === 'valid') {
-        status   = undefined; // normal invoice => no special status
+        // mark as "validated from void" so we can show it in orange
+        status   = 'valid-from-void';
         voidedAt = undefined;
       } else if (forcedStatus === 'void') {
         status   = 'void';
         voidedAt = forcedVoidedAt || new Date().toISOString();
       }
+
 
       savedInvoice = {
         ...old,
