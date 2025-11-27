@@ -1073,6 +1073,9 @@ const RECYCLE_SYSTEM_KEY = 'recycle_system_removed';
 let CURRENT_EDIT_QUOTATION_ID = null; 
 let CURRENT_EDIT_INVOICE_ID   = null;
 
+// Calendar booking → payment flow context
+window.CALENDAR_BOOKING_FLOW = null;
+
 const APP_LOGO_KEY='app_logo_dataurl';
 const QUOTATION_LAYOUT_KEY='quotation_layout_dataurl';
 const INVOICE_LAYOUT_KEY='invoice_layout_dataurl';
@@ -1472,16 +1475,13 @@ function setSingleEventBooking(eventId, booked=true){
   scheduleAutoSave('calendar single event booking change');
 }
 
-/* Generate invoice from a quotation (used by calendar booking) */
-async function generateInvoiceFromQuotationForCalendar(quotationId) {
+// Prepare invoice totals from a quotation and seed CURRENT_VIEWED_INVOICE,
+// without actually saving a real invoice yet.
+function prepareInvoicePreviewFromQuotation(quotationId) {
   const quotations = loadFromLS(SAVED_QUOTATIONS_KEY, []);
   const q = quotations.find(x => x.id === quotationId);
-  if (!q) {
-    alert('Quotation not found for generating invoice.');
-    return null;
-  }
+  if (!q) return null;
 
-  const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
   const events = Array.isArray(q.events) ? q.events : [];
 
   // Try to reuse totals from quotation; fallback to compute
@@ -1499,6 +1499,33 @@ async function generateInvoiceFromQuotationForCalendar(quotationId) {
   const final = (typeof q.final === 'number')
     ? q.final
     : Math.max(0, actual - discount);
+
+  // Seed CURRENT_VIEWED_INVOICE so Payment Info modal knows the billed amount
+  window.CURRENT_VIEWED_INVOICE = {
+    id: q.id,
+    actual,
+    discount,
+    final,
+    invoice: null,
+    quotationId: q.id,
+    clientName: q.clientName,
+    clientContact: q.clientContact
+  };
+
+  return { quotation: q, actual, discount, final };
+}
+
+/* Generate invoice from a quotation (used by calendar booking) */
+async function generateInvoiceFromQuotationForCalendar(quotationId) {
+  const preview = prepareInvoicePreviewFromQuotation(quotationId);
+  if (!preview) {
+    alert('Quotation not found for generating invoice.');
+    return null;
+  }
+
+  const { quotation: q, actual, discount, final } = preview;
+
+  const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
 
   const newInvoice = {
     ...q,
@@ -1521,9 +1548,6 @@ async function generateInvoiceFromQuotationForCalendar(quotationId) {
     invoice: newInvoice
   };
 
-  // Optional: background info only (no big popup)
-  console.log('Invoice generated from calendar booking:', newInvoice.invoiceId);
-
   // Auto-save to Drive if available
   if (typeof autoSaveDrive === 'function') {
     autoSaveDrive('invoice generated from calendar booking');
@@ -1531,6 +1555,7 @@ async function generateInvoiceFromQuotationForCalendar(quotationId) {
 
   return newInvoice;
 }
+
 
 /* -------------------------
    Contact helpers
@@ -1828,34 +1853,98 @@ function openCalendarDatePopup(dateISO){
       }
       const hasMultipleEvents = quotationEventCount > 1;
 
-      if (checked) {
+            if (checked) {
         // ===========================
-        //  MARK AS BOOKED (existing)
+        //  MARK AS BOOKED (NEW FLOW)
         // ===========================
+
         if (hasMultipleEvents) {
           const yesWhole = confirm(
             "Are whole event's booked as per quotation? (Yes = mark all events in this quotation as booked)"
           );
+
+          let mode;
+          let willBeVoid = false;
+
           if (yesWhole) {
-            setQuotationBookings(evObj.quotationId, true);   // all events of that quotation
+            // YES → mark all events booked (normal invoice)
+            setQuotationBookings(evObj.quotationId, true);
+            mode = 'multi-all';
+            willBeVoid = false;
           } else {
-            setSingleEventBooking(evObj.eventId, true);      // only this event
+            // NO → only this event booked (void invoice)
+            setSingleEventBooking(evObj.eventId, true);
+            mode = 'multi-single';
+            willBeVoid = true;
           }
+
+          const preview = prepareInvoicePreviewFromQuotation(evObj.quotationId);
+          if (!preview) {
+            alert('Quotation not found for generating invoice.');
+
+            // revert booking because we cannot proceed
+            if (mode === 'multi-all') {
+              setQuotationBookings(evObj.quotationId, false);
+            } else {
+              setSingleEventBooking(evObj.eventId, false);
+            }
+            e.target.checked = false;
+            return;
+          }
+
+          // Save context so that:
+          // - Partial click = generate (normal / void) invoice
+          // - Closing modal without Partial = revert booking(s)
+          window.CALENDAR_BOOKING_FLOW = {
+            fromCalendar: true,
+            mode,
+            quotationId: evObj.quotationId,
+            eventId: evObj.eventId,
+            dateISO,
+            willBeVoid
+          };
+
+          // Open payment popup (user must click Partial to actually create invoice)
+          openPaymentInfoModalRestrictedFromCalendar();
+
         } else {
-          // Single-event quotation: no question, just toggle this event
-          setSingleEventBooking(evObj.eventId, true);
-        }
+          // ===========================
+          //  SINGLE-EVENT QUOTATION
+          // ===========================
+          const generate = window.confirm(
+            'Generate invoice for this booking?\n\n' +
+            'Yes = open Payment Info and create invoice when Partial is clicked.\n' +
+            'No = keep this event un-booked.'
+          );
 
-        // Ask to generate invoice
-        const makeInv = window.confirm(
-          'This event is now marked as BOOKED.\n\nDo you want to generate an invoice for this quotation now?'
-        );
-
-        if (makeInv) {
-          const newInv = await generateInvoiceFromQuotationForCalendar(evObj.quotationId);
-          if (newInv) {
-            openPaymentInfoModalRestrictedFromCalendar();
+          if (!generate) {
+            // user does NOT want invoice → keep as unbooked
+            setSingleEventBooking(evObj.eventId, false);
+            e.target.checked = false;
+            return;
           }
+
+          // Mark this single event as booked
+          setSingleEventBooking(evObj.eventId, true);
+
+          const preview = prepareInvoicePreviewFromQuotation(evObj.quotationId);
+          if (!preview) {
+            alert('Quotation not found for generating invoice.');
+            setSingleEventBooking(evObj.eventId, false);
+            e.target.checked = false;
+            return;
+          }
+
+          window.CALENDAR_BOOKING_FLOW = {
+            fromCalendar: true,
+            mode: 'single',
+            quotationId: evObj.quotationId,
+            eventId: evObj.eventId,
+            dateISO,
+            willBeVoid: false
+          };
+
+          openPaymentInfoModalRestrictedFromCalendar();
         }
 
       } else {
@@ -1886,45 +1975,50 @@ function openCalendarDatePopup(dateISO){
           );
 
           if (yesWhole) {
-            // Unmark all bookings for this quotation
-            setQuotationBookings(evObj.quotationId, false);
-
+            // If invoice exists, confirm delete first
             if (relatedInvoices.length) {
               const sureDelete = window.confirm(
                 "Are you sure to delete invoice?\n\n" +
-                "Yes = auto delete and move the invoice to Recycle Bin → System Removed."
+                "Yes = auto delete and move the invoice to Recycle Bin → System Removed.\n" +
+                "Cancel = keep bookings and invoice as-is."
               );
-              if (sureDelete) {
-                const recycleSystem = loadFromLS(RECYCLE_SYSTEM_KEY, []);
-                const nowIso = new Date().toISOString();
 
-                relatedInvoices.forEach(inv => {
-                  const idForInvoice = inv.invoiceId || inv.id;
-                  recycleSystem.push({
-                    type: 'invoice',
-                    kind: 'invoice',
-                    label: (inv.clientName || 'Invoice'),
-                    clientName: inv.clientName,
-                    clientContact: inv.clientContact,
-                    invoiceId: idForInvoice,
-                    quotationId: evObj.quotationId,
-                    removedAt: nowIso,
-                    reason: 'Auto-deleted because all quotation events were un-booked from calendar'
-                  });
+              if (!sureDelete) {
+                // user cancelled → put checkbox back ON and abort
+                e.target.checked = true;
+                return;
+              }
+
+              const recycleSystem = loadFromLS(RECYCLE_SYSTEM_KEY, []);
+              const nowIso = new Date().toISOString();
+
+              relatedInvoices.forEach(inv => {
+                const idForInvoice = inv.invoiceId || inv.id;
+                recycleSystem.push({
+                  type: 'invoice',
+                  kind: 'invoice',
+                  label: (inv.clientName || 'Invoice'),
+                  clientName: inv.clientName,
+                  clientContact: inv.clientContact,
+                  invoiceId: idForInvoice,
+                  quotationId: evObj.quotationId,
+                  removedAt: nowIso,
+                  reason: 'Auto-deleted because all quotation events were un-booked from calendar'
                 });
+              });
 
-                saveToLS(RECYCLE_SYSTEM_KEY, recycleSystem);
+              saveToLS(RECYCLE_SYSTEM_KEY, recycleSystem);
 
-                // remove them from live invoices
-                const remaining = allInvoices.filter(inv => !relatedInvoices.includes(inv));
-                saveToLS(SAVED_INVOICES_KEY, remaining);
+              const remaining = allInvoices.filter(inv => !relatedInvoices.includes(inv));
+              saveToLS(SAVED_INVOICES_KEY, remaining);
 
-                // refresh Files list
-                if (typeof renderFilesList === 'function') {
-                  renderFilesList();
-                }
+              if (typeof renderFilesList === 'function') {
+                renderFilesList();
               }
             }
+
+            // Finally unmark all bookings for this quotation
+            setQuotationBookings(evObj.quotationId, false);
 
           } else {
             // --- Scenario 2: NO = unmark only this event & offer to VOID invoice ---
@@ -1986,6 +2080,10 @@ function openCalendarDatePopup(dateISO){
               if (typeof renderFilesList === 'function') {
                 renderFilesList();
               }
+            } else {
+              // user cancelled delete → keep it booked
+              e.target.checked = true;
+              setSingleEventBooking(evObj.eventId, true);
             }
           }
         }
@@ -3536,7 +3634,32 @@ function openPaymentInfoModalRestrictedFromCalendar() {
 function closePaymentInfoModal() {
   const modal = document.getElementById('paymentInfoModal');
   if (modal) modal.style.display = 'none';
+
+  // If we came here from calendar booking and user closed without Partial payment,
+  // revert the booked flag(s).
+  const ctx = window.CALENDAR_BOOKING_FLOW;
+  if (ctx && ctx.fromCalendar) {
+    try {
+      if (ctx.mode === 'multi-all') {
+        setQuotationBookings(ctx.quotationId, false);
+      } else if (ctx.eventId) {
+        setSingleEventBooking(ctx.eventId, false);
+      }
+
+      if (ctx.dateISO && typeof openCalendarDatePopup === 'function') {
+        openCalendarDatePopup(ctx.dateISO);
+      }
+      if (typeof renderCalendar === 'function') {
+        renderCalendar();
+      }
+    } catch (e) {
+      console.warn('Failed to revert calendar booking after closing payment modal:', e);
+    } finally {
+      window.CALENDAR_BOOKING_FLOW = null;
+    }
+  }
 }
+
 
 // Enable/disable Revised Amount field
 function toggleRevisedAmount() {
@@ -3612,11 +3735,81 @@ function recalcPaymentPending() {
   if (paidBtn)    paidBtn.disabled    = !(rawPending <= 0);
 }
 
-// Placeholder handlers (you will define logic later)
 function handlePaymentPartial() {
-  // Here we'll later save partial payment info etc.
-  alert('Partially Paid functionality will be added here.');
+  const ctxFlow = window.CALENDAR_BOOKING_FLOW;
+  const ctxInvoice = window.CURRENT_VIEWED_INVOICE || {};
+
+  // If not in calendar booking flow, keep old simple behaviour
+  if (!ctxFlow || !ctxFlow.fromCalendar) {
+    alert('Partial payment logic placeholder – implement as needed.');
+    closePaymentInfoModal();
+    return;
+  }
+
+  const preview = prepareInvoicePreviewFromQuotation(ctxFlow.quotationId);
+  if (!preview) {
+    alert('Quotation missing for this booking. Invoice not created.');
+    closePaymentInfoModal();
+    return;
+  }
+
+  const { quotation: q, actual, discount, final } = preview;
+  const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
+
+  const newInvoice = {
+    ...q,
+    invoiceId: 'inv_' + Date.now(),
+    createdAt: new Date().toISOString(),
+    actual,
+    discount,
+    final,
+    status: ctxFlow.willBeVoid ? 'void' : 'open',
+    voidedAt: ctxFlow.willBeVoid ? new Date().toISOString() : undefined
+  };
+
+  invoices.push(newInvoice);
+  saveToLS(SAVED_INVOICES_KEY, invoices);
+
+  window.CURRENT_VIEWED_INVOICE = {
+    id: newInvoice.invoiceId || newInvoice.id,
+    actual,
+    discount,
+    final,
+    invoice: newInvoice
+  };
+
+  if (typeof renderFilesList === 'function') {
+    renderFilesList();
+  }
+
+  if (typeof autoSaveDrive === 'function') {
+    autoSaveDrive('invoice generated from calendar partial payment');
+  }
+
+  if (ctxFlow.willBeVoid) {
+    showMessage('Void invoice generated from calendar booking.', 'Invoice');
+  } else {
+    showMessage('Invoice generated from calendar booking.', 'Invoice');
+  }
+
+  // ✅ commit, clear flow & close modal (no revert)
+  const dateISO = ctxFlow.dateISO;
+  window.CALENDAR_BOOKING_FLOW = null;
+  closePaymentInfoModal();
+
+  // refresh calendar UI
+  try {
+    if (dateISO && typeof openCalendarDatePopup === 'function') {
+      openCalendarDatePopup(dateISO);
+    }
+    if (typeof renderCalendar === 'function') {
+      renderCalendar();
+    }
+  } catch (e) {
+    console.warn('Calendar refresh after partial payment failed:', e);
+  }
 }
+
 
 function handlePaymentPaidFinal() {
   // Here we'll later save full payment info etc.
