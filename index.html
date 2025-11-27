@@ -3429,7 +3429,8 @@ msg += `</div>`;
       msg += `</div>`;
     });
   }
-
+   
+    const safeQuoteId = String(q.id || '').replace(/"/g, '&quot;');
    msg += `
     <hr style="margin:12px 0;" />
     <div style="
