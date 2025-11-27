@@ -5661,157 +5661,211 @@ document.getElementById('invoiceAddEventBtn')?.addEventListener('click', () => {
 });
 
     // Invoice save button
-  document.getElementById('generateInvoiceButton')?.addEventListener('click', ()=>{
-    const clientName = (document.getElementById('invoiceClientNameInput')?.value || '').trim();
-    const clientContact = (document.getElementById('invoiceClientContactInput')?.value || '').trim();
-    if(!clientName || !clientContact){
-      showMessage('Client name and contact are required.');
-      return;
-    }
+document.getElementById('generateInvoiceButton')?.addEventListener('click', () => {
+  const clientName = (document.getElementById('invoiceClientNameInput')?.value || '').trim();
+  const clientContact = (document.getElementById('invoiceClientContactInput')?.value || '').trim();
+  if (!clientName || !clientContact) {
+    showMessage('Client name and contact are required.');
+    return;
+  }
 
-    const panels = Array.from(
-      document.querySelectorAll('#invoiceEventsContainer > .event-panel')
-    );
-    if(panels.length === 0){
-      showMessage('Add at least one event.');
-      return;
-    }
+  const panels = Array.from(
+    document.querySelectorAll('#invoiceEventsContainer > .event-panel')
+  );
+  if (panels.length === 0) {
+    showMessage('Add at least one event.');
+    return;
+  }
 
-    const events = panels.map(panel => {
-      const name =
-        panel.querySelector('.event-eventNameMaster')?.value ||
-        panel.querySelector('.event-eventNameManual')?.value ||
-        '';
-      const date = panel.querySelector('.event-eventDate')?.value || '';
+  // Build events from panels
+  const events = panels.map(panel => {
+    const name = (
+      panel.querySelector('.event-eventNameMaster')?.value ||
+      panel.querySelector('.event-eventNameManual')?.value ||
+      ''
+    ).trim();
+    const date = (panel.querySelector('.event-eventDate')?.value || '').trim();
 
-      // package
-      let packagePrice = 0;
-      let packageName = '';
-
-      const pkgMasterSel = panel.querySelector('.event-packageMaster');
-      if (pkgMasterSel) {
-        const opt = pkgMasterSel.options[pkgMasterSel.selectedIndex];
-        if (opt) {
-          packageName = (opt.textContent || '').split('—')[0].trim();
-          packagePrice = opt.dataset && opt.dataset.price
-            ? parseFloat(opt.dataset.price)
-            : 0;
-        }
-      } else {
-        packageName =
-          panel.querySelector('.event-packageSelectedManual')?.value || '';
-        packagePrice = parseFloat(
-          panel.querySelector('.event-packageManualPrice')?.value || 0
-        );
-      }
-
-      // add-on
-      const addOnPrice = parseFloat(
-        panel.querySelector('.event-addOnPrice')?.value || 0
-      );
-
-      let addonDetails = '';
-      const addonDisplay = panel.querySelector('.event-addon-display');
-      const addonManual = panel.querySelector('.event-addon-manual');
-
-      if (
-        addonDisplay &&
-        addonDisplay.textContent &&
-        addonDisplay.textContent.trim() &&
-        !/Enter \(Text\)/i.test(addonDisplay.textContent) &&
-        !/No items selected/i.test(addonDisplay.textContent)
-      ) {
-        addonDetails = addonDisplay.textContent.trim();
-      } else if (addonManual && addonManual.value.trim()) {
-        addonDetails = addonManual.value.trim();
-      }
-
-      const transportPrice = parseFloat(
-        panel.querySelector('.event-transportPrice')?.value || 0
-      );
-      const notes = panel.querySelector('.event-notes')?.value || '';
-
-      return {
-        name,
-        date,
-        packageName,
-        packagePrice,
-        addonDetails,
-        addOnPrice,
-        transportPrice,
-        notes,
-      };
-    });
-
-        const actual = events.reduce(
-      (s,e)=> s + (Number(e.packagePrice||0) + Number(e.addOnPrice||0) + Number(e.transportPrice||0)),
-      0
-    );
-    const discount = parseFloat(document.getElementById('invoiceDiscount')?.value || 0) || 0;
-    const final = Math.max(0, actual - discount);
-
-    if (typeof updateInvoiceSummaryUI === 'function') {
-      updateInvoiceSummaryUI();
-    }
-
-    const base = { clientName, clientContact, events, actual, final };
-    if (discount > 0) base.discount = Number(discount.toFixed(2));
-
-    const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
-
-    // 🔁 DUPLICATE CHECK (case-insensitive: name + contact)
-    const nameKey    = clientName.toLowerCase();
-    const contactKey = clientContact.toLowerCase();
-
-    const duplicateInvoice = invoices.find(inv => {
-      const n = (inv.clientName    || '').trim().toLowerCase();
-      const c = (inv.clientContact || '').trim().toLowerCase();
-      const sameClient = n === nameKey && c === contactKey;
-
-      // while editing, ignore the same record
-      if (CURRENT_EDIT_INVOICE_ID && (inv.invoiceId || inv.id) === CURRENT_EDIT_INVOICE_ID) {
-        return false;
-      }
-      return sameClient;
-    });
-
-    if (duplicateInvoice) {
-      const go = window.confirm(
-        'An invoice already exists for this client name and contact.\n\n' +
-        'Do you want to open that invoice in edit mode instead?'
-      );
-      if (go) {
-        localStorage.setItem('CURRENT_EDIT_INVOICE', JSON.stringify(duplicateInvoice));
-        navigate('invoice', { skipInit: false });
-      }
-      // ⛔ stop saving in both cases (Yes or No)
-      return;
-    }
-
-    let savedInvoice;
-
-    if (CURRENT_EDIT_INVOICE_ID) {
-      const idx = invoices.findIndex(inv =>
-        (inv.invoiceId || inv.id) === CURRENT_EDIT_INVOICE_ID
-      );
-      if (idx !== -1) {
-        const old = invoices[idx];
-        savedInvoice = {
-          ...old,
-          ...base,
-          invoiceId: old.invoiceId || CURRENT_EDIT_INVOICE_ID,
-          createdAt: new Date().toISOString()
-        };
-        invoices[idx] = savedInvoice;
-      } else {
-        savedInvoice = {
-          ...base,
-          invoiceId: 'inv_' + Date.now(),
-          createdAt: new Date().toISOString()
-        };
-        invoices.push(savedInvoice);
+    // package
+    let packageName = '';
+    let packagePrice = 0;
+    const pkgMode = panel.querySelector('.event-packageMode')?.value || 'master';
+    if (pkgMode === 'master') {
+      const pkgSel = panel.querySelector('.event-packageMaster');
+      if (pkgSel && pkgSel.value) {
+        const opt = pkgSel.selectedOptions[0];
+        packageName = opt ? opt.textContent.split('—')[0].trim() : '';
+        packagePrice = opt && opt.dataset.price
+          ? parseFloat(opt.dataset.price)
+          : 0;
       }
     } else {
+      packageName =
+        panel.querySelector('.event-packageSelectedManual')?.value || '';
+      packagePrice = parseFloat(
+        panel.querySelector('.event-packageManualPrice')?.value || 0
+      );
+    }
+
+    // add-on
+    const addOnPrice = parseFloat(
+      panel.querySelector('.event-addOnPrice')?.value || 0
+    );
+
+    let addonDetails = '';
+    const addonDisplay = panel.querySelector('.event-addon-display');
+    const addonManual  = panel.querySelector('.event-addon-manual');
+
+    if (
+      addonDisplay &&
+      addonDisplay.textContent &&
+      addonDisplay.textContent.trim() &&
+      !/Enter \(Text\)/i.test(addonDisplay.textContent) &&
+      !/No items selected/i.test(addonDisplay.textContent)
+    ) {
+      addonDetails = addonDisplay.textContent.trim();
+    } else if (addonManual && addonManual.value.trim()) {
+      addonDetails = addonManual.value.trim();
+    }
+
+    const transportPrice = parseFloat(
+      panel.querySelector('.event-transportPrice')?.value || 0
+    );
+    const notes = panel.querySelector('.event-notes')?.value || '';
+
+    return {
+      name,
+      date,
+      packageName,
+      packagePrice,
+      addonDetails,
+      addOnPrice,
+      transportPrice,
+      notes
+    };
+  });
+
+  // totals
+  const actual = events.reduce(
+    (s, e) =>
+      s +
+      (Number(e.packagePrice || 0) +
+       Number(e.addOnPrice || 0) +
+       Number(e.transportPrice || 0)),
+    0
+  );
+  const discount =
+    parseFloat(document.getElementById('invoiceDiscount')?.value || 0) || 0;
+  const final = Math.max(0, actual - discount);
+
+  if (typeof updateInvoiceSummaryUI === 'function') {
+    updateInvoiceSummaryUI();
+  }
+
+  const base = { clientName, clientContact, events, actual, final };
+  if (discount > 0) base.discount = Number(discount.toFixed(2));
+
+  const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
+
+  // 🔁 DUPLICATE CHECK (case-insensitive: name + contact)
+  const nameKey    = clientName.toLowerCase();
+  const contactKey = clientContact.toLowerCase();
+
+  const duplicateInvoice = invoices.find(inv => {
+    const n = (inv.clientName    || '').trim().toLowerCase();
+    const c = (inv.clientContact || '').trim().toLowerCase();
+    const sameClient = n === nameKey && c === contactKey;
+
+    // while editing, ignore the same record
+    if (CURRENT_EDIT_INVOICE_ID && (inv.invoiceId || inv.id) === CURRENT_EDIT_INVOICE_ID) {
+      return false;
+    }
+    return sameClient;
+  });
+
+  if (duplicateInvoice) {
+    const go = window.confirm(
+      'An invoice already exists for this client name and contact.\n\n' +
+      'Do you want to open that invoice in edit mode instead?'
+    );
+    if (go) {
+      localStorage.setItem('CURRENT_EDIT_INVOICE', JSON.stringify(duplicateInvoice));
+      navigate('invoice', { skipInit: false });
+    }
+    // ⛔ stop saving in both cases (Yes or No)
+    return;
+  }
+
+  // ==============================
+  // 🔴 Special handling for VOID invoices
+  // ==============================
+  // When editing an invoice that is currently status: 'void',
+  // ask whether to save as VALID (normal) or keep as VOID.
+  let forcedStatus = null;     // 'valid' | 'void' | null (no override)
+  let forcedVoidedAt = null;   // timestamp when keeping as void
+
+  if (CURRENT_EDIT_INVOICE_ID) {
+    const editing = invoices.find(inv =>
+      (inv.invoiceId || inv.id) === CURRENT_EDIT_INVOICE_ID
+    );
+    if (editing && editing.status === 'void') {
+      const makeValid = window.confirm(
+        'This invoice is currently marked as VOID.\n\n' +
+        'Click OK to save it as VALID (normal invoice).\n' +
+        'Click Cancel to keep it as VOID.'
+      );
+
+      if (makeValid) {
+        // user wants a normal invoice
+        forcedStatus   = 'valid';
+        forcedVoidedAt = null;
+      } else {
+        // keep it VOID
+        forcedStatus   = 'void';
+        forcedVoidedAt = editing.voidedAt || new Date().toISOString();
+      }
+    }
+  }
+
+  let savedInvoice;
+
+  if (CURRENT_EDIT_INVOICE_ID) {
+    const idx = invoices.findIndex(inv =>
+      (inv.invoiceId || inv.id) === CURRENT_EDIT_INVOICE_ID
+    );
+    if (idx !== -1) {
+      const old = invoices[idx];
+
+      // start with old status info
+      let status   = old.status;
+      let voidedAt = old.voidedAt;
+
+      // apply forced choice (only when it was a void invoice we edited)
+      if (forcedStatus === 'valid') {
+        status   = undefined; // normal invoice => no special status
+        voidedAt = undefined;
+      } else if (forcedStatus === 'void') {
+        status   = 'void';
+        voidedAt = forcedVoidedAt || new Date().toISOString();
+      }
+
+      savedInvoice = {
+        ...old,
+        ...base,
+        invoiceId: old.invoiceId || CURRENT_EDIT_INVOICE_ID,
+        createdAt: old.createdAt || new Date().toISOString()
+      };
+
+      // apply status fields
+      if (status !== undefined) savedInvoice.status = status;
+      else delete savedInvoice.status;
+
+      if (voidedAt !== undefined) savedInvoice.voidedAt = voidedAt;
+      else delete savedInvoice.voidedAt;
+
+      invoices[idx] = savedInvoice;
+    } else {
+      // safety: editing id not found, treat as new
       savedInvoice = {
         ...base,
         invoiceId: 'inv_' + Date.now(),
@@ -5819,18 +5873,27 @@ document.getElementById('invoiceAddEventBtn')?.addEventListener('click', () => {
       };
       invoices.push(savedInvoice);
     }
+  } else {
+    // brand-new invoice
+    savedInvoice = {
+      ...base,
+      invoiceId: 'inv_' + Date.now(),
+      createdAt: new Date().toISOString()
+    };
+    invoices.push(savedInvoice);
+  }
 
-    saveToLS(SAVED_INVOICES_KEY, invoices);
-    CURRENT_EDIT_INVOICE_ID = null;
-    showMessage('Invoice saved to Files → Invoices', 'Saved');
-    switchFilesTab('invoices');
-    renderFilesList();
+  saveToLS(SAVED_INVOICES_KEY, invoices);
+  CURRENT_EDIT_INVOICE_ID = null;
+  showMessage('Invoice saved to Files → Invoices', 'Saved');
+  switchFilesTab('invoices');
+  renderFilesList();
 
-    // 🔁 Auto-save to Drive (if signed in)
-    if (typeof autoSaveDrive === 'function') {
-      autoSaveDrive('invoice saved from invoice screen');
-    }
-  });
+  // 🔁 Auto-save to Drive (if signed in)
+  if (typeof autoSaveDrive === 'function') {
+    autoSaveDrive('invoice saved from invoice screen');
+  }
+});
 
 
 
