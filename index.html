@@ -126,18 +126,19 @@ header {
 
 /* Remove big gaps between buttons, they will fill from left to right */
 #modalButtonRow {
-  gap: 0;
+  gap: 4px;
 }
 
 /* Mobile optimisation: slightly smaller buttons so they don't overflow */
 @media (max-width: 480px) {
   #modalButtonRow button {
-    padding: 6px 4px !important;
-    font-size: 11px !important;
+    padding: 6px 6px !important;
+    font-size: 12px !important;
     white-space: nowrap !important;  /* text stays on one line */
   }
 
   #modalButtonRow {
+     gap: 4px !important;
     flex-wrap: wrap;                 /* if still too tight, buttons wrap to next line */
   }
 }
@@ -875,7 +876,7 @@ header {
           type="button"
           class="hidden px-4 py-2 rounded bg-green-600 text-white text-sm"
         >
-          Generate Invoice
+          Bill-It
         </button>
 
         <button
