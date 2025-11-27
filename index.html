@@ -118,16 +118,20 @@ header {
   background: #ffe6e6 !important;
 }
 
-@media (max-width: 550px) {
-  #messageModal .message-modal-content button {
-    padding: 6px 10px !important;   /* smaller padding */
-    font-size: 12px !important;     /* smaller text */
+@media (max-width: 480px) {
+
+  /* Make button row tighter */
+  #modalButtonRow {
+    justify-content: flex-end !important;
+    gap: 4px !important;            
+    flex-wrap: wrap !important;      
   }
 
-  #messageModal .message-modal-content .flex {
-    flex-wrap: wrap !important;     /* allow wrapping */
-    justify-content: flex-end !important;
-    gap: 4px !important;            /* reduce spacing */
+  /* Reduce button size */
+  #modalButtonRow button {
+    padding: 5px 8px !important;
+    font-size: 11px !important;
+    white-space: nowrap !important; /* prevents breaking text */
   }
 }
 
@@ -839,7 +843,7 @@ header {
       <h3 id="messageTitle" class="text-xl font-bold text-red-600 mb-3">Input Error</h3>
       <pre id="messageBody" class="text-gray-700 mb-4" style="white-space:pre-wrap;"></pre>
 
-            <div class="flex justify-end gap-2 w-full">
+            <div class="flex flex-wrap gap-2 w-full justify-end items-center" id="modalButtonRow">
         <!-- These are hidden by default and shown per-screen in JS -->
 
         <button
