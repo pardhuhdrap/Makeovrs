@@ -1532,6 +1532,7 @@ async function generateInvoiceFromQuotationForCalendar(quotationId) {
   return newInvoice;
 }
 
+
 /* -------------------------
    Contact helpers
    ------------------------- */
@@ -5594,7 +5595,7 @@ document.getElementById('invoiceAddEventBtn')?.addEventListener('click', () => {
       return;
     }
 
-    let savedInvoice;
+        let savedInvoice;
 
     if (CURRENT_EDIT_INVOICE_ID) {
       const idx = invoices.findIndex(inv =>
@@ -5625,6 +5626,7 @@ document.getElementById('invoiceAddEventBtn')?.addEventListener('click', () => {
       };
       invoices.push(savedInvoice);
     }
+
 
     saveToLS(SAVED_INVOICES_KEY, invoices);
     CURRENT_EDIT_INVOICE_ID = null;
@@ -5661,18 +5663,18 @@ document.getElementById('invoiceAddEventBtn')?.addEventListener('click', () => {
 
   realBtn.addEventListener('click', function(){
     try {
-     // prefer typed value; if empty, use stored name (parsed if JSON), else final fallback
-const name = (() => {
-  const typed = (document.getElementById('appNameInput')?.value || '').trim();
-  if (typed) return typed;
-  // read stored value (may be JSON string)
-  try {
-    const raw = localStorage.getItem(APP_NAME_KEY);
-    const parsed = raw ? JSON.parse(raw) : null;
-    if (parsed && typeof parsed === 'string') return parsed;
-  } catch(e) { /* ignore parse error and fallthrough */ }
-  return 'My Business App';
-})();
+      // prefer typed value; if empty, use stored name (parsed if JSON), else final fallback
+      const name = (() => {
+        const typed = (document.getElementById('appNameInput')?.value || '').trim();
+        if (typed) return typed;
+        // read stored value (may be JSON string)
+        try {
+          const raw = localStorage.getItem(APP_NAME_KEY);
+          const parsed = raw ? JSON.parse(raw) : null;
+          if (parsed && typeof parsed === 'string') return parsed;
+        } catch(e) { /* ignore parse error and fallthrough */ }
+        return 'My Business App';
+      })();
 
       let color = (document.getElementById('appColorInput')?.value || '#3b82f6').trim();
       const fontSize = (document.getElementById('appFontSize')?.value || '16').toString();
@@ -5708,6 +5710,7 @@ const name = (() => {
     }
   });
 })();
+
 
 </script>
 
