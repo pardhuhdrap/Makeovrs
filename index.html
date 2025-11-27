@@ -3515,11 +3515,18 @@ msg += `</div>`;
   }
   if (genInvBtn) {
     genInvBtn.classList.remove('hidden');
-    genInvBtn.onclick = () => handleFileAction(quoteId, 'generate_invoice');
+    genInvBtn.onclick = () => {
+      closeMessage();
+      handleFileAction(quoteId, 'generate_invoice');
+    };
   }
+
   if (editBtn) {
     editBtn.classList.remove('hidden');
-    editBtn.onclick = () => handleFileAction(quoteId, 'edit');
+    editBtn.onclick = () => {
+      closeMessage();
+      handleFileAction(quoteId, 'edit');
+    };
   }
   // Quotations do not use Paid button
 }
@@ -3649,13 +3656,22 @@ function openInvoiceViewerById(invId){
     shareBtn.classList.remove('hidden');
     shareBtn.onclick = () => handleInvoiceAction(safeInvId, 'share');
   }
-  if (editBtn) {
+   if (editBtn) {
     editBtn.classList.remove('hidden');
-    editBtn.onclick = () => handleInvoiceAction(safeInvId, 'edit');
+    editBtn.onclick = () => {
+      // close the modal so edit screen is visible
+      closeMessage();
+      handleInvoiceAction(safeInvId, 'edit');
+    };
   }
+
   if (paidBtn) {
     paidBtn.classList.remove('hidden');
-    paidBtn.onclick = () => handleInvoiceAction(safeInvId, 'paid');
+    paidBtn.onclick = () => {
+      // close the modal and open the existing payment info popup
+      closeMessage();
+      openPaymentInfoModal();
+    };
   }
   // Generate Invoice button is not needed in invoice view
 }
