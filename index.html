@@ -2666,120 +2666,88 @@ function renderFilesList() {
   document.getElementById('filesEmpty').classList.toggle('hidden', foundQ > 0);
 
   // ---------- Invoices ----------
-  const invList = document.getElementById('invoicesList');
-  const invoicesEmpty = document.getElementById('invoicesEmpty');
-  if (!invList) return;
-
+    const invList = document.getElementById('invoicesList');
   invList.innerHTML = '';
-  let foundInv = 0;
+  let foundI = 0;
 
   invoices.slice().reverse().forEach(inv => {
-    // --- date filter ---
-    const created =
-      inv.createdAt
-        ? new Date(inv.createdAt)
-        : (inv.date ? new Date(inv.date) : null);
+    const created = inv.createdAt ? new Date(inv.createdAt) : null;
 
+    // Date filter
     if (!recordMatchesDate(created)) return;
 
-    // --- search filter (same style as quotations) ---
-    const text = [
-      inv.clientName,
-      inv.clientContact,
-      inv.invoiceNo,
-      inv.quotationNo,
-      inv.id,
-      inv.invoiceId,
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
+    // Client name filter
+    if (
+      searchQuery &&
+      !(String(inv.clientName || '').toLowerCase().includes(searchQuery))
+    ) return;
 
-    if (searchQuery && !text.includes(searchQuery)) return;
+    foundI++;
 
-    foundInv++;
+    const item = document.createElement('div');
 
-    const idForInvoice = inv.invoiceId || inv.id || '';
+    const status = String(inv.status || '').toLowerCase();
+    const isVoid      = status === 'void';
+    const isValidated = status === 'valid-from-void';   // 👈 used for orange
 
-    // ---------- STATUS COLORS ----------
-    // default (normal invoice)
-    let borderColor = '#e5e7eb';   // light gray
-    let chipBg      = '#f3f4f6';   // gray chip
-    let chipText    = '#374151';
-    let statusLabel = (inv.status || 'normal').toUpperCase();
+    // background colour
+    item.className =
+      'file-item' +
+      (isVoid ? ' bg-red-50'
+              : isValidated ? ' bg-orange-50'
+                            : '');
 
-    if (inv.status === 'void') {
-      // RED for void invoices
-      borderColor = '#fecaca';
-      chipBg      = '#fee2e2';
-      chipText    = '#b91c1c';
-      statusLabel = 'VOID';
-    } else if (inv.status === 'valid-from-void') {
-      // ORANGE for invoices that were void earlier but now re-validated
-      borderColor = '#fed7aa';
-      chipBg      = '#ffedd5';
-      chipText    = '#9a3412';
-      statusLabel = 'VALID (edited)';
-    }
+    const meta = document.createElement('div');
+    meta.className = 'meta';
 
-    const card = document.createElement('div');
-    card.className =
-      'flex items-center justify-between border rounded-lg px-3 py-2 mb-1 bg-white shadow-sm';
-    card.style.borderLeftWidth = '4px';
-    card.style.borderLeftStyle = 'solid';
-    card.style.borderLeftColor = borderColor;
+    const idForInvoice = inv.invoiceId || inv.id;
 
-    card.innerHTML = `
-      <div class="flex items-center gap-3">
-        <input
-          type="checkbox"
-          class="invoice-select"
-          value="${idForInvoice}"
-        />
-        <div>
-          <div class="font-medium text-sm">
-            ${inv.clientName || 'Unnamed'} — ${inv.clientContact || ''}
-          </div>
-          <div class="text-xs text-gray-500">
-            ${inv.invoiceNo || idForInvoice}
-          </div>
+    meta.innerHTML = `
+      <input type="checkbox"
+             class="invoice-select"
+             data-id="${idForInvoice}"
+             style="width:18px;height:18px;margin-right:8px" />
+      <div>
+        <div class="font-semibold ${
+          isVoid ? 'text-red-600'
+                 : isValidated ? 'text-orange-600'
+                               : ''
+        }">
+          ${inv.clientName || 'Unnamed'}
+          ${
+            isVoid
+              ? '<span class="ml-2 text-xs font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 align-middle">VOID</span>'
+              : isValidated
+              ? '<span class="ml-2 text-xs font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 align-middle">VALID</span>'
+              : ''
+          }
         </div>
-      </div>
-      <div class="flex items-center gap-2">
-        <span
-          class="text-[11px] px-2 py-[1px] rounded-full"
-          style="background:${chipBg};color:${chipText};"
-        >
-          ${statusLabel}
-        </span>
-        <button
-          class="text-xs text-blue-600 hover:underline"
-          onclick="handleInvoiceAction('${idForInvoice}','view')"
-        >
-          View
-        </button>
-        <button
-          class="text-xs text-blue-600 hover:underline"
-          onclick="handleInvoiceAction('${idForInvoice}','edit')"
-        >
-          Edit
-        </button>
-        <button
-          class="text-xs text-red-600 hover:underline"
-          onclick="handleInvoiceAction('${idForInvoice}','delete')"
-        >
-          Delete
-        </button>
+        <div class="text-xs text-gray-500">
+          ${created ? created.toLocaleString() : 'No date'}
+        </div>
       </div>
     `;
 
-    invList.appendChild(card);
+    // right side: "View" button for invoices
+    const actions = document.createElement('div');
+    actions.innerHTML = `
+      <button
+        class="py-1 px-2 rounded border text-sm"
+        onclick="openInvoiceViewerById('${idForInvoice}')">
+        View
+      </button>
+    `;
+
+    item.appendChild(meta);
+    item.appendChild(actions);
+    invList.appendChild(item);
   });
 
-  if (invoicesEmpty) {
-    invoicesEmpty.classList.toggle('hidden', foundInv > 0);
-  }
+  document
+    .getElementById('invoicesEmpty')
+    .classList.toggle('hidden', foundI > 0);
 }
+
 
 // Healper-function
 function getCheckedQuoteIds() {
