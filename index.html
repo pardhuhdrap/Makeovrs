@@ -118,7 +118,7 @@ header {
   background: #ffe6e6 !important;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 550px) {
   #messageModal .message-modal-content button {
     padding: 6px 10px !important;   /* smaller padding */
     font-size: 12px !important;     /* smaller text */
@@ -3502,7 +3502,7 @@ msg += `</div>`;
   }
   if (genInvBtn) {
     genInvBtn.classList.remove('hidden');
-    genInvBtn.onclick = () => handleFileAction(quoteId, 'Bill It');
+    genInvBtn.onclick = () => handleFileAction(quoteId, 'bill_it');
   }
   if (editBtn) {
     editBtn.classList.remove('hidden');
