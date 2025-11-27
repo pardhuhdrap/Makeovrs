@@ -840,9 +840,9 @@ header {
     <button
       type="button"
       onclick="closeMessage()"
-      class="px-4 py-2 rounded bg-blue-600 text-white text-sm"
+      class="px-4 py-2 rounded bg-red-600 text-white text-sm"
     >
-      OK
+      Close
     </button>
 </div>
     </div>
@@ -943,7 +943,7 @@ header {
           id="paymentPartialBtn"
           type="button"
           onclick="handlePaymentPartial()"
-          class="px-4 py-2 rounded bg-yellow-500 text-white text-sm disabled:opacity-50"
+          class="px-4 py-2 rounded bg-black-600 text-white text-sm disabled:opacity-50"
           disabled
         >
           Partially Paid
@@ -952,7 +952,7 @@ header {
         <button
           type="button"
           onclick="closePaymentInfoModal()"
-          class="px-4 py-2 rounded border bg-yellow-500 text-white text-sm"
+          class="px-4 py-2 rounded border bg-red-600 text-white text-sm"
         >
           Close
         </button>     
@@ -3433,7 +3433,7 @@ msg += `</div>`;
     const safeQuoteId = String(q.id || '').replace(/"/g, '&quot;');
 
 msg += `
-  <hr style="margin:12px 0;" />
+  <hr style="margin:6px 0;" />
   <div class="flex flex-wrap gap-2 justify-end mt-2">
 
     <button
