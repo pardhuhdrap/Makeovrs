@@ -826,25 +826,58 @@ header {
       <h3 id="messageTitle" class="text-xl font-bold text-red-600 mb-3">Input Error</h3>
       <pre id="messageBody" class="text-gray-700 mb-4" style="white-space:pre-wrap;"></pre>
 
-      <div class="flex justify-between gap-2 w-full">
-    <!-- Paid button LEFT -->
-    <button
-      id="messagePaidBtn"
-      type="button"
-      class="hidden px-4 py-2 rounded bg-green-600 text-white text-sm"
-    >
-      Paid
-    </button>
+            <div class="flex justify-end gap-2 w-full">
+        <!-- These are hidden by default and shown per-screen in JS -->
 
-    <!-- OK button RIGHT -->
-    <button
-      type="button"
-      onclick="closeMessage()"
-      class="px-4 py-2 rounded bg-red-600 text-white text-sm"
-    >
-      Close
-    </button>
-</div>
+        <button
+          id="messageDownloadBtn"
+          type="button"
+          class="hidden px-4 py-2 rounded bg-blue-600 text-white text-sm"
+        >
+          Download
+        </button>
+
+        <button
+          id="messageShareBtn"
+          type="button"
+          class="hidden px-4 py-2 rounded bg-indigo-600 text-white text-sm"
+        >
+          Share
+        </button>
+
+        <button
+          id="messageGenerateInvoiceBtn"
+          type="button"
+          class="hidden px-4 py-2 rounded bg-green-600 text-white text-sm"
+        >
+          Generate Invoice
+        </button>
+
+        <button
+          id="messageEditBtn"
+          type="button"
+          class="hidden px-4 py-2 rounded bg-orange-500 text-white text-sm"
+        >
+          Edit
+        </button>
+
+        <button
+          id="messagePaidBtn"
+          type="button"
+          class="hidden px-4 py-2 rounded bg-green-700 text-white text-sm"
+        >
+          Paid
+        </button>
+
+        <button
+          id="messageCloseBtn"
+          type="button"
+          onclick="closeMessage()"
+          class="px-4 py-2 rounded bg-red-600 text-white text-sm"
+        >
+          Close
+        </button>
+      </div>
     </div>
   </div>
 
@@ -3430,46 +3463,41 @@ msg += `</div>`;
     });
   }
    
-    const safeQuoteId = String(q.id || '').replace(/"/g, '&quot;');
+  showMessage(msg, `Quotation — ${q.clientName || 'Unnamed'}`);
 
-msg += `
-  <hr class="my-3" />
+  // ----- Configure footer buttons for QUOTATION view -----
+  const downloadBtn  = document.getElementById('messageDownloadBtn');
+  const shareBtn     = document.getElementById('messageShareBtn');
+  const genInvBtn    = document.getElementById('messageGenerateInvoiceBtn');
+  const editBtn      = document.getElementById('messageEditBtn');
+  const paidBtn      = document.getElementById('messagePaidBtn');
 
-  <div class="flex flex-wrap gap-2 justify-end mt-2">
+  // Hide all action buttons first
+  [downloadBtn, shareBtn, genInvBtn, editBtn, paidBtn].forEach(btn => {
+    if (btn) btn.classList.add('hidden');
+  });
 
-    <button
-      class="px-4 py-2 rounded text-white text-sm bg-blue-600"
-      onclick="handleFileAction('${safeQuoteId}','download')"
-    >
-      Download
-    </button>
+  const quoteId = q.id;
 
-    <button
-      class="px-4 py-2 rounded text-white text-sm bg-indigo-600"
-      onclick="handleFileAction('${safeQuoteId}','share')"
-    >
-      Share
-    </button>
-
-    <button
-      class="px-4 py-2 rounded text-white text-sm bg-green-600"
-      onclick="handleFileAction('${safeQuoteId}','generate_invoice')"
-    >
-      Generate Invoice
-    </button>
-
-    <button
-      class="px-4 py-2 rounded text-white text-sm bg-orange-600"
-      onclick="handleFileAction('${safeQuoteId}','edit')"
-    >
-      Edit
-    </button>
-
-  </div>
-`;
-
-showMessage(msg, `Quotation — ${q.clientName || 'Unnamed'}`);
+  if (downloadBtn) {
+    downloadBtn.classList.remove('hidden');
+    downloadBtn.onclick = () => handleFileAction(quoteId, 'download');
+  }
+  if (shareBtn) {
+    shareBtn.classList.remove('hidden');
+    shareBtn.onclick = () => handleFileAction(quoteId, 'share');
+  }
+  if (genInvBtn) {
+    genInvBtn.classList.remove('hidden');
+    genInvBtn.onclick = () => handleFileAction(quoteId, 'generate_invoice');
+  }
+  if (editBtn) {
+    editBtn.classList.remove('hidden');
+    editBtn.onclick = () => handleFileAction(quoteId, 'edit');
+  }
+  // Quotations do not use Paid button
 }
+
 
 function openInvoiceViewerById(invId){
   const all = loadFromLS(SAVED_INVOICES_KEY, []);
@@ -3570,47 +3598,40 @@ function openInvoiceViewerById(invId){
     invoice: inv
   };
 
-    // --- extra action buttons at bottom of INVOICE view modal ---
-  const safeInvId = String(inv.invoiceId || inv.id || '').replace(/"/g, '&quot;');
-
-msg += `
-  <hr class="my-3" />
-
-  <div class="flex flex-wrap gap-2 justify-end mt-2">
-
-    <button
-      class="px-4 py-2 rounded text-white text-sm bg-blue-600"
-      onclick="handleInvoiceAction('${safeInvId}','download')"
-    >
-      Download
-    </button>
-
-    <button
-      class="px-4 py-2 rounded text-white text-sm bg-indigo-600"
-      onclick="handleInvoiceAction('${safeInvId}','share')"
-    >
-      Share
-    </button>
-
-    <button
-      class="px-4 py-2 rounded text-white text-sm bg-orange-600"
-      onclick="handleInvoiceAction('${safeInvId}','edit')"
-    >
-      Edit
-    </button>
-
-  </div>
-`;
-
   // open the standard popup
-  showMessage(msg, `Invoice — ${inv.clientName || 'Unnamed'}`);
+    showMessage(msg, `Invoice — ${inv.clientName || 'Unnamed'}`);
 
-  // enable "Paid" button ONLY for this invoice popup
-  const paidBtn = document.getElementById('messagePaidBtn');
+  // ----- Configure footer buttons for INVOICE view -----
+  const downloadBtn  = document.getElementById('messageDownloadBtn');
+  const shareBtn     = document.getElementById('messageShareBtn');
+  const genInvBtn    = document.getElementById('messageGenerateInvoiceBtn');
+  const editBtn      = document.getElementById('messageEditBtn');
+  const paidBtn      = document.getElementById('messagePaidBtn');
+
+  // Hide all action buttons first
+  [downloadBtn, shareBtn, genInvBtn, editBtn, paidBtn].forEach(btn => {
+    if (btn) btn.classList.add('hidden');
+  });
+
+  const safeInvId = inv.invoiceId || inv.id;
+
+  if (downloadBtn) {
+    downloadBtn.classList.remove('hidden');
+    downloadBtn.onclick = () => handleInvoiceAction(safeInvId, 'download');
+  }
+  if (shareBtn) {
+    shareBtn.classList.remove('hidden');
+    shareBtn.onclick = () => handleInvoiceAction(safeInvId, 'share');
+  }
+  if (editBtn) {
+    editBtn.classList.remove('hidden');
+    editBtn.onclick = () => handleInvoiceAction(safeInvId, 'edit');
+  }
   if (paidBtn) {
     paidBtn.classList.remove('hidden');
-    paidBtn.onclick = openPaymentInfoModal;
+    paidBtn.onclick = () => handleInvoiceAction(safeInvId, 'paid');
   }
+  // Generate Invoice button is not needed in invoice view
 }
 
 // ---- Payment Info helpers ----
