@@ -3431,50 +3431,43 @@ msg += `</div>`;
   }
    
     const safeQuoteId = String(q.id || '').replace(/"/g, '&quot;');
-   msg += `
-    <hr style="margin:12px 0;" />
-    <div style="
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      justify-content:flex-end;
-      margin-top:4px;
-    ">
-      <button
-        type="button"
-        class="py-1 px-2 text-xs rounded border"
-        onclick="handleFileAction('${safeQuoteId}','download')"
-      >
-        Download
-      </button>
 
-      <button
-        type="button"
-        class="py-1 px-2 text-xs rounded border"
-        onclick="handleFileAction('${safeQuoteId}','share')"
-      >
-        Share
-      </button>
+msg += `
+  <hr style="margin:12px 0;" />
+  <div class="flex flex-wrap gap-2 justify-end mt-2">
 
-      <button
-        type="button"
-        class="py-1 px-2 text-xs rounded border"
-        onclick="handleFileAction('${safeQuoteId}','generate_invoice')"
-      >
-        Generate Invoice
-      </button>
+    <button
+      class="px-4 py-2 rounded text-white text-sm bg-blue-600"
+      onclick="handleFileAction('${safeQuoteId}','download')"
+    >
+      Download
+    </button>
 
-      <button
-        type="button"
-        class="py-1 px-2 text-xs rounded border"
-        onclick="handleFileAction('${safeQuoteId}','edit')"
-      >
-        Edit
-      </button>
-    </div>
-  `;
+    <button
+      class="px-4 py-2 rounded text-white text-sm bg-indigo-600"
+      onclick="handleFileAction('${safeQuoteId}','share')"
+    >
+      Share
+    </button>
 
-  showMessage(msg, `Quotation — ${q.clientName || 'Unnamed'}`);
+    <button
+      class="px-4 py-2 rounded text-white text-sm bg-green-600"
+      onclick="handleFileAction('${safeQuoteId}','generate_invoice')"
+    >
+      Generate Invoice
+    </button>
+
+    <button
+      class="px-4 py-2 rounded text-white text-sm bg-orange-500"
+      onclick="handleFileAction('${safeQuoteId}','edit')"
+    >
+      Edit
+    </button>
+
+  </div>
+`;
+
+showMessage(msg, `Quotation — ${q.clientName || 'Unnamed'}`);
 }
 
 function openInvoiceViewerById(invId){
@@ -3579,40 +3572,33 @@ function openInvoiceViewerById(invId){
     // --- extra action buttons at bottom of INVOICE view modal ---
   const safeInvId = String(inv.invoiceId || inv.id || '').replace(/"/g, '&quot;');
 
-  msg += `
-    <hr style="margin:12px 0;" />
-    <div style="
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      justify-content:flex-end;
-      margin-top:4px;
-    ">
-      <button
-        type="button"
-        class="py-1 px-2 text-xs rounded border"
-        onclick="handleInvoiceAction('${safeInvId}','download')"
-      >
-        Download
-      </button>
+msg += `
+  <hr style="margin:12px 0;" />
+  <div class="flex flex-wrap gap-2 justify-end mt-2">
 
-      <button
-        type="button"
-        class="py-1 px-2 text-xs rounded border"
-        onclick="handleInvoiceAction('${safeInvId}','share')"
-      >
-        Share
-      </button>
+    <button
+      class="px-4 py-2 rounded text-white text-sm bg-blue-600"
+      onclick="handleInvoiceAction('${safeInvId}','download')"
+    >
+      Download
+    </button>
 
-      <button
-        type="button"
-        class="py-1 px-2 text-xs rounded border"
-        onclick="handleInvoiceAction('${safeInvId}','edit')"
-      >
-        Edit
-      </button>
-    </div>
-  `;
+    <button
+      class="px-4 py-2 rounded text-white text-sm bg-indigo-600"
+      onclick="handleInvoiceAction('${safeInvId}','share')"
+    >
+      Share
+    </button>
+
+    <button
+      class="px-4 py-2 rounded text-white text-sm bg-orange-500"
+      onclick="handleInvoiceAction('${safeInvId}','edit')"
+    >
+      Edit
+    </button>
+
+  </div>
+`;
 
   // open the standard popup
   showMessage(msg, `Invoice — ${inv.clientName || 'Unnamed'}`);
