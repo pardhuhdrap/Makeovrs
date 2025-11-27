@@ -118,6 +118,19 @@ header {
   background: #ffe6e6 !important;
 }
 
+@media (max-width: 480px) {
+  #messageModal .message-modal-content button {
+    padding: 6px 10px !important;   /* smaller padding */
+    font-size: 12px !important;     /* smaller text */
+  }
+
+  #messageModal .message-modal-content .flex {
+    flex-wrap: wrap !important;     /* allow wrapping */
+    justify-content: flex-end !important;
+    gap: 4px !important;            /* reduce spacing */
+  }
+}
+
 </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center font-sans">
@@ -3489,7 +3502,7 @@ msg += `</div>`;
   }
   if (genInvBtn) {
     genInvBtn.classList.remove('hidden');
-    genInvBtn.onclick = () => handleFileAction(quoteId, 'generate_invoice');
+    genInvBtn.onclick = () => handleFileAction(quoteId, 'Bill It');
   }
   if (editBtn) {
     editBtn.classList.remove('hidden');
