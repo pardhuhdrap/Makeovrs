@@ -3767,7 +3767,12 @@ function handlePaymentPartial() {
     return;
   }
 
-  const preview = prepareInvoicePreviewFromQuotation(ctxFlow.quotationId);
+  // We are in calendar booking flow
+  const quotationId = ctxFlow.quotationId;
+  const willBeVoid  = !!ctxFlow.willBeVoid;
+  const dateISO     = ctxFlow.dateISO;
+
+  const preview = prepareInvoicePreviewFromQuotation(quotationId);
   if (!preview) {
     alert('Quotation missing for this booking. Invoice not created.');
     closePaymentInfoModal();
@@ -3777,26 +3782,80 @@ function handlePaymentPartial() {
   const { quotation: q, actual, discount, final } = preview;
   const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
 
-  const newInvoice = {
-    ...q,
-    invoiceId: 'inv_' + Date.now(),
-    createdAt: new Date().toISOString(),
-    actual,
-    discount,
-    final,
-    status: ctxFlow.willBeVoid ? 'void' : 'open',
-    voidedAt: ctxFlow.willBeVoid ? new Date().toISOString() : undefined
-  };
+  // 🔍 Find existing invoice for this quotation (if any)
+  let idx = invoices.findIndex(inv =>
+    inv.quotationId === quotationId ||
+    inv.id === quotationId
+  );
 
-  invoices.push(newInvoice);
+  let targetInvoice;
+  const nowIso = new Date().toISOString();
+
+  if (idx !== -1) {
+    // ✅ Update existing invoice for this quotation
+    const old = invoices[idx];
+
+    // copy old, then overwrite with fresh quotation + totals
+    targetInvoice = {
+      ...old,
+      ...q,
+      actual,
+      discount,
+      final,
+      // keep original invoiceId / createdAt
+      invoiceId: old.invoiceId || old.id || old.invoiceId,
+      createdAt: old.createdAt || nowIso,
+      quotationId: quotationId
+    };
+
+    if (willBeVoid) {
+      // Make this invoice VOID
+      targetInvoice.status   = 'void';
+      targetInvoice.voidedAt = old.voidedAt || nowIso;
+    } else {
+      // Make / keep this invoice as NORMAL (validated)
+      // If it was void before, treat as validated-from-void
+      if (String(old.status || '').toLowerCase() === 'void') {
+        targetInvoice.status   = 'valid-from-void';
+        targetInvoice.voidedAt = undefined;
+      } else {
+        // already normal; ensure no void flags
+        delete targetInvoice.status;
+        delete targetInvoice.voidedAt;
+      }
+    }
+
+    invoices[idx] = targetInvoice;
+
+  } else {
+    // ❌ No existing invoice for this quotation → create new
+    targetInvoice = {
+      ...q,
+      invoiceId: 'inv_' + Date.now(),
+      createdAt: nowIso,
+      quotationId,
+      actual,
+      discount,
+      final
+    };
+
+    if (willBeVoid) {
+      targetInvoice.status   = 'void';
+      targetInvoice.voidedAt = nowIso;
+    }
+
+    invoices.push(targetInvoice);
+  }
+
   saveToLS(SAVED_INVOICES_KEY, invoices);
 
+  // Update CURRENT_VIEWED_INVOICE
   window.CURRENT_VIEWED_INVOICE = {
-    id: newInvoice.invoiceId || newInvoice.id,
+    id: targetInvoice.invoiceId || targetInvoice.id,
     actual,
     discount,
     final,
-    invoice: newInvoice
+    invoice: targetInvoice
   };
 
   if (typeof renderFilesList === 'function') {
@@ -3804,17 +3863,16 @@ function handlePaymentPartial() {
   }
 
   if (typeof autoSaveDrive === 'function') {
-    autoSaveDrive('invoice generated from calendar partial payment');
+    autoSaveDrive('invoice generated/updated from calendar partial payment');
   }
 
-  if (ctxFlow.willBeVoid) {
-    showMessage('Void invoice generated from calendar booking.', 'Invoice');
+  if (willBeVoid) {
+    showMessage('Void invoice updated for this quotation.', 'Invoice');
   } else {
-    showMessage('Invoice generated from calendar booking.', 'Invoice');
+    showMessage('Invoice updated for this quotation.', 'Invoice');
   }
 
-  // ✅ commit, clear flow & close modal (no revert)
-  const dateISO = ctxFlow.dateISO;
+  // ✅ Commit: clear flow so closePaymentInfoModal does NOT revert bookings
   window.CALENDAR_BOOKING_FLOW = null;
   closePaymentInfoModal();
 
@@ -3830,6 +3888,7 @@ function handlePaymentPartial() {
     console.warn('Calendar refresh after partial payment failed:', e);
   }
 }
+
 
 
 function handlePaymentPaidFinal() {
