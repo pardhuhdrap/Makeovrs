@@ -1472,6 +1472,66 @@ function setSingleEventBooking(eventId, booked=true){
   scheduleAutoSave('calendar single event booking change');
 }
 
+/* Generate invoice from a quotation (used by calendar booking) */
+async function generateInvoiceFromQuotationForCalendar(quotationId) {
+  const quotations = loadFromLS(SAVED_QUOTATIONS_KEY, []);
+  const q = quotations.find(x => x.id === quotationId);
+  if (!q) {
+    alert('Quotation not found for generating invoice.');
+    return null;
+  }
+
+  const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
+  const events = Array.isArray(q.events) ? q.events : [];
+
+  // Try to reuse totals from quotation; fallback to compute
+  let actual = (typeof q.actual === 'number') ? q.actual : 0;
+  if (!actual) {
+    actual = events.reduce((sum, ev) => {
+      return sum +
+        Number(ev.packagePrice   || 0) +
+        Number(ev.addOnPrice     || 0) +
+        Number(ev.transportPrice || 0);
+    }, 0);
+  }
+
+  const discount = (typeof q.discount === 'number') ? q.discount : 0;
+  const final = (typeof q.final === 'number')
+    ? q.final
+    : Math.max(0, actual - discount);
+
+  const newInvoice = {
+    ...q,
+    invoiceId: 'inv_' + Date.now(),
+    createdAt: new Date().toISOString(),
+    actual,
+    discount,
+    final
+  };
+
+  invoices.push(newInvoice);
+  saveToLS(SAVED_INVOICES_KEY, invoices);
+
+  // store current invoice context for Payment Info
+  window.CURRENT_VIEWED_INVOICE = {
+    id: newInvoice.invoiceId || newInvoice.id,
+    actual,
+    discount,
+    final,
+    invoice: newInvoice
+  };
+
+  // Optional: background info only (no big popup)
+  console.log('Invoice generated from calendar booking:', newInvoice.invoiceId);
+
+  // Auto-save to Drive if available
+  if (typeof autoSaveDrive === 'function') {
+    autoSaveDrive('invoice generated from calendar booking');
+  }
+
+  return newInvoice;
+}
+
 /* -------------------------
    Contact helpers
    ------------------------- */
@@ -1766,54 +1826,54 @@ function openCalendarDatePopup(dateISO){
         const arr = idx2[d];
         quotationEventCount += arr.filter(it => it.quotationId === evObj.quotationId).length;
       }
-      const hasMultipleEvents = quotationEventCount > 1;
+            const hasMultipleEvents = quotationEventCount > 1;
 
       if (checked) {
-  // ✅ MARKING as booked
-  if (hasMultipleEvents) {
-    const yesWhole = confirm("Are whole event's booked as per quotation? (Yes = mark all events in this quotation as booked)");
-    if (yesWhole) {
-      setQuotationBookings(evObj.quotationId, true);   // all events of that quotation
-    } else {
-      setSingleEventBooking(evObj.eventId, true);      // only this event
-    }
-  } else {
-    // Single-event quotation: no question, just toggle this event
-    setSingleEventBooking(evObj.eventId, true);
-  }
+        // ✅ Marking as booked (existing behaviour)
+        if (hasMultipleEvents) {
+          const yesWhole = confirm(
+            "Are whole event's booked as per quotation? (Yes = mark all events in this quotation as booked)"
+          );
+          if (yesWhole) {
+            setQuotationBookings(evObj.quotationId, true);   // all events of that quotation
+          } else {
+            setSingleEventBooking(evObj.eventId, true);      // only this event
+          }
+        } else {
+          // Single-event quotation: no question, just toggle this event
+          setSingleEventBooking(evObj.eventId, true);
+        }
 
-  // 🔵 NEW #1 – ask to generate invoice for this quotation
-  if (evObj.quotationId) {
-    const genInv = window.confirm(
-      'Do you want to generate an invoice for this quotation now?'
-    );
+        // ✅ EXTRA STEP 1: ask to generate invoice
+        const makeInv = window.confirm(
+          'This event is now marked as BOOKED.\n\nDo you want to generate an invoice for this quotation now?'
+        );
 
-    if (genInv && typeof handleFileAction === 'function') {
-      // Reuse existing "generate invoice" logic (same as Files → Generate Invoice)
-      handleFileAction(evObj.quotationId, 'generate_invoice');
-    }
-  }
+        if (makeInv) {
+          // Generate invoice in background and prepare Payment Info context
+          const newInv = await generateInvoiceFromQuotationForCalendar(evObj.quotationId);
+          if (newInv) {
+            // ✅ EXTRA STEP 2: open Payment Information (restricted mode)
+            openPaymentInfoModalRestrictedFromCalendar();
+          }
+        }
 
-  // 🔵 NEW #2 – open Payment Information screen in restricted mode
-  if (typeof openPaymentInfoRestricted === 'function') {
-    openPaymentInfoRestricted(evObj);
-  }
-
-} else {
-  // ❌ UNMARKING booked (your original logic unchanged)
-  if (hasMultipleEvents) {
-    const yesWhole = confirm("Unmark whole quotation's events as booked? (Yes = unmark all events of this quotation)");
-    if (yesWhole) {
-      setQuotationBookings(evObj.quotationId, false);
-    } else {
-      setSingleEventBooking(evObj.eventId, false);
-    }
-  } else {
-    // Single-event quotation: no question, just unmark this event
-    setSingleEventBooking(evObj.eventId, false);
-  }
-}
-
+      } else {
+        // Unmarking booked (existing behaviour)
+        if (hasMultipleEvents) {
+          const yesWhole = confirm(
+            "Unmark whole quotation's events as booked? (Yes = unmark all events of this quotation)"
+          );
+          if (yesWhole) {
+            setQuotationBookings(evObj.quotationId, false);
+          } else {
+            setSingleEventBooking(evObj.eventId, false);
+          }
+        } else {
+          // Single-event quotation: no question, just unmark this event
+          setSingleEventBooking(evObj.eventId, false);
+        }
+      }
 
       // Re-render popup and calendar to reflect new states
       openCalendarDatePopup(dateISO);
@@ -3283,6 +3343,70 @@ function openPaymentInfoModal() {
   if (paidBtn)    paidBtn.disabled    = true;
 
   recalcPaymentPending();
+
+  modal.style.display = 'flex';
+}
+
+// Open Payment Info where only Advance + Partial payment are allowed (from calendar)
+function openPaymentInfoModalRestrictedFromCalendar() {
+  const modal = document.getElementById('paymentInfoModal');
+  if (!modal) return;
+
+  const billedInput  = document.getElementById('paymentBilledAmount');
+  const revisedCheck = document.getElementById('paymentRevisedEnable');
+  const revisedInput = document.getElementById('paymentRevisedAmount');
+  const advanceInput = document.getElementById('paymentAdvancePaid');
+  const finalInput   = document.getElementById('paymentFinalPaid');
+  const pendingInput = document.getElementById('paymentPending');
+  const partialBtn   = document.getElementById('paymentPartialBtn');
+  const paidBtn      = document.getElementById('paymentPaidFinalBtn');
+
+  const ctx = window.CURRENT_VIEWED_INVOICE || {};
+  const billed = (typeof ctx.final === 'number')
+    ? ctx.final
+    : (typeof ctx.actual === 'number' ? ctx.actual : 0);
+
+  // Base amounts
+  if (billedInput) billedInput.value = billed ? billed.toFixed(2) : '0.00';
+  if (advanceInput) advanceInput.value = '';
+  if (finalInput) finalInput.value = '';
+
+  // Pending = full billed at start
+  if (pendingInput) {
+    const val = billed ? billed.toFixed(2) : '0.00';
+    pendingInput.value = val;
+    pendingInput.dataset.rawPending = val;
+  }
+
+  // Disable revised amount & final payment
+  if (revisedCheck) {
+    revisedCheck.checked = false;
+    revisedCheck.disabled = true;
+  }
+  if (revisedInput) {
+    revisedInput.value = '';
+    revisedInput.disabled = true;
+  }
+  if (finalInput) {
+    finalInput.disabled = true;
+  }
+
+  // Let existing logic compute pending + enable Partial as usual
+  recalcPaymentPending();
+
+  // Hard-disable the "Paid" (final) button
+  if (paidBtn) {
+    paidBtn.disabled = true;
+    paidBtn.classList.add('opacity-50');
+  }
+
+  // Ensure Partial button is available when there is pending
+  if (partialBtn && pendingInput) {
+    if (Number(pendingInput.dataset.rawPending || '0') > 0) {
+      partialBtn.disabled = false;
+      partialBtn.classList.remove('opacity-50');
+    }
+  }
 
   modal.style.display = 'flex';
 }
