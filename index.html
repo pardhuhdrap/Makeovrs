@@ -1769,7 +1769,7 @@ function openCalendarDatePopup(dateISO){
   container.appendChild(popup);
   createLucide();
 
-    // wire checkboxes robustly
+      // wire checkboxes robustly
   popup.querySelectorAll('.calendar-book-checkbox').forEach(cb=>{
     cb.addEventListener('change', async (e)=>{
       const checked = e.target.checked;
@@ -1820,16 +1820,18 @@ function openCalendarDatePopup(dateISO){
         return;
       }
 
-      // ✅ NEW: figure out how many events this quotation has
+      // ✅ figure out how many events this quotation has
       let quotationEventCount = 0;
       for (const d in idx2) {
         const arr = idx2[d];
         quotationEventCount += arr.filter(it => it.quotationId === evObj.quotationId).length;
       }
-            const hasMultipleEvents = quotationEventCount > 1;
+      const hasMultipleEvents = quotationEventCount > 1;
 
       if (checked) {
-        // ✅ Marking as booked (existing behaviour)
+        // ===========================
+        //  MARK AS BOOKED (existing)
+        // ===========================
         if (hasMultipleEvents) {
           const yesWhole = confirm(
             "Are whole event's booked as per quotation? (Yes = mark all events in this quotation as booked)"
@@ -1844,48 +1846,163 @@ function openCalendarDatePopup(dateISO){
           setSingleEventBooking(evObj.eventId, true);
         }
 
-        // ✅ EXTRA STEP 1: ask to generate invoice
+        // Ask to generate invoice
         const makeInv = window.confirm(
           'This event is now marked as BOOKED.\n\nDo you want to generate an invoice for this quotation now?'
         );
 
         if (makeInv) {
-          // Generate invoice in background and prepare Payment Info context
           const newInv = await generateInvoiceFromQuotationForCalendar(evObj.quotationId);
           if (newInv) {
-            // ✅ EXTRA STEP 2: open Payment Information (restricted mode)
             openPaymentInfoModalRestrictedFromCalendar();
           }
         }
 
       } else {
-        // Unmarking booked (existing behaviour)
+        // ===========================
+        //  UNMARK AS BOOKED (Option D)
+        // ===========================
+        // Helper to find related invoices for this quotation/client
+        const allInvoices = loadFromLS(SAVED_INVOICES_KEY, []);
+        const nameKey    = (evObj.clientName    || '').trim().toLowerCase();
+        const contactKey = (evObj.clientContact || '').trim().toLowerCase();
+
+        const relatedInvoices = allInvoices.filter(inv => {
+          const invName    = (inv.clientName    || '').trim().toLowerCase();
+          const invContact = (inv.clientContact || '').trim().toLowerCase();
+          const sameClient = invName === nameKey && invContact === contactKey;
+
+          const sameQuotation =
+            inv.id === evObj.quotationId ||
+            inv.quotationId === evObj.quotationId;
+
+          return sameClient || sameQuotation;
+        });
+
+        // --- Scenario 1: YES = unmark whole quotation & auto delete invoice ---
         if (hasMultipleEvents) {
           const yesWhole = confirm(
             "Unmark whole quotation's events as booked? (Yes = unmark all events of this quotation)"
           );
+
           if (yesWhole) {
+            // Unmark all bookings for this quotation
             setQuotationBookings(evObj.quotationId, false);
+
+            if (relatedInvoices.length) {
+              const sureDelete = window.confirm(
+                "Are you sure to delete invoice?\n\n" +
+                "Yes = auto delete and move the invoice to Recycle Bin → System Removed."
+              );
+              if (sureDelete) {
+                const recycleSystem = loadFromLS(RECYCLE_SYSTEM_KEY, []);
+                const nowIso = new Date().toISOString();
+
+                relatedInvoices.forEach(inv => {
+                  const idForInvoice = inv.invoiceId || inv.id;
+                  recycleSystem.push({
+                    type: 'invoice',
+                    kind: 'invoice',
+                    label: (inv.clientName || 'Invoice'),
+                    clientName: inv.clientName,
+                    clientContact: inv.clientContact,
+                    invoiceId: idForInvoice,
+                    quotationId: evObj.quotationId,
+                    removedAt: nowIso,
+                    reason: 'Auto-deleted because all quotation events were un-booked from calendar'
+                  });
+                });
+
+                saveToLS(RECYCLE_SYSTEM_KEY, recycleSystem);
+
+                // remove them from live invoices
+                const remaining = allInvoices.filter(inv => !relatedInvoices.includes(inv));
+                saveToLS(SAVED_INVOICES_KEY, remaining);
+
+                // refresh Files list
+                if (typeof renderFilesList === 'function') {
+                  renderFilesList();
+                }
+              }
+            }
+
           } else {
+            // --- Scenario 2: NO = unmark only this event & offer to VOID invoice ---
             setSingleEventBooking(evObj.eventId, false);
+
+            if (relatedInvoices.length) {
+              const voidIt = window.confirm(
+                "Proceed to void invoice?\n\n" +
+                "Yes = mark the invoice as VOID (it stays in the list in red for review/edit later)."
+              );
+              if (voidIt) {
+                const nowIso = new Date().toISOString();
+                relatedInvoices.forEach(inv => {
+                  inv.status = 'void';
+                  inv.voidedAt = nowIso;
+                });
+                saveToLS(SAVED_INVOICES_KEY, allInvoices);
+
+                if (typeof renderFilesList === 'function') {
+                  renderFilesList();
+                }
+              }
+            }
           }
+
         } else {
-          // Single-event quotation: no question, just unmark this event
+          // Single-event quotation: treat as whole quotation unmarked
           setSingleEventBooking(evObj.eventId, false);
+
+          if (relatedInvoices.length) {
+            const sureDelete = window.confirm(
+              "Are you sure to delete invoice?\n\n" +
+              "Yes = auto delete and move the invoice to Recycle Bin → System Removed."
+            );
+            if (sureDelete) {
+              const recycleSystem = loadFromLS(RECYCLE_SYSTEM_KEY, []);
+              const nowIso = new Date().toISOString();
+
+              relatedInvoices.forEach(inv => {
+                const idForInvoice = inv.invoiceId || inv.id;
+                recycleSystem.push({
+                  type: 'invoice',
+                  kind: 'invoice',
+                  label: (inv.clientName || 'Invoice'),
+                  clientName: inv.clientName,
+                  clientContact: inv.clientContact,
+                  invoiceId: idForInvoice,
+                  quotationId: evObj.quotationId,
+                  removedAt: nowIso,
+                  reason: 'Auto-deleted because single-event quotation was un-booked from calendar'
+                });
+              });
+
+              saveToLS(RECYCLE_SYSTEM_KEY, recycleSystem);
+
+              const remaining = allInvoices.filter(inv => !relatedInvoices.includes(inv));
+              saveToLS(SAVED_INVOICES_KEY, remaining);
+
+              if (typeof renderFilesList === 'function') {
+                renderFilesList();
+              }
+            }
+          }
         }
       }
 
       // Re-render popup and calendar to reflect new states
       openCalendarDatePopup(dateISO);
       renderCalendar();
-       // 🔁 Auto-save to Drive (if signed in)
-  if (typeof autoSaveDrive === 'function') {
-    autoSaveDrive('calendar booking changed');
-  }
+
+      // 🔁 Auto-save to Drive (if signed in)
+      if (typeof autoSaveDrive === 'function') {
+        autoSaveDrive('calendar booking changed');
+      }
     });
   });
-
 }
+
 
 /* -------------------------
    Quotation save: create eventId for each event and persist
@@ -2467,10 +2584,12 @@ function renderFilesList() {
       !(String(inv.clientName || '').toLowerCase().includes(searchQuery))
     ) return;
 
-    foundI++;
+        foundI++;
 
     const item = document.createElement('div');
-    item.className = 'file-item';
+    const isVoid = String(inv.status || '').toLowerCase() === 'void';
+
+    item.className = 'file-item' + (isVoid ? ' bg-red-50' : '');
 
     const meta = document.createElement('div');
     meta.className = 'meta';
@@ -2483,7 +2602,10 @@ function renderFilesList() {
              data-id="${idForInvoice}"
              style="width:18px;height:18px;margin-right:8px" />
       <div>
-        <div class="font-semibold">${inv.clientName || 'Unnamed'}</div>
+        <div class="font-semibold ${isVoid ? 'text-red-600' : ''}">
+          ${inv.clientName || 'Unnamed'}
+          ${isVoid ? '<span class="ml-2 text-xs font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 align-middle">VOID</span>' : ''}
+        </div>
         <div class="text-xs text-gray-500">
           ${created ? created.toLocaleString() : 'No date'}
         </div>
@@ -6087,6 +6209,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </body>
 </html>
-
-
-
