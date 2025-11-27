@@ -3430,6 +3430,49 @@ msg += `</div>`;
     });
   }
 
+   msg += `
+    <hr style="margin:12px 0;" />
+    <div style="
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      justify-content:flex-end;
+      margin-top:4px;
+    ">
+      <button
+        type="button"
+        class="py-1 px-2 text-xs rounded border"
+        onclick="handleFileAction('${safeQuoteId}','download')"
+      >
+        Download
+      </button>
+
+      <button
+        type="button"
+        class="py-1 px-2 text-xs rounded border"
+        onclick="handleFileAction('${safeQuoteId}','share')"
+      >
+        Share
+      </button>
+
+      <button
+        type="button"
+        class="py-1 px-2 text-xs rounded border"
+        onclick="handleFileAction('${safeQuoteId}','generate_invoice')"
+      >
+        Generate Invoice
+      </button>
+
+      <button
+        type="button"
+        class="py-1 px-2 text-xs rounded border"
+        onclick="handleFileAction('${safeQuoteId}','edit')"
+      >
+        Edit
+      </button>
+    </div>
+  `;
+
   showMessage(msg, `Quotation — ${q.clientName || 'Unnamed'}`);
 }
 
@@ -3531,6 +3574,44 @@ function openInvoiceViewerById(invId){
     final,
     invoice: inv
   };
+
+    // --- extra action buttons at bottom of INVOICE view modal ---
+  const safeInvId = String(inv.invoiceId || inv.id || '').replace(/"/g, '&quot;');
+
+  msg += `
+    <hr style="margin:12px 0;" />
+    <div style="
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      justify-content:flex-end;
+      margin-top:4px;
+    ">
+      <button
+        type="button"
+        class="py-1 px-2 text-xs rounded border"
+        onclick="handleInvoiceAction('${safeInvId}','download')"
+      >
+        Download
+      </button>
+
+      <button
+        type="button"
+        class="py-1 px-2 text-xs rounded border"
+        onclick="handleInvoiceAction('${safeInvId}','share')"
+      >
+        Share
+      </button>
+
+      <button
+        type="button"
+        class="py-1 px-2 text-xs rounded border"
+        onclick="handleInvoiceAction('${safeInvId}','edit')"
+      >
+        Edit
+      </button>
+    </div>
+  `;
 
   // open the standard popup
   showMessage(msg, `Invoice — ${inv.clientName || 'Unnamed'}`);
