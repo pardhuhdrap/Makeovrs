@@ -4238,6 +4238,133 @@ function recalcPaymentPending() {
   }
 }
 
+// Save all Payment Info fields back to the invoice object
+function handlePaymentSave() {
+  const ctx = window.CURRENT_VIEWED_INVOICE || {};
+  const invIdCtx = ctx.id;
+  if (!invIdCtx) {
+    alert('No invoice selected. Please open Payment Info from an invoice or Payment Tracker.');
+    return;
+  }
+
+  // --- Grab all inputs ---
+  const billedInput   = document.getElementById('paymentBilledAmount');
+  const revisedInput  = document.getElementById('paymentRevisedAmount');
+  const revisedChk    = document.getElementById('paymentRevisedEnable');
+  const advInput      = document.getElementById('paymentAdvancePaid');
+  const finalInput    = document.getElementById('paymentFinalPaid');
+  const pendingInput  = document.getElementById('paymentPending');
+  const partialLog    = document.getElementById('paymentPartialLog');
+
+  // Helper: safely read numbers even if formatted
+  function readNum(inputEl) {
+    if (!inputEl) return 0;
+    const v = inputEl.value || '';
+    if (typeof parseINR === 'function') {
+      return parseINR(v);
+    }
+    const n = parseFloat(v.replace(/,/g, ''));
+    return isNaN(n) ? 0 : n;
+  }
+
+  const billed         = readNum(billedInput);
+  const revisedEnabled = !!(revisedChk && revisedChk.checked);
+  const revisedAmount  = readNum(revisedInput);
+  const advancePaid    = readNum(advInput);
+  const finalPaid      = readNum(finalInput);
+
+  // Base = revised if enabled and > 0, else billed
+  let baseAmount = billed;
+  if (revisedEnabled && revisedAmount > 0) {
+    baseAmount = revisedAmount;
+  }
+
+  // If pendingInput has a raw value stored, use it; else recompute
+  let rawPending;
+  if (pendingInput && pendingInput.dataset && pendingInput.dataset.rawPending !== undefined) {
+    const n = parseFloat(pendingInput.dataset.rawPending);
+    rawPending = isNaN(n) ? (baseAmount - (advancePaid + finalPaid)) : n;
+  } else {
+    rawPending = baseAmount - (advancePaid + finalPaid);
+  }
+
+  const pendingAbs = Math.abs(rawPending);
+
+  const partialHistory = partialLog ? partialLog.value || '' : '';
+
+  // --- Load invoices from storage ---
+  const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
+  const idx = invoices.findIndex(inv =>
+    String(inv.invoiceId || inv.id) === String(invIdCtx)
+  );
+
+  if (idx === -1) {
+    alert('Invoice not found in storage. Cannot save payment info.');
+    return;
+  }
+
+  const inv = invoices[idx];
+
+  // --- Persist payment-related fields onto the invoice object ---
+  inv.billedAmount          = baseAmount;          // optional, for reference
+  inv.paymentRevisedEnabled = revisedEnabled;
+  inv.paymentRevisedAmount  = revisedEnabled ? revisedAmount : 0;
+
+  // These two are the important ones for Payment Tracker:
+  inv.advancePaid           = advancePaid;         // 🔴 now Advance is SAVED
+  inv.finalPaid             = finalPaid;
+
+  inv.paymentPendingRaw     = rawPending;
+  inv.paymentPendingAbs     = pendingAbs;
+  inv.paymentPartialLog     = partialHistory;
+  inv.paymentLastUpdated    = new Date().toISOString();
+
+  // --- Derive paymentStatus (used in Payment Info tab) ---
+  const billedForStatus = Number(inv.final || inv.actual || baseAmount || 0) || 0;
+  const totalPaid       = advancePaid + finalPaid;
+
+  let statusPayment = 'pending';
+  if (!billedForStatus || totalPaid <= 0) {
+    statusPayment = 'pending';
+  } else if (totalPaid + 0.01 < billedForStatus) {
+    statusPayment = 'partial';
+  } else {
+    statusPayment = 'completed';
+  }
+  inv.paymentStatus = statusPayment;
+
+  // Put back & save
+  invoices[idx] = inv;
+  saveToLS(SAVED_INVOICES_KEY, invoices);
+
+  // Also refresh CURRENT_VIEWED_INVOICE.invoice so next open shows latest
+  window.CURRENT_VIEWED_INVOICE.invoice = inv;
+
+  // Re-render Payment Info list if visible
+  if (typeof renderFilesList === 'function') {
+    renderFilesList();
+  }
+
+  // Optional: sync to Drive if available
+  try {
+    if (typeof autoSaveDrive === 'function' && window.accessToken) {
+      autoSaveDrive('payment info saved');
+    }
+  } catch (e) {
+    console.warn('Auto-save to Drive after payment save failed:', e);
+  }
+
+  // Small toast + close
+  if (typeof showUpdateToast === 'function') {
+    showUpdateToast('Payment info saved');
+  } else {
+    alert('Payment info saved.');
+  }
+
+  closePaymentInfoModal();
+}
+
+
 // Apply Partial Amount → updates Final Paid, history log, and Pending
 function handlePartialAmountApply() {
   const partialInput = document.getElementById('paymentPartialValue');
