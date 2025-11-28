@@ -675,31 +675,37 @@ header {
 
 <!-- New line: toolbar below tabs -->
 <div class="files-toolbar mb-3"
-     style="display:flex; flex-wrap:nowrap; gap:0.5rem; align-items:center;">
-  <input id="filesSearch"
-         placeholder="Search by client"
-         class="border rounded p-2 text-sm"
-         style="flex:1; min-width:0;" />
+     style="display:flex; flex-direction:column; gap:0.5rem;">
 
-  <input id="filesDate"
-         type="text"
-         placeholder="YYYY, MM-YYYY or DD-MM-YYYY"
-         class="border rounded p-2 text-sm"
-         style="width:10rem; min-width:0;" />
+  <!-- ROW 1: Search + Date (NO WRAP between them) -->
+  <div style="display:flex; flex-wrap:nowrap; gap:0.5rem; align-items:center;">
+    <input id="filesSearch"
+           placeholder="Search by client"
+           class="border rounded p-2 text-sm"
+           style="flex:1; min-width:0;" />
 
-  <!-- Shown only when Payment Info tab is active -->
+    <input id="filesDate"
+           type="text"
+           placeholder="YYYY, MM-YYYY or DD-MM-YYYY"
+           class="border rounded p-2 text-sm"
+           style="width:10rem; min-width:0;" />
+  </div>
+
+  <!-- ROW 2: Payment status dropdown (this is the one that "wraps") -->
   <div id="paymentStatusFilterWrapper"
-       style="display:none;">
+       style="display:none; align-self:flex-end;">
     <select id="paymentStatusFilter"
             class="border rounded p-2 text-sm"
-            style="width:9rem; min-width:0;">
-      <option value="all">All statuses</option>
+            style="width:9rem;">
+      <option value="all">All</option>
       <option value="pending">Pending</option>
       <option value="partial">Partial paid</option>
       <option value="completed">Completed</option>
     </select>
   </div>
+
 </div>
+
 
 <div id="filesContent">
 
