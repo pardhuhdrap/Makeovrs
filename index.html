@@ -4268,7 +4268,6 @@ function toggleRevisedAmount() {
 }
 
 // Core math for Pending + button enabling
-// Core math for Pending + button enabling
 function recalcPaymentPending() {
   const billedInput  = document.getElementById('paymentBilledAmount');
   const revisedInput = document.getElementById('paymentRevisedAmount');
@@ -4277,6 +4276,7 @@ function recalcPaymentPending() {
   const finalInput   = document.getElementById('paymentFinalPaid');
   const pendingInput = document.getElementById('paymentPending');
   const paidBtn      = document.getElementById('paymentPaidFinalBtn');
+  const saveBtn      = document.getElementById('paymentSaveBtn');
 
   let billed = parseFloat(billedInput?.value || '0');
   if (isNaN(billed)) billed = 0;
@@ -4302,7 +4302,7 @@ function recalcPaymentPending() {
     if (isNaN(partialSum)) partialSum = 0;
   }
 
-  // 🔴 Final Paid = Advance Paid + ALL partial amounts
+  // Final Paid = Advance Paid + ALL partial amounts
   const finalTotal = adv + partialSum;
   if (finalInput) {
     finalInput.value = finalTotal.toFixed(2);
@@ -4317,15 +4317,27 @@ function recalcPaymentPending() {
     pendingInput.dataset.rawPending = String(rawPending);
   }
 
+  // fully-paid check
+  const isFullyPaid = rawPending <= 0;
+
   // Paid button enabled only when nothing is pending (<= 0)
   if (paidBtn) {
-    paidBtn.disabled = !(rawPending <= 0);
+    paidBtn.disabled = !isFullyPaid;
+    paidBtn.classList.toggle('opacity-50', !isFullyPaid);
+  }
+
+  // Save button disabled when fully paid
+  if (saveBtn) {
+    saveBtn.disabled = isFullyPaid;
+    saveBtn.classList.toggle('opacity-50', isFullyPaid);
   }
 }
 
 
+
 // Save all Payment Info fields back to the invoice object
-function handlePaymentSave() {
+// markCompleted = true is used only by the "Paid" button
+function handlePaymentSave(markCompleted = false) {
   const ctx = window.CURRENT_VIEWED_INVOICE || {};
   const invIdCtx = ctx.id;
   if (!invIdCtx) {
@@ -4375,7 +4387,6 @@ function handlePaymentSave() {
   }
 
   const pendingAbs = Math.abs(rawPending);
-
   const partialHistory = partialLog ? partialLog.value || '' : '';
 
   // --- Load invoices from storage ---
@@ -4397,7 +4408,7 @@ function handlePaymentSave() {
   inv.paymentRevisedAmount  = revisedEnabled ? revisedAmount : 0;
 
   // These two are the important ones for Payment Tracker:
-  inv.advancePaid           = advancePaid;         // 🔴 now Advance is SAVED
+  inv.advancePaid           = advancePaid;
   inv.finalPaid             = finalPaid;
 
   inv.paymentPendingRaw     = rawPending;
@@ -4410,12 +4421,17 @@ function handlePaymentSave() {
   const totalPaid       = advancePaid + finalPaid;
 
   let statusPayment = 'pending';
-  if (!billedForStatus || totalPaid <= 0) {
-    statusPayment = 'pending';
-  } else if (totalPaid + 0.01 < billedForStatus) {
-    statusPayment = 'partial';
-  } else {
+  if (markCompleted) {
+    // only "Paid" button is allowed to fully complete the invoice
     statusPayment = 'completed';
+    inv.paymentCompletedAt = new Date().toISOString();
+  } else {
+    if (!billedForStatus || totalPaid <= 0) {
+      statusPayment = 'pending';
+    } else {
+      // any positive payment but not marked as completed => partial
+      statusPayment = 'partial';
+    }
   }
   inv.paymentStatus = statusPayment;
 
@@ -4423,20 +4439,18 @@ function handlePaymentSave() {
   invoices[idx] = inv;
   saveToLS(SAVED_INVOICES_KEY, invoices);
 
-  console.log("PAYMENT-SAVE:", JSON.parse(localStorage.getItem(SAVED_INVOICES_KEY)));
-
   // Also refresh CURRENT_VIEWED_INVOICE.invoice so next open shows latest
   window.CURRENT_VIEWED_INVOICE.invoice = inv;
 
-  // Re-render Payment Info list if visible
+  // Re-render lists (Files + Payment Tracker)
   if (typeof renderFilesList === 'function') {
     renderFilesList();
   }
 
-  // Optional: sync to Drive if available
+  // 🔄 Auto-save to Drive (works for both Save + Paid)
   try {
     if (typeof autoSaveDrive === 'function' && window.accessToken) {
-      autoSaveDrive('payment info saved');
+      autoSaveDrive(markCompleted ? 'payment marked paid' : 'payment info saved');
     }
   } catch (e) {
     console.warn('Auto-save to Drive after payment save failed:', e);
@@ -4444,13 +4458,14 @@ function handlePaymentSave() {
 
   // Small toast + close
   if (typeof showUpdateToast === 'function') {
-    showUpdateToast('Payment info saved');
+    showUpdateToast(markCompleted ? 'Payment marked as Paid' : 'Payment info saved');
   } else {
-    alert('Payment info saved.');
+    alert(markCompleted ? 'Payment marked as Paid.' : 'Payment info saved.');
   }
 
   closePaymentInfoModal();
 }
+
 
 
 // Apply Partial Amount → updates Final Paid, history log, and Pending
@@ -4636,9 +4651,28 @@ function handlePaymentPartial() {
 
 
 function handlePaymentPaidFinal() {
-  // Here we'll later save full payment info etc.
-  alert('Paid functionality will be added here.');
+  const pendingInput = document.getElementById('paymentPending');
+
+  let rawPending = 0;
+  if (pendingInput) {
+    if (pendingInput.dataset && pendingInput.dataset.rawPending !== undefined) {
+      rawPending = parseFloat(pendingInput.dataset.rawPending || '0');
+    } else {
+      rawPending = parseFloat(pendingInput.value || '0');
+    }
+  }
+  if (isNaN(rawPending)) rawPending = 0;
+
+  // Safety check – should already be enforced by disabled button
+  if (rawPending > 0.01) {
+    alert('Pending amount must be 0.00 before marking as Paid.');
+    return;
+  }
+
+  // Delegate to save logic with "completed" flag
+  handlePaymentSave(true);
 }
+
 
 
 // ==== Add-Event button helpers (quotation + invoice screens) ====
