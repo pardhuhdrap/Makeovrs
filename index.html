@@ -667,6 +667,9 @@ header {
     <div class="tab" id="tab-invoices" onclick="switchFilesTab('invoices')">
       Invoices
     </div>
+     <div class="tab" id="tab-payments" onclick="switchFilesTab('payments')">
+      Payment Info
+    </div>
   </div>
 </div>
 
@@ -675,12 +678,27 @@ header {
      style="display:flex; flex-wrap:nowrap; gap:0.5rem; align-items:center;">
   <input id="filesSearch"
          placeholder="Search by client"
-         class="border rounded p-2 text-sm" style="flex:1; min-width:0;" />
+         class="border rounded p-2 text-sm"
+         style="flex:1; min-width:0;" />
 
   <input id="filesDate"
          type="text"
          placeholder="YYYY, MM-YYYY or DD-MM-YYYY"
-         class="border rounded p-2 text-sm" style="width:10rem; min-width:0;" />
+         class="border rounded p-2 text-sm"
+         style="width:10rem; min-width:0;" />
+
+  <!-- Shown only when Payment Info tab is active -->
+  <div id="paymentStatusFilterWrapper"
+       style="display:none;">
+    <select id="paymentStatusFilter"
+            class="border rounded p-2 text-sm"
+            style="width:9rem; min-width:0;">
+      <option value="all">All statuses</option>
+      <option value="pending">Pending</option>
+      <option value="partial">Partial paid</option>
+      <option value="completed">Completed</option>
+    </select>
+  </div>
 </div>
 
 <div id="filesContent">
@@ -2460,7 +2478,27 @@ function saveQuotationMultiEvent() {
    Files UI & PDF helpers
    (reused, slightly simplified)
    ------------------------- */
-function switchFilesTab(tab){ const isInv = (tab==='invoices'); document.getElementById('tab-quotations').classList.toggle('active', !isInv); document.getElementById('tab-invoices').classList.toggle('active', isInv); document.getElementById('quotationsTab').classList.toggle('hidden', isInv); document.getElementById('invoicesTab').classList.toggle('hidden', !isInv); renderFilesList(); }
+function switchFilesTab(tab) {
+  const tabs = ['quotations', 'invoices', 'payments'];
+
+  tabs.forEach(name => {
+    const tabEl   = document.getElementById('tab-' + name);
+    const panelEl = document.getElementById(name + 'Tab');
+    const isActive = (name === tab);
+
+    if (tabEl)   tabEl.classList.toggle('active', isActive);
+    if (panelEl) panelEl.classList.toggle('hidden', !isActive);
+  });
+
+  // Show status dropdown ONLY on Payment Info tab
+  const statusWrapper = document.getElementById('paymentStatusFilterWrapper');
+  if (statusWrapper) {
+    statusWrapper.style.display = (tab === 'payments') ? 'flex' : 'none';
+  }
+
+  renderFilesList();
+}
+
 function loadFilesUI(){
   // you can use these later if needed
   const rawQ = loadFromLS(SAVED_QUOTATIONS_KEY, []);
@@ -2686,29 +2724,34 @@ function matchesDateFilter(file, filterStr) {
 }
 
 function renderFilesList() {
-  const searchQuery = (document.getElementById('filesSearch')?.value || '')
-    .trim()
-    .toLowerCase();
-  const dateFilterRaw = (document.getElementById('filesDate')?.value || '').trim();
-  const hasDateFilter = !!dateFilterRaw;
-  const dateFilter = dateFilterRaw; // keep as string
-
   const quotations = loadFromLS(SAVED_QUOTATIONS_KEY, []);
   const invoices   = loadFromLS(SAVED_INVOICES_KEY, []);
 
-  // ---------- Helper for date filtering ----------
-  function recordMatchesDate(created) {
-    if (!hasDateFilter) return true;            // no filter -> match all
-    if (!created || isNaN(created.getTime())) return false;
+  const searchQuery = (document.getElementById('filesSearch')?.value || '')
+    .trim()
+    .toLowerCase();
 
-    const f = dateFilter;
+  const dateFilterRaw =
+    (document.getElementById('filesDate')?.value || '').trim();
 
-    const year  = created.getFullYear();
-    const month = created.getMonth() + 1;       // 1–12
-    const day   = created.getDate();
+  const statusFilter =
+    (document.getElementById('paymentStatusFilter')?.value || 'all')
+      .toLowerCase();
 
-    // ISO yyyy-mm-dd for fallback (for old <input type="date"> usage)
-    const iso = created.toISOString().slice(0, 10);
+  // Reuse the flexible date filter you already had
+  function matchesDateFilter(file, filterStr) {
+    if (!filterStr) return true;
+
+    const d = getFileDate(file); // uses global getFileDate()
+    if (!d || isNaN(d.getTime())) return false;
+
+    const year  = d.getFullYear();
+    const month = d.getMonth() + 1;
+    const day   = d.getDate();
+
+    const iso = d.toISOString().slice(0, 10);
+
+    const f = filterStr.trim();
 
     // 1) Year only: 2025
     if (/^\d{4}$/.test(f)) {
@@ -2732,13 +2775,19 @@ function renderFilesList() {
       return year === fYear && month === fMonth && day === fDay;
     }
 
-    // 4) Old date input style: YYYY-MM-DD (from <input type="date">)
+    // 4) Old date input style: YYYY-MM-DD
     if (/^\d{4}-\d{2}-\d{2}$/.test(f)) {
       return iso === f;
     }
 
     // Unknown format -> don't filter by date
     return true;
+  }
+
+  function recordMatchesDate(created) {
+    if (!dateFilterRaw) return true;
+    if (!created) return false;
+    return matchesDateFilter({ date: created.toISOString() }, dateFilterRaw);
   }
 
   // ---------- Quotations ----------
@@ -2793,10 +2842,12 @@ function renderFilesList() {
     qList.appendChild(item);
   });
 
-  document.getElementById('filesEmpty').classList.toggle('hidden', foundQ > 0);
+  document
+    .getElementById('filesEmpty')
+    .classList.toggle('hidden', foundQ > 0);
 
   // ---------- Invoices ----------
-    const invList = document.getElementById('invoicesList');
+  const invList = document.getElementById('invoicesList');
   invList.innerHTML = '';
   let foundI = 0;
 
@@ -2818,7 +2869,7 @@ function renderFilesList() {
 
     const status = String(inv.status || '').toLowerCase();
     const isVoid      = status === 'void';
-    const isValidated = status === 'valid-from-void';   // 👈 used for orange
+    const isValidated = status === 'valid-from-void';   // orange
 
     // background colour
     item.className =
@@ -2876,7 +2927,112 @@ function renderFilesList() {
   document
     .getElementById('invoicesEmpty')
     .classList.toggle('hidden', foundI > 0);
+
+  // ---------- Payment Info (Invoices with status) ----------
+  const pList = document.getElementById('paymentsList');
+  if (pList) {
+    pList.innerHTML = '';
+    let foundP = 0;
+
+    function computePaymentStatus(inv) {
+      // 1) If you later store explicit status on invoice, respect it
+      const raw = String(inv.paymentStatus || inv.statusPayment || '').toLowerCase();
+      if (raw === 'pending') return 'Pending';
+      if (raw === 'partial' || raw === 'partial paid') return 'Partial paid';
+      if (raw === 'completed' || raw === 'complete') return 'Completed';
+
+      // 2) Else derive from amounts – this will start working
+      //    once you store advance/final paid on the invoice object.
+      const billed   = Number(inv.final || inv.actual || 0) || 0;
+      const advance  = Number(inv.advancePaid || inv.paymentAdvance || 0) || 0;
+      const finalPd  = Number(inv.finalPaid   || inv.paymentFinal   || 0) || 0;
+      const totalPaid = advance + finalPd;
+
+      if (!billed) return 'Pending';
+      if (totalPaid <= 0) return 'Pending';
+      if (totalPaid + 0.01 < billed) return 'Partial paid';
+      return 'Completed';
+    }
+
+    invoices.slice().reverse().forEach(inv => {
+      const created = inv.createdAt ? new Date(inv.createdAt) : null;
+
+      // Date filter
+      if (!recordMatchesDate(created)) return;
+
+      // Combined search on name, contact, ids
+      if (searchQuery) {
+        const hay = [
+          inv.clientName,
+          inv.clientContact,
+          inv.invoiceId,
+          inv.invoiceNo
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+
+        if (!hay.includes(searchQuery)) return;
+      }
+
+      const statusLabel = computePaymentStatus(inv);
+      const statusKey =
+        statusLabel.toLowerCase().startsWith('partial')
+          ? 'partial'
+          : statusLabel.toLowerCase();
+
+      if (statusFilter !== 'all' && statusKey !== statusFilter) return;
+
+      foundP++;
+
+      const item = document.createElement('div');
+      item.className = 'file-item';
+
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.innerHTML = `
+        <div>
+          <div class="font-semibold">${inv.clientName || 'Unnamed'}</div>
+          <div class="text-xs text-gray-500">
+            ${created ? created.toLocaleString() : 'No date'}
+          </div>
+          <div class="mt-1 text-[11px]">
+            <span class="inline-block px-2 py-0.5 rounded-full text-[11px] ${
+              statusKey === 'completed'
+                ? 'bg-green-100 text-green-700'
+                : statusKey === 'partial'
+                ? 'bg-yellow-100 text-yellow-700'
+                : 'bg-red-100 text-red-700'
+            }">
+              ${statusLabel}
+            </span>
+          </div>
+        </div>
+      `;
+
+      const actions = document.createElement('div');
+      const idForInvoice = inv.invoiceId || inv.id;
+
+      actions.innerHTML = `
+        <button
+          class="py-1 px-2 rounded border text-sm"
+          onclick="openInvoiceViewerById('${idForInvoice}')">
+          View
+        </button>
+      `;
+
+      item.appendChild(meta);
+      item.appendChild(actions);
+      pList.appendChild(item);
+    });
+
+    const emptyP = document.getElementById('paymentsEmpty');
+    if (emptyP) {
+      emptyP.classList.toggle('hidden', foundP > 0);
+    }
+  }
 }
+
 
 
 // Healper-function
@@ -5829,6 +5985,7 @@ document.getElementById("removeInvoiceLayoutBtn")?.addEventListener("click", () 
   document.getElementById('filesSearch')?.addEventListener('input', renderFilesList);
   document.getElementById('filesDate')?.addEventListener('input', renderFilesList);
   document.getElementById('filesMonth')?.addEventListener('change', renderFilesList);
+  document.getElementById('paymentStatusFilter')?.addEventListener('change', renderFilesList);
 
   // ===== FILES → Quotations bulk actions =====
   const quoteSelectAll = document.getElementById('quoteSelectAll');
