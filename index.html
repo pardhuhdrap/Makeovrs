@@ -4013,8 +4013,9 @@ function openPaymentInfoForInvoiceId(invoiceId) {
 
 // ---- Payment Info helpers ----
 
+// ---- Payment Info helpers ----
+
 function openPaymentInfoModal() {
-  console.log("PAYMENT-LOAD:", invoice);
   // Close the invoice viewer popup (but keep CURRENT_VIEWED_INVOICE)
   if (typeof closeMessage === 'function') {
     closeMessage();
@@ -4036,6 +4037,12 @@ function openPaymentInfoModal() {
   // Context from invoice viewer or payment tracker
   const ctx = window.CURRENT_VIEWED_INVOICE || null;
   const inv = ctx && ctx.invoice ? ctx.invoice : null;
+
+  // Debug (optional)
+  console.log('PAYMENT-LOAD ctx/invoice:', {
+    ctx,
+    inv,
+  });
 
   // 1) Billed amount from context (actual/final)
   let billed = 0;
@@ -4091,7 +4098,7 @@ function openPaymentInfoModal() {
     revisedInput.classList.remove('field-error-red');
   }
 
-  // Advance Paid – this is the one you care about
+  // Advance Paid
   if (advInput) {
     if (savedAdvance > 0) {
       advInput.value = savedAdvance.toFixed(2);
@@ -4109,11 +4116,14 @@ function openPaymentInfoModal() {
     }
   }
 
-  // Initialize partial sum tracker on Final Paid
+  // 🔧 Initialize partial sum tracker on Final Paid so recalcPaymentPending
+  // does NOT wipe out your saved total.
   if (finalInput) {
-    // If you already have saved values, you can restore here.
-    // For now start at 0 and let partial adds build it up.
-    finalInput.dataset.partialSum = finalInput.dataset.partialSum || '0';
+    let partialFromSaved = 0;
+    if (savedFinalPaid > 0 && savedFinalPaid >= savedAdvance) {
+      partialFromSaved = savedFinalPaid - savedAdvance;
+    }
+    finalInput.dataset.partialSum = partialFromSaved.toFixed(2);
   }
   // Pending will be recalculated below
 
@@ -4139,6 +4149,7 @@ function openPaymentInfoModal() {
 
   modal.style.display = 'flex';
 }
+
 
 
 
