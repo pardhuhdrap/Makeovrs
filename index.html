@@ -1125,6 +1125,25 @@ function navigate(id, opts = {}) {
   createLucide();
 }
 
+function formatINR(num) {
+  if (num === null || num === undefined || num === '') return '';
+  const n = parseFloat(num);
+  if (isNaN(n)) return num;
+  return '₹' + n.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+// Helper to safely read numbers even if they have ₹ or commas
+function parseINR(value) {
+  if (value === null || value === undefined) return 0;
+  const raw = String(value);
+  const cleaned = raw.replace(/[^\d.-]/g, ''); // remove ₹, commas, spaces, etc
+  const n = parseFloat(cleaned);
+  return isNaN(n) ? 0 : n;
+}
+
 
 
 function goBack() {
@@ -3709,7 +3728,7 @@ function openPaymentInfoModal() {
     ? ctx.actual
     : 0;
 
-  if (billedInput) billedInput.value = billed.toFixed(2);
+   if (billedInput) billedInput.value = formatINR(billed);
 
   // Reset other fields
   if (revisedChk) revisedChk.checked = false;
@@ -3720,7 +3739,7 @@ function openPaymentInfoModal() {
   }
   if (advInput) advInput.value = '';
   if (finalInput) finalInput.value = '';
-  if (pendingInput) pendingInput.value = '0.00';
+  if (pendingInput) pendingInput.value = formatINR(0);
 
   // Reset buttons
   const partialBtn = document.getElementById('paymentPartialBtn');
@@ -3753,15 +3772,15 @@ function openPaymentInfoModalRestrictedFromCalendar() {
     : (typeof ctx.actual === 'number' ? ctx.actual : 0);
 
   // Base amounts
-  if (billedInput) billedInput.value = billed ? billed.toFixed(2) : '0.00';
+  if (billedInput) billedInput.value = formatINR(billed || 0);
   if (advanceInput) advanceInput.value = '';
   if (finalInput) finalInput.value = '';
 
   // Pending = full billed at start
   if (pendingInput) {
-    const val = billed ? billed.toFixed(2) : '0.00';
-    pendingInput.value = val;
-    pendingInput.dataset.rawPending = val;
+     const val = billed || 0;
+  pendingInput.value = formatINR(val);
+  pendingInput.dataset.rawPending = String(val);
   }
 
   // Disable revised amount & final payment
@@ -3856,12 +3875,10 @@ function recalcPaymentPending() {
   const partialBtn   = document.getElementById('paymentPartialBtn');
   const paidBtn      = document.getElementById('paymentPaidFinalBtn');
 
-  let billed = parseFloat(billedInput?.value || '0');
-  if (isNaN(billed)) billed = 0;
+  let billed = parseINR (billedInput?.value || '0');
 
   const revisedEnabled = !!revisedChk?.checked;
-  let revised = parseFloat(revisedInput?.value || '0');
-  if (isNaN(revised)) revised = 0;
+  let revised = parseINR(revisedInput?.value || '0');
 
   // Revised must be > 0 if enabled
   if (revisedEnabled && (!revised || revised <= 0)) {
@@ -3876,11 +3893,9 @@ function recalcPaymentPending() {
     base = revised;
   }
 
-  let adv = parseFloat(advInput?.value || '0');
-  if (isNaN(adv)) adv = 0;
+  let adv = parseINR(advInput?.value || '0');
 
-  let final = parseFloat(finalInput?.value || '0');
-  if (isNaN(final)) final = 0;
+  let final = parseINR(finalInput?.value || '0');
 
   // raw Pending = Point 1 or 2  -  (Point 3 + Point 4)
   const rawPending = base - (adv + final);
@@ -3890,7 +3905,7 @@ function recalcPaymentPending() {
   const displayPending = Math.abs(rawPending);
 
   if (pendingInput) {
-    pendingInput.value = displayPending.toFixed(2);
+    pendingInput.value = formatINR(displayPending);
     pendingInput.dataset.rawPending = String(rawPending);
   }
 
