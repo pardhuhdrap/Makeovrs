@@ -1237,8 +1237,8 @@ function formatINR(num) {
   const n = parseFloat(num);
   if (isNaN(n)) return num;
   return '₹' + n.toLocaleString('en-IN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
   });
 }
 
@@ -4014,6 +4014,7 @@ function openPaymentInfoForInvoiceId(invoiceId) {
 // ---- Payment Info helpers ----
 
 function openPaymentInfoModal() {
+  console.log("PAYMENT-LOAD:", invoice);
   // Close the invoice viewer popup (but keep CURRENT_VIEWED_INVOICE)
   if (typeof closeMessage === 'function') {
     closeMessage();
@@ -4410,6 +4411,8 @@ function handlePaymentSave() {
   // Put back & save
   invoices[idx] = inv;
   saveToLS(SAVED_INVOICES_KEY, invoices);
+
+  console.log("PAYMENT-SAVE:", JSON.parse(localStorage.getItem(SAVED_INVOICES_KEY)));
 
   // Also refresh CURRENT_VIEWED_INVOICE.invoice so next open shows latest
   window.CURRENT_VIEWED_INVOICE.invoice = inv;
