@@ -457,7 +457,7 @@ header {
         <p class="text-gray-700 font-medium mb-3">Manage Packages</p>
         <form id="masterPackageForm" onsubmit="addMasterPackage(event)">
           <div class="mb-2"><input id="masterPackageName" required class="w-full border-gray-300 rounded p-2" placeholder="Package name"></div>
-          <div class="mb-2"><input id="masterPackagePrice" required type="number" step="0.01" class="w-full border-gray-300 rounded p-2" placeholder="Price"></div>
+          <div class="mb-2"><input id="masterPackagePrice" required type="number" step="100" class="w-full border-gray-300 rounded p-2" placeholder="Price"></div>
           <button type="submit" class="w-full py-2 rounded text-white app-color-bg">Add Package</button>
         </form>
         <div id="masterPackageList" class="mt-4 p-3 bg-gray-50 rounded border max-h-40 overflow-y-auto"><p class="text-sm text-gray-500 text-center">No packages added yet.</p></div>
@@ -466,7 +466,7 @@ header {
         <p class="text-gray-700 font-medium mb-3">Manage AddOns</p>
         <form id="masterAddOnForm" onsubmit="addMasterAddOn(event)">
           <div class="mb-2"><input id="masterAddOnName" required class="w-full border-gray-300 rounded p-2" placeholder="AddOn name"></div>
-          <div class="mb-2"><input id="masterAddOnPrice" required type="number" step="0.01" class="w-full border-gray-300 rounded p-2" placeholder="Price"></div>
+          <div class="mb-2"><input id="masterAddOnPrice" required type="number" step="100" class="w-full border-gray-300 rounded p-2" placeholder="Price"></div>
           <button type="submit" class="w-full py-2 rounded text-white app-color-bg">Add AddOn</button>
         </form>
 
@@ -482,7 +482,7 @@ header {
 
     <label class="flex flex-col">
       <span class="text-sm text-gray-600">Rate per KM (₹)</span>
-      <input id="masterDefaultRatePerKm" type="number" step="0.01" class="border rounded p-2 text-sm" placeholder="0.50" />
+      <input id="masterDefaultRatePerKm" type="number" step="1" class="border rounded p-2 text-sm" placeholder="0.50" />
     </label>
   </div>
 
@@ -529,7 +529,7 @@ header {
           <div class="summary-row" style="align-items:center">
             <div>
               <div class="text-xs text-gray-600">Discount (₹)</div>
-              <input id="quotationDiscount" type="number" min="0" step="0.01" value="0.00" class="mt-1 block border-gray-300 rounded p-2 text-sm" style="width:140px">
+              <input id="quotationDiscount" type="number" min="0" step="500" value="0" class="mt-1 block border-gray-300 rounded p-2 text-sm" style="width:140px">
             </div>
           </div>
           <div class="summary-row"><span>Final Price</span><strong id="summaryFinal">₹0.00</strong></div>
@@ -640,7 +640,7 @@ header {
           <div class="summary-row" style="align-items:center">
             <div>
               <div class="text-xs text-gray-600">Discount (₹)</div>
-              <input id="invoiceDiscount" type="number" min="0" step="0.01" value="0.00" class="mt-1 block border-gray-300 rounded p-2 text-sm" style="width:140px">
+              <input id="invoiceDiscount" type="number" min="0" step="500" value="0" class="mt-1 block border-gray-300 rounded p-2 text-sm" style="width:140px">
             </div>
           </div>
           <div class="summary-row"><span>Final Price</span><strong id="invoiceSummaryFinal">₹0.00</strong></div>
@@ -940,7 +940,7 @@ header {
           <input
             id="paymentRevisedAmount"
             type="number"
-            step="0.01"
+            step="1000"
             class="w-full border rounded p-2 bg-white"
             disabled
             oninput="recalcPaymentPending()"
@@ -954,7 +954,7 @@ header {
           <input
             id="paymentAdvancePaid"
             type="number"
-            step="0.01"
+            step="500"
             class="w-full border rounded p-2 bg-white"
             oninput="recalcPaymentPending()"
           />
@@ -967,7 +967,7 @@ header {
           <input
             id="paymentFinalPaid"
             type="number"
-            step="0.01"
+            step="1000"
             class="w-full border rounded p-2 bg-white"
             oninput="recalcPaymentPending()"
           />
@@ -1443,8 +1443,8 @@ function addMasterPackage(e){ e.preventDefault(); const n=document.getElementByI
 function addMasterAddOn(e){ e.preventDefault(); const n=document.getElementById('masterAddOnName')?.value?.trim(); const p=parseFloat(document.getElementById('masterAddOnPrice')?.value); if(!n||isNaN(p)||p<0) return showMessage('Fill valid name & price.'); masterAddOns.push({id:Date.now(), name:n, price:p}); saveMasterAddOns(); document.getElementById('masterAddOnForm').reset(); renderMasterAddOnList(); refreshPanelsMasterData(); }
 
 function renderMasterEventList(){ const el=document.getElementById('masterEventList'); if(!el) return; el.innerHTML = masterEventNames.length===0?'<p class="text-sm text-gray-500 text-center p-2">No event names added yet.</p>': masterEventNames.map(n=>`<div class="flex justify-between items-center p-2 border-b bg-white rounded-md"><p class="font-semibold app-color-text">${n}</p><button onclick="deleteMasterEvent(${JSON.stringify(n)})" class="text-red-500 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>`).join(''); createLucide(); }
-function renderMasterPackageList(){ const el=document.getElementById('masterPackageList'); if(!el) return; el.innerHTML = masterPackages.length===0?'<p class="text-sm text-gray-500 text-center p-2">No packages added yet.</p>': masterPackages.map(p=>`<div class="flex justify-between items-center p-3 border-b bg-white"><div><p class="font-semibold app-color-text">${p.name}</p></div><div class="flex items-center"><p class="font-bold text-green-600 mr-2">₹${p.price.toFixed(2)}</p><button onclick="deleteMasterPackage(${p.id})" class="text-red-500 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></div>`).join(''); createLucide(); }
-function renderMasterAddOnList(){ const el=document.getElementById('masterAddOnList'); if(!el) return; el.innerHTML = masterAddOns.length===0?'<p class="text-sm text-gray-500 text-center p-2">No addons added yet.</p>': masterAddOns.map(a=>`<div class="flex justify-between items-center p-3 border-b bg-white"><div><p class="font-semibold app-color-text">${a.name}</p></div><div class="flex items-center"><p class="font-bold text-green-600 mr-2">₹${a.price.toFixed(2)}</p><button onclick="deleteMasterAddOn(${a.id})" class="text-red-500 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></div>`).join(''); createLucide(); }
+function renderMasterPackageList(){ const el=document.getElementById('masterPackageList'); if(!el) return; el.innerHTML = masterPackages.length===0?'<p class="text-sm text-gray-500 text-center p-2">No packages added yet.</p>': masterPackages.map(p=>`<div class="flex justify-between items-center p-3 border-b bg-white"><div><p class="font-semibold app-color-text">${p.name}</p></div><div class="flex items-center"><p class="font-bold text-green-600 mr-2">₹${p.price}</p><button onclick="deleteMasterPackage(${p.id})" class="text-red-500 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></div>`).join(''); createLucide(); }
+function renderMasterAddOnList(){ const el=document.getElementById('masterAddOnList'); if(!el) return; el.innerHTML = masterAddOns.length===0?'<p class="text-sm text-gray-500 text-center p-2">No addons added yet.</p>': masterAddOns.map(a=>`<div class="flex justify-between items-center p-3 border-b bg-white"><div><p class="font-semibold app-color-text">${a.name}</p></div><div class="flex items-center"><p class="font-bold text-green-600 mr-2">₹${a.price}</p><button onclick="deleteMasterAddOn(${a.id})" class="text-red-500 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></div>`).join(''); createLucide(); }
 function deleteMasterEvent(name){ masterEventNames = masterEventNames.filter(x=>x!==name); saveMasterEvents(); renderMasterEventList(); refreshPanelsMasterData(); }
 function deleteMasterPackage(id){ masterPackages = masterPackages.filter(x=>x.id!==id); saveMasterPackages(); renderMasterPackageList(); refreshPanelsMasterData(); }
 function deleteMasterAddOn(id){ masterAddOns = masterAddOns.filter(x=>x.id!==id); saveMasterAddOns(); renderMasterAddOnList(); refreshPanelsMasterData(); }
@@ -1461,13 +1461,13 @@ function refreshPanelsMasterData(){
     const pkgSel = panel.querySelector('.event-packageMaster');
     if(pkgSel){
       pkgSel.innerHTML = '<option value="">-- Select Package --</option>';
-      masterPackages.forEach(p => { const opt = document.createElement('option'); opt.value = p.id; opt.textContent = `${p.name} — ₹${p.price.toFixed(2)}`; opt.dataset.price = p.price; pkgSel.appendChild(opt); });
+      masterPackages.forEach(p => { const opt = document.createElement('option'); opt.value = p.id; opt.textContent = `${p.name} — ₹${p.price}`; opt.dataset.price = p.price; pkgSel.appendChild(opt); });
     }
     const masterContainer = panel.querySelector('.event-addon-master');
     if(masterContainer){
       masterContainer.innerHTML = '';
       if(masterAddOns.length===0) masterContainer.innerHTML = '<p class="text-sm text-gray-500 p-2">No add-ons in master.</p>';
-      else masterAddOns.forEach(a=>{ const row = document.createElement('div'); row.className='flex items-center justify-between p-1'; row.innerHTML = `<label class="flex items-center gap-2"><input type="checkbox" data-price="${a.price}" data-name="${a.name}" class="panel-addon-checkbox"> <span class="text-sm">${a.name}</span></label><span class="text-sm font-bold text-green-600">₹${a.price.toFixed(2)}</span>`; masterContainer.appendChild(row); });
+      else masterAddOns.forEach(a=>{ const row = document.createElement('div'); row.className='flex items-center justify-between p-1'; row.innerHTML = `<label class="flex items-center gap-2"><input type="checkbox" data-price="${a.price}" data-name="${a.name}" class="panel-addon-checkbox"> <span class="text-sm">${a.name}</span></label><span class="text-sm font-bold text-green-600">₹${a.price}</span>`; masterContainer.appendChild(row); });
     }
   });
 }
@@ -2292,7 +2292,7 @@ function getCleanQuotationPayloadWithEventIds(){
   if(isNaN(discount) || discount <= 0) discount = 0;
   const final = Math.max(0, actual - discount);
   const payload = { clientName, clientContact, events, actual, final };
-  if(discount > 0) payload.discount = Number(discount.toFixed(2));
+  if(discount > 0) payload.discount = Number(discount);
   return payload;
 }
 
@@ -3472,9 +3472,9 @@ msg += `<br><br>`;
   // ---------------- TOTALS -----------------
 msg += `<div style="margin:8px 0; padding:6px 8px; border:1px solid #ddd; border-radius:6px; background:#fafafa;"`; 
 
-  msg += `<b style="color:#ba2121;">Actual Price</b> : <b>₹${actual.toFixed(2)}</b><br>`;
-  msg += `<b style="color:#ba2121;">Discount</b> : <b>₹${discount.toFixed(2)}</b><br>`;
-  msg += `<b style="color:#198754; font-size:15px;">Final Price</b> : <b>₹${final.toFixed(2)}</b><br><br>`;
+  msg += `<b style="color:#ba2121;">Actual Price</b> : <b>₹${actual}</b><br>`;
+  msg += `<b style="color:#ba2121;">Discount</b> : <b>₹${discount}</b><br>`;
+  msg += `<b style="color:#198754; font-size:15px;">Final Price</b> : <b>₹${final}</b><br><br>`;
 msg += `</div>`;
 
   // ---------------- EVENTS -----------------
@@ -3495,19 +3495,19 @@ msg += `</div>`;
       const pkgName  = ev.packageName || '';
       const pkgPrice = Number(ev.packagePrice || 0);
       if (pkgName || pkgPrice) {
-        msg += `<span style="color:#555;">Package</span> : <b>${pkgName}</b> — <b style="color:#198754;">₹${pkgPrice.toFixed(2)}</b><br>`;
+        msg += `<span style="color:#555;">Package</span> : <b>${pkgName}</b> — <b style="color:#198754;">₹${pkgPrice}</b><br>`;
       }
 
       const addOnPrice = Number(ev.addOnPrice || 0);
       if (addOnPrice || ev.addonDetails) {
-        msg += `<span style="color:#555;">Add-ons</span> : <b style="color:#ff7f00;">₹${addOnPrice.toFixed(2)}</b>`;
+        msg += `<span style="color:#555;">Add-ons</span> : <b style="color:#ff7f00;">₹${addOnPrice}</b>`;
         if (ev.addonDetails) msg += ` — <span>${ev.addonDetails}</span>`;
         msg += `<br>`;
       }
 
       const transportPrice = Number(ev.transportPrice || 0);
       if (transportPrice) {
-        msg += `<span style="color:#555;">Transport</span> : <b style="color:#d63384;">₹${transportPrice.toFixed(2)}</b><br>`;
+        msg += `<span style="color:#555;">Transport</span> : <b style="color:#d63384;">₹${transportPrice}</b><br>`;
       }
 
       if (ev.notes) {
@@ -3606,9 +3606,9 @@ function openInvoiceViewerById(invId){
 
   // ---------- TOTALS ----------
   msg += `<div style="margin:8px 0; padding:6px 8px; border:1px solid #ddd; border-radius:6px; background:#fafafa;">`;
-  msg += `<b style="color:#ba2121;">Actual Price</b> : <b>₹${actual.toFixed(2)}</b><br>`;
-  msg += `<b style="color:#ba2121;">Discount</b> : <b>₹${discount.toFixed(2)}</b><br>`;
-  msg += `<b style="color:#198754; font-size:15px;">Final Price</b> : <b>₹${final.toFixed(2)}</b><br><br>`;
+  msg += `<b style="color:#ba2121;">Actual Price</b> : <b>₹${actual}</b><br>`;
+  msg += `<b style="color:#ba2121;">Discount</b> : <b>₹${discount}</b><br>`;
+  msg += `<b style="color:#198754; font-size:15px;">Final Price</b> : <b>₹${final}</b><br><br>`;
   msg += `</div>`;
 
     // ---------- EVENTS ----------
@@ -3628,19 +3628,19 @@ function openInvoiceViewerById(invId){
       const pkgName  = ev.packageName || '';
       const pkgPrice = Number(ev.packagePrice || 0);
       if (pkgName || pkgPrice) {
-        msg += `<span style="color:#555;">Package</span> : <b>${pkgName}</b> — <b style="color:#198754;">₹${pkgPrice.toFixed(2)}</b><br>`;
+        msg += `<span style="color:#555;">Package</span> : <b>${pkgName}</b> — <b style="color:#198754;">₹${pkgPrice}</b><br>`;
       }
 
       const addOnPrice = Number(ev.addOnPrice || 0);
       if (addOnPrice || ev.addonDetails) {
-        msg += `<span style="color:#555;">Add-ons</span> : <b style="color:#ff7f00;">₹${addOnPrice.toFixed(2)}</b>`;
+        msg += `<span style="color:#555;">Add-ons</span> : <b style="color:#ff7f00;">₹${addOnPrice}</b>`;
         if (ev.addonDetails) msg += ` — <span>${ev.addonDetails}</span>`;
         msg += `<br>`;
       }
 
       const transportPrice = Number(ev.transportPrice || 0);
       if (transportPrice) {
-        msg += `<span style="color:#555;">Transport</span> : <b style="color:#d63384;">₹${transportPrice.toFixed(2)}</b><br>`;
+        msg += `<span style="color:#555;">Transport</span> : <b style="color:#d63384;">₹${transportPrice}</b><br>`;
       }
 
       if (ev.notes) {
@@ -4206,7 +4206,7 @@ function createEventPanel(prefill = {}) {
                  placeholder="Manually enter destination" />
         </div>
         <label class="text-xs text-gray-700">Transport Price (₹)</label>
-        <input type="number" step="0.01"
+        <input type="number" step="100"
                class="event-transportPrice block w-full border-gray-300 rounded p-2 text-sm"
                value="0.00" />
       </div>
@@ -4222,7 +4222,7 @@ function createEventPanel(prefill = {}) {
           <input type="text"
                  class="event-packageSelectedManual block w-full border-gray-300 rounded p-2 text-sm"
                  placeholder="Manually enter package name" />
-          <input type="number" step="0.01"
+          <input type="number" step="1000"
                  class="event-packageManualPrice block w-full border-gray-300 rounded p-2 text-sm mt-2"
                  placeholder="Manual price (₹)" value="0.00" />
         </div>
@@ -4252,7 +4252,7 @@ function createEventPanel(prefill = {}) {
           <pre class="event-addon-display mt-2 p-2 bg-gray-50 rounded text-sm text-gray-700 min-h-[3rem]"></pre>
         </div>
         <label class="text-xs text-gray-700 mt-2">AddOn Price (₹)</label>
-        <input type="number" step="0.01"
+        <input type="number" step="100"
                class="event-addOnPrice block w-full border-gray-300 rounded p-2 text-sm"
                value="0.00" />
       </div>
@@ -4330,7 +4330,7 @@ function createEventPanel(prefill = {}) {
         <select class="event-packageMaster block w-full border-gray-300 rounded p-2 text-sm">
           <option value="">-- Select Package --</option>
         </select>
-        <input type="number" step="0.01"
+        <input type="number" step="1000"
                class="event-packagePrice block w-full border-gray-300 rounded p-2 text-sm mt-2"
                readonly value="0.00" />
       `;
@@ -4340,7 +4340,7 @@ function createEventPanel(prefill = {}) {
       masterPackages.forEach((p) => {
         const opt = document.createElement('option');
         opt.value = p.id;
-        opt.textContent = `${p.name} — ₹${p.price.toFixed(2)}`;
+        opt.textContent = `${p.name} — ₹${p.price}`;
         opt.dataset.price = p.price;
         sel.appendChild(opt);
       });
@@ -4349,7 +4349,7 @@ function createEventPanel(prefill = {}) {
         const price =
           opt && opt.dataset ? parseFloat(opt.dataset.price) || 0 : 0;
         const priceInp = panel.querySelector('.event-packagePrice');
-        if (priceInp) priceInp.value = price.toFixed(2);
+        if (priceInp) priceInp.value = price;
         updateSummaryUI();
         if (typeof updateInvoiceSummaryUI === 'function') {
           updateInvoiceSummaryUI();
@@ -4360,7 +4360,7 @@ function createEventPanel(prefill = {}) {
         <input type="text"
                class="event-packageSelectedManual block w-full border-gray-300 rounded p-2 text-sm"
                placeholder="Manually enter package name" />
-        <input type="number" step="0.01"
+        <input type="number" step="1000"
                class="event-packageManualPrice block w-full border-gray-300 rounded p-2 text-sm mt-2"
                placeholder="Manual price (₹)" value="0.00" />
       `;
@@ -4398,7 +4398,7 @@ function createEventPanel(prefill = {}) {
               <span class="text-sm">${a.name}</span>
             </label>
             <span class="text-sm font-bold text-green-600">
-              ₹${a.price.toFixed(2)}
+              ₹${a.price}
             </span>`;
           masterContainer.appendChild(row);
         });
@@ -4416,7 +4416,7 @@ function createEventPanel(prefill = {}) {
     ).filter((cb) => cb.checked);
     const names = checked.map(
       (cb, i) =>
-        `${i + 1}. ${cb.dataset.name} (₹${Number(cb.dataset.price).toFixed(2)})`
+        `${i + 1}. ${cb.dataset.name} (₹${Number(cb.dataset.price)})`
     );
     const sum = checked.reduce(
       (s, cb) => s + Number(cb.dataset.price || 0),
@@ -4424,7 +4424,7 @@ function createEventPanel(prefill = {}) {
     );
     panel.querySelector('.event-addon-display').textContent =
       names.join('\n') || 'No items selected.';
-    panel.querySelector('.event-addOnPrice').value = sum.toFixed(2);
+    panel.querySelector('.event-addOnPrice').value = sum;
     updateSummaryUI();
   if (typeof updateInvoiceSummaryUI === 'function') {
       updateInvoiceSummaryUI();
@@ -4549,7 +4549,7 @@ function createEventPanel(prefill = {}) {
         pkgNameInput.value = prefill.packageName;
       }
       if (pkgPriceInput && typeof prefill.packagePrice !== 'undefined') {
-        pkgPriceInput.value = Number(prefill.packagePrice || 0).toFixed(2);
+        pkgPriceInput.value = Number(prefill.packagePrice || 0);
       }
     }
 
@@ -4557,7 +4557,7 @@ function createEventPanel(prefill = {}) {
     if (typeof prefill.addOnPrice !== 'undefined') {
       const addOnPriceInput = panel.querySelector('.event-addOnPrice');
       if (addOnPriceInput) {
-        addOnPriceInput.value = Number(prefill.addOnPrice || 0).toFixed(2);
+        addOnPriceInput.value = Number(prefill.addOnPrice || 0);
       }
     }
     if (prefill.addonDetails) {
@@ -4571,7 +4571,7 @@ function createEventPanel(prefill = {}) {
     if (typeof prefill.transportPrice !== 'undefined') {
       const tInput = panel.querySelector('.event-transportPrice');
       if (tInput) {
-        tInput.value = Number(prefill.transportPrice || 0).toFixed(2);
+        tInput.value = Number(prefill.transportPrice || 0);
       }
     }
 
@@ -4612,7 +4612,7 @@ function loadQuotationIntoForm(q) {
   if (contactEl) contactEl.value = q.clientContact || '';
   if (discEl) {
     const d = q.discount != null ? Number(q.discount) : 0;
-    discEl.value = d.toFixed(2);
+    discEl.value = d;
   }
 
   if (!container) return;
@@ -4683,7 +4683,7 @@ function loadInvoiceIntoForm(inv) {
   if (contactEl) contactEl.value = inv.clientContact || '';
   if (discEl) {
     const d = inv.discount != null ? Number(inv.discount) : 0;
-    discEl.value = d.toFixed(2);
+    discEl.value = d;
   }
 
   if (!container) return;
@@ -4779,7 +4779,7 @@ function updateSummaryUI(){
   const actual = events.reduce((s,e)=> s + Number(e.packagePrice||0) + Number(e.addOnPrice||0) + Number(e.transportPrice||0), 0);
   const discountInput = document.getElementById('quotationDiscount'); let discount = parseFloat(discountInput?.value) || 0; if(discount < 0) discount = 0;
   const finalPrice = Math.max(0, actual - discount);
-  document.getElementById('summaryActual').textContent = `₹${actual.toFixed(2)}`; document.getElementById('summaryFinal').textContent = `₹${finalPrice.toFixed(2)}`;
+  document.getElementById('summaryActual').textContent = `₹${actual}`; document.getElementById('summaryFinal').textContent = `₹${finalPrice}`;
 }   // <-- keep this
 
 // ===== INVOICE SUMMARY HELPERS =====
@@ -4833,8 +4833,8 @@ function updateInvoiceSummaryUI(){
   const actualEl = document.getElementById('invoiceSummaryActual');
   const finalEl  = document.getElementById('invoiceSummaryFinal');
 
-  if (actualEl) actualEl.textContent = `₹${actual.toFixed(2)}`;
-  if (finalEl)  finalEl.textContent  = `₹${final.toFixed(2)}`;
+  if (actualEl) actualEl.textContent = `₹${actual}`;
+  if (finalEl)  finalEl.textContent  = `₹${final}`;
 }
 
 //⬇️ NOW PASTE THIS WHOLE FUNCTION HERE
@@ -4884,8 +4884,8 @@ function updateInvoiceSummaryUI() {
   const actualEl = document.getElementById('invoiceSummaryActual');
   const finalEl  = document.getElementById('invoiceSummaryFinal');
 
-  if (actualEl) actualEl.textContent = `₹${actual.toFixed(2)}`;
-  if (finalEl)  finalEl.textContent  = `₹${final.toFixed(2)}`;
+  if (actualEl) actualEl.textContent = `₹${actual}`;
+  if (finalEl)  finalEl.textContent  = `₹${final}`;
 }
 
 /* clear red fields after input */
@@ -5432,7 +5432,7 @@ function confirmMapPrice() {
           typeof tempTransportPrice.price === 'number'
             ? tempTransportPrice.price
             : 0;
-        panelTransport.value = price.toFixed(2);
+        panelTransport.value = price;
       }
 
       // ---- destination / location ----
@@ -6002,7 +6002,7 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
   }
 
   const base = { clientName, clientContact, events, actual, final };
-  if (discount > 0) base.discount = Number(discount.toFixed(2));
+  if (discount > 0) base.discount = Number(discount);
 
   const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
 
