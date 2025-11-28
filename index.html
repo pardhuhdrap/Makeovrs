@@ -4396,7 +4396,117 @@ function recalcPaymentPending() {
 // markCompleted = true is used only by the "Paid" button
 function handlePaymentSave(markCompleted = false) {
   const ctx = window.CURRENT_VIEWED_INVOICE || {};
-  const invIdCtx = ctx.id;
+  let invIdCtx = ctx.id;
+
+  // ⭐ NEW: if opened from Calendar booking and invoice not yet created,
+  // create/update invoice from quotation first so we have an invoice to save into.
+  const flowCtx = window.CALENDAR_BOOKING_FLOW;
+  if (!invIdCtx && flowCtx && flowCtx.fromCalendar && flowCtx.quotationId) {
+    const quotationId = flowCtx.quotationId;
+    const willBeVoid  = !!flowCtx.willBeVoid;
+
+    const preview = prepareInvoicePreviewFromQuotation(quotationId);
+    if (!preview) {
+      alert('Quotation missing for this booking. Invoice not created.');
+      return;
+    }
+
+    const { quotation: q, actual, discount, final } = preview;
+    const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
+
+    // Find existing invoice for this quotation (if any)
+    let idxForQ = invoices.findIndex(inv =>
+      inv.quotationId === quotationId ||
+      inv.id === quotationId
+    );
+
+    let targetInvoice;
+    const nowIso = new Date().toISOString();
+
+    if (idxForQ !== -1) {
+      // Update existing invoice for this quotation
+      const old = invoices[idxForQ];
+
+      // copy old, then overwrite with fresh quotation + totals
+      targetInvoice = {
+        ...old,
+        ...q,
+        actual,
+        discount,
+        final,
+        // keep original invoiceId / createdAt
+        invoiceId: old.invoiceId || old.id || old.invoiceId,
+        createdAt: old.createdAt || nowIso,
+        quotationId: quotationId
+      };
+
+      if (willBeVoid) {
+        // Make this invoice VOID
+        targetInvoice.status   = 'void';
+        targetInvoice.voidedAt = old.voidedAt || nowIso;
+      } else {
+        // Make / keep this invoice as NORMAL (validated)
+        // If it was void before, treat as validated-from-void
+        if (String(old.status || '').toLowerCase() === 'void') {
+          targetInvoice.status   = 'valid-from-void';
+          targetInvoice.voidedAt = undefined;
+        } else {
+          // already normal; ensure no void flags
+          delete targetInvoice.status;
+          delete targetInvoice.voidedAt;
+        }
+      }
+
+      invoices[idxForQ] = targetInvoice;
+
+    } else {
+      // No existing invoice for this quotation → create new
+      targetInvoice = {
+        ...q,
+        invoiceId: 'inv_' + Date.now(),
+        createdAt: nowIso,
+        quotationId,
+        actual,
+        discount,
+        final
+      };
+
+      if (willBeVoid) {
+        targetInvoice.status   = 'void';
+        targetInvoice.voidedAt = nowIso;
+      }
+
+      invoices.push(targetInvoice);
+      idxForQ = invoices.length - 1;
+    }
+
+    saveToLS(SAVED_INVOICES_KEY, invoices);
+
+    // Seed CURRENT_VIEWED_INVOICE so rest of the function works as before
+    const newInv = invoices[idxForQ];
+    const newId  = newInv.invoiceId || newInv.id;
+    window.CURRENT_VIEWED_INVOICE = {
+      ...ctx,
+      id: newId,
+      actual,
+      discount,
+      final,
+      invoice: newInv,
+      quotationId
+    };
+    invIdCtx = newId;
+
+    // Keep list view refreshed when invoice is created from calendar
+    if (typeof renderFilesList === 'function') {
+      renderFilesList();
+    }
+
+    if (typeof autoSaveDrive === 'function') {
+      autoSaveDrive('invoice generated/updated from calendar payment save');
+    }
+  }
+  // ⭐ END NEW BLOCK 1
+
   if (!invIdCtx) {
     alert('No invoice selected. Please open Payment Info from an invoice or Payment Tracker.');
     return;
@@ -4520,8 +4630,30 @@ function handlePaymentSave(markCompleted = false) {
     alert(markCompleted ? 'Payment marked as Paid.' : 'Payment info saved.');
   }
 
-  closePaymentInfoModal();
+  // ⭐ NEW: if opened from calendar booking, do NOT revert bookings on close.
+  // Instead, clear CALENDAR_BOOKING_FLOW and refresh calendar after closing.
+  if (flowCtx && flowCtx.fromCalendar) {
+    const dateISO = flowCtx.dateISO;
+    // prevent closePaymentInfoModal() from reverting bookings
+    window.CALENDAR_BOOKING_FLOW = null;
+    closePaymentInfoModal();
+
+    try {
+      if (dateISO && typeof openCalendarDatePopup === 'function') {
+        openCalendarDatePopup(dateISO);
+      }
+      if (typeof renderCalendar === 'function') {
+        renderCalendar();
+      }
+    } catch (e) {
+      console.warn('Calendar refresh after payment save failed:', e);
+    }
+  } else {
+    // original behaviour
+    closePaymentInfoModal();
+  }
 }
+
 
 
 
@@ -4570,6 +4702,113 @@ function handlePartialAmountApply() {
   recalcPaymentPending();
 }
 
+// Create / update invoice when coming from Calendar booking flow.
+// Re-uses the quotation totals and respects VOID / NORMAL logic.
+function ensureInvoiceForCalendarFlow(options = {}) {
+  const opts = options || {};
+  const ctxFlow = window.CALENDAR_BOOKING_FLOW;
+  if (!ctxFlow || !ctxFlow.fromCalendar) {
+    return null;
+  }
+
+  const quotationId = ctxFlow.quotationId;
+  const willBeVoid  = !!ctxFlow.willBeVoid;
+  const dateISO     = ctxFlow.dateISO;
+
+  const preview = prepareInvoicePreviewFromQuotation(quotationId);
+  if (!preview) {
+    alert('Quotation missing for this booking. Invoice not created.');
+    return null;
+  }
+
+  const { quotation: q, actual, discount, final } = preview;
+  const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
+
+  // 🔍 Find existing invoice for this quotation (if any)
+  let idx = invoices.findIndex(inv =>
+    inv.quotationId === quotationId ||
+    inv.id === quotationId
+  );
+
+  let targetInvoice;
+  const nowIso = new Date().toISOString();
+
+  if (idx !== -1) {
+    // ✅ Update existing invoice for this quotation
+    const old = invoices[idx];
+
+    // copy old, then overwrite with fresh quotation + totals
+    targetInvoice = {
+      ...old,
+      ...q,
+      actual,
+      discount,
+      final,
+      // keep original invoiceId / createdAt
+      invoiceId: old.invoiceId || old.id || old.invoiceId,
+      createdAt: old.createdAt || nowIso,
+      quotationId
+    };
+
+    if (willBeVoid) {
+      // Make this invoice VOID
+      targetInvoice.status   = 'void';
+      targetInvoice.voidedAt = old.voidedAt || nowIso;
+    } else {
+      // Make / keep this invoice as NORMAL (validated)
+      if (String(old.status || '').toLowerCase() === 'void') {
+        targetInvoice.status   = 'valid-from-void';
+        targetInvoice.voidedAt = undefined;
+      } else {
+        // already normal; ensure no void flags
+        delete targetInvoice.status;
+        delete targetInvoice.voidedAt;
+      }
+    }
+
+    invoices[idx] = targetInvoice;
+
+  } else {
+    // ❌ No existing invoice for this quotation → create new
+    targetInvoice = {
+      ...q,
+      invoiceId: 'inv_' + Date.now(),
+      createdAt: nowIso,
+      quotationId,
+      actual,
+      discount,
+      final
+    };
+
+    if (willBeVoid) {
+      targetInvoice.status   = 'void';
+      targetInvoice.voidedAt = nowIso;
+    }
+
+    invoices.push(targetInvoice);
+  }
+
+  saveToLS(SAVED_INVOICES_KEY, invoices);
+
+  // Update CURRENT_VIEWED_INVOICE for Payment Info
+  window.CURRENT_VIEWED_INVOICE = {
+    id: targetInvoice.invoiceId || targetInvoice.id,
+    actual,
+    discount,
+    final,
+    invoice: targetInvoice
+  };
+
+  if (!opts.skipRender && typeof renderFilesList === 'function') {
+    renderFilesList();
+  }
+
+  if (!opts.skipDrive && typeof autoSaveDrive === 'function') {
+    autoSaveDrive('invoice generated/updated from calendar booking');
+  }
+
+  return { invoice: targetInvoice, willBeVoid, dateISO };
+}
 
 
 function handlePaymentPartial() {
