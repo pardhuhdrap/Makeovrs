@@ -668,7 +668,7 @@ header {
       Invoices
     </div>
      <div class="tab" id="tab-payments" onclick="switchFilesTab('payments')">
-      Payment Info
+      Payment Tracker
     </div>
   </div>
 </div>
@@ -780,9 +780,31 @@ header {
           No invoices found.
         </div>
       </div>
+       <!-- PAYMENTS TAB -->
+      <div id="paymentsTab" class="hidden">
+        <!-- Payment status filter (Pending / Partial / Completed) -->
+        <div class="flex flex-wrap items-center gap-2 mb-2 text-sm">
+          <label class="text-sm font-medium">
+            Payment Status:
+          </label>
+          <select id="paymentStatusFilter"
+                  class="border rounded p-1 text-sm min-w-[140px]">
+            <option value="all">All</option>
+            <option value="pending">Pending</option>
+            <option value="partial">Partial Paid</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+
+        <div class="files-list" id="paymentsList"></div>
+        <div id="paymentsEmpty"
+             class="text-sm text-gray-500 text-center p-4 hidden">
+          No payment info found.
+        </div>
+      </div>
     </div>
   </div>
- </div>
+</div>
     
 <!-- RECYCLE BIN -->
 <div id="recycle" class="screen-container translate-x-full">
@@ -2485,25 +2507,37 @@ function saveQuotationMultiEvent() {
    (reused, slightly simplified)
    ------------------------- */
 function switchFilesTab(tab) {
-  const tabs = ['quotations', 'invoices', 'payments'];
+  const isQ   = (tab === 'quotations');
+  const isInv = (tab === 'invoices');
+  const isPay = (tab === 'payments');
 
-  tabs.forEach(name => {
-    const tabEl   = document.getElementById('tab-' + name);
-    const panelEl = document.getElementById(name + 'Tab');
-    const isActive = (name === tab);
+  // Top tab buttons
+  const tq = document.getElementById('tab-quotations');
+  const ti = document.getElementById('tab-invoices');
+  const tp = document.getElementById('tab-payments');
 
-    if (tabEl)   tabEl.classList.toggle('active', isActive);
-    if (panelEl) panelEl.classList.toggle('hidden', !isActive);
-  });
+  if (tq) tq.classList.toggle('active', isQ);
+  if (ti) ti.classList.toggle('active', isInv);
+  if (tp) tp.classList.toggle('active', isPay);
+
+  // Tab content panels
+  const qTab = document.getElementById('quotationsTab');
+  const iTab = document.getElementById('invoicesTab');
+  const pTab = document.getElementById('paymentsTab');
+
+  if (qTab) qTab.classList.toggle('hidden', !isQ);
+  if (iTab) iTab.classList.toggle('hidden', !isInv);
+  if (pTab) pTab.classList.toggle('hidden', !isPay);
 
   // Show status dropdown ONLY on Payment Info tab
   const statusWrapper = document.getElementById('paymentStatusFilterWrapper');
   if (statusWrapper) {
-    statusWrapper.style.display = (tab === 'payments') ? 'flex' : 'none';
+    statusWrapper.style.display = isPay ? 'flex' : 'none';
   }
 
   renderFilesList();
 }
+
 
 function loadFilesUI(){
   // you can use these later if needed
@@ -3907,6 +3941,53 @@ function openInvoiceViewerById(invId){
     };
   }
   // Generate Invoice button is not needed in invoice view
+}
+
+// Open Payment Info directly from Files → Payment Info tab
+function openPaymentInfoForInvoiceId(invoiceId) {
+  const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
+  const inv = invoices.find(
+    x => (x.invoiceId === invoiceId) || (x.id === invoiceId)
+  );
+
+  if (!inv) {
+    showMessage('Invoice not found.');
+    return;
+  }
+
+  const events = Array.isArray(inv.events) ? inv.events : [];
+
+  // Compute totals safely (same style as openInvoiceViewerById)
+  let actual = 0;
+  if (typeof inv.actual === 'number') {
+    actual = inv.actual;
+  } else {
+    actual = events.reduce(
+      (s, e) =>
+        s +
+        Number(e.packagePrice || 0) +
+        Number(e.addOnPrice || 0) +
+        Number(e.transportPrice || 0),
+      0
+    );
+  }
+
+  let discount = typeof inv.discount === 'number' ? inv.discount : 0;
+  let final = typeof inv.final === 'number'
+    ? inv.final
+    : Math.max(0, actual - discount);
+
+  // Seed CURRENT_VIEWED_INVOICE so Payment Info modal knows the billed amount
+  window.CURRENT_VIEWED_INVOICE = {
+    id: inv.invoiceId || inv.id,
+    actual,
+    discount,
+    final,
+    invoice: inv
+  };
+
+  // Directly open Payment Info popup (no invoice viewer)
+  openPaymentInfoModal();
 }
 
 // ---- Payment Info helpers ----
