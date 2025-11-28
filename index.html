@@ -4462,47 +4462,53 @@ function handlePaymentSave(markCompleted = false) {
   // create a new invoice from the quotation *now* (this is your
   // "Invoice should be created after user clicks Save" behaviour).
   if (idx === -1 && ctxFlow && ctxFlow.fromCalendar && ctxFlow.quotationId) {
-    const quotationId = ctxFlow.quotationId || ctx.quotationId || invIdCtx;
+  // Use helper that enforces "one invoice per quotation"
+  const res = ensureInvoiceForCalendarFlow({
+    skipRender: true,
+    skipDrive: true
+  });
 
-    const preview = prepareInvoicePreviewFromQuotation(quotationId);
-    if (!preview) {
-      alert('Quotation not found for generating invoice from calendar. Cannot save payment info.');
-      return;
-    }
-
-    const { quotation: q, actual, discount, final } = preview;
-    const nowIso = new Date().toISOString();
-
-    inv = {
-      ...q,
-      invoiceId: 'inv_' + Date.now(),
-      createdAt: nowIso,
-      quotationId,
-      actual,
-      discount,
-      final
-    };
-
-    invoices.push(inv);
-    idx = invoices.length - 1;
-
-    // Update context so future opens use the real invoice id
-    invIdCtx = inv.invoiceId || inv.id;
-    window.CURRENT_VIEWED_INVOICE = {
-      id: invIdCtx,
-      actual,
-      discount,
-      final,
-      invoice: inv
-    };
-
-  } else if (idx === -1) {
-    // Old behaviour for non-calendar flows
-    alert('Invoice not found in storage. Cannot save payment info.');
+  if (!res || !res.invoice) {
+    alert('Could not create/update calendar invoice. Cannot save payment info.');
     return;
-  } else {
-    inv = invoices[idx];
   }
+
+  const safeId = res.invoice.invoiceId || res.invoice.id;
+
+  // Reload fresh invoices and find this invoice by its id
+  const freshInvoices = loadFromLS(SAVED_INVOICES_KEY, []);
+  idx = freshInvoices.findIndex(v =>
+    String(v.invoiceId || v.id) === String(safeId)
+  );
+
+  if (idx === -1) {
+    alert('Calendar invoice not found after creation. Cannot save payment info.');
+    return;
+  }
+
+  // Replace local invoices[] with the up-to-date copy
+  invoices.length = 0;
+  Array.prototype.push.apply(invoices, freshInvoices);
+
+  inv = invoices[idx];
+
+  window.CURRENT_VIEWED_INVOICE = {
+    id: safeId,
+    actual: inv.actual,
+    discount: inv.discount,
+    final: inv.final,
+    invoice: inv
+  };
+
+} else if (idx === -1) {
+  // Non-calendar: same old behaviour
+  alert('Invoice not found in storage. Cannot save payment info.');
+  return;
+} else {
+  // idx !== -1: same as before
+  inv = invoices[idx];
+}
+
 
   // --- Persist payment-related fields onto the invoice object ---
   inv.billedAmount          = baseAmount;          // optional, for reference
