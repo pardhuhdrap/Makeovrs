@@ -4655,10 +4655,32 @@ function ensureInvoiceForCalendarFlow(options = {}) {
   const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
 
   // 🔍 Find existing invoice for this quotation (if any)
-  let idx = invoices.findIndex(inv =>
+let idx = -1;
+
+// ⭐ NEW: try matching the currently opened invoice first (safer)
+if (ctxInvoice && (ctxInvoice.invoice || ctxInvoice.id)) {
+  const currentInvObj = ctxInvoice.invoice || {};
+  const currentId =
+    currentInvObj.invoiceId ||
+    currentInvObj.id ||
+    ctxInvoice.id;
+
+  if (currentId) {
+    idx = invoices.findIndex(inv =>
+      inv.invoiceId === currentId ||
+      inv.id === currentId
+    );
+  }
+}
+
+// ⭐ If still not found, fall back to old quotationId matching
+if (idx === -1) {
+  idx = invoices.findIndex(inv =>
     inv.quotationId === quotationId ||
     inv.id === quotationId
   );
+}
+
 
   let targetInvoice;
   const nowIso = new Date().toISOString();
