@@ -4392,122 +4392,15 @@ function recalcPaymentPending() {
 
 
 
-// Save all Payment Info fields back to the invoice object
-// markCompleted = true is used only by the "Paid" button
 function handlePaymentSave(markCompleted = false) {
-  const ctx = window.CURRENT_VIEWED_INVOICE || {};
+  const ctx     = window.CURRENT_VIEWED_INVOICE || {};
+  const ctxFlow = window.CALENDAR_BOOKING_FLOW || null;
+
+  // We may not have a real invoice yet if we came from calendar.
   let invIdCtx = ctx.id;
 
-  // ⭐ NEW: if opened from Calendar booking and invoice not yet created,
-  // create/update invoice from quotation first so we have an invoice to save into.
-  const flowCtx = window.CALENDAR_BOOKING_FLOW;
-  if (!invIdCtx && flowCtx && flowCtx.fromCalendar && flowCtx.quotationId) {
-    const quotationId = flowCtx.quotationId;
-    const willBeVoid  = !!flowCtx.willBeVoid;
-
-    const preview = prepareInvoicePreviewFromQuotation(quotationId);
-    if (!preview) {
-      alert('Quotation missing for this booking. Invoice not created.');
-      return;
-    }
-
-    const { quotation: q, actual, discount, final } = preview;
-    const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
-
-    // Find existing invoice for this quotation (if any)
-    let idxForQ = invoices.findIndex(inv =>
-      inv.quotationId === quotationId ||
-      inv.id === quotationId
-    );
-
-    let targetInvoice;
-    const nowIso = new Date().toISOString();
-
-    if (idxForQ !== -1) {
-      // Update existing invoice for this quotation
-      const old = invoices[idxForQ];
-
-      // copy old, then overwrite with fresh quotation + totals
-      targetInvoice = {
-        ...old,
-        ...q,
-        actual,
-        discount,
-        final,
-        // keep original invoiceId / createdAt
-        invoiceId: old.invoiceId || old.id || old.invoiceId,
-        createdAt: old.createdAt || nowIso,
-        quotationId: quotationId
-      };
-
-      if (willBeVoid) {
-        // Make this invoice VOID
-        targetInvoice.status   = 'void';
-        targetInvoice.voidedAt = old.voidedAt || nowIso;
-      } else {
-        // Make / keep this invoice as NORMAL (validated)
-        // If it was void before, treat as validated-from-void
-        if (String(old.status || '').toLowerCase() === 'void') {
-          targetInvoice.status   = 'valid-from-void';
-          targetInvoice.voidedAt = undefined;
-        } else {
-          // already normal; ensure no void flags
-          delete targetInvoice.status;
-          delete targetInvoice.voidedAt;
-        }
-      }
-
-      invoices[idxForQ] = targetInvoice;
-
-    } else {
-      // No existing invoice for this quotation → create new
-      targetInvoice = {
-        ...q,
-        invoiceId: 'inv_' + Date.now(),
-        createdAt: nowIso,
-        quotationId,
-        actual,
-        discount,
-        final
-      };
-
-      if (willBeVoid) {
-        targetInvoice.status   = 'void';
-        targetInvoice.voidedAt = nowIso;
-      }
-
-      invoices.push(targetInvoice);
-      idxForQ = invoices.length - 1;
-    }
-
-    saveToLS(SAVED_INVOICES_KEY, invoices);
-
-    // Seed CURRENT_VIEWED_INVOICE so rest of the function works as before
-    const newInv = invoices[idxForQ];
-    const newId  = newInv.invoiceId || newInv.id;
-    window.CURRENT_VIEWED_INVOICE = {
-      ...ctx,
-      id: newId,
-      actual,
-      discount,
-      final,
-      invoice: newInv,
-      quotationId
-    };
-    invIdCtx = newId;
-
-    // Keep list view refreshed when invoice is created from calendar
-    if (typeof renderFilesList === 'function') {
-      renderFilesList();
-    }
-
-    if (typeof autoSaveDrive === 'function') {
-      autoSaveDrive('invoice generated/updated from calendar payment save');
-    }
-  }
-  // ⭐ END NEW BLOCK 1
-
-  if (!invIdCtx) {
+  // If no id at all AND not from calendar → same old error
+  if (!invIdCtx && !(ctxFlow && ctxFlow.fromCalendar)) {
     alert('No invoice selected. Please open Payment Info from an invoice or Payment Tracker.');
     return;
   }
@@ -4553,21 +4446,63 @@ function handlePaymentSave(markCompleted = false) {
     rawPending = baseAmount - (advancePaid + finalPaid);
   }
 
-  const pendingAbs = Math.abs(rawPending);
-  const partialHistory = partialLog ? partialLog.value || '' : '';
+  const pendingAbs     = Math.abs(rawPending);
+  const partialHistory = partialLog ? (partialLog.value || '') : '';
 
   // --- Load invoices from storage ---
   const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
-  const idx = invoices.findIndex(inv =>
+
+  let idx = invoices.findIndex(inv =>
     String(inv.invoiceId || inv.id) === String(invIdCtx)
   );
 
-  if (idx === -1) {
+  let inv;
+
+  // If invoice not found BUT we came from calendar booking,
+  // create a new invoice from the quotation *now* (this is your
+  // "Invoice should be created after user clicks Save" behaviour).
+  if (idx === -1 && ctxFlow && ctxFlow.fromCalendar && ctxFlow.quotationId) {
+    const quotationId = ctxFlow.quotationId || ctx.quotationId || invIdCtx;
+
+    const preview = prepareInvoicePreviewFromQuotation(quotationId);
+    if (!preview) {
+      alert('Quotation not found for generating invoice from calendar. Cannot save payment info.');
+      return;
+    }
+
+    const { quotation: q, actual, discount, final } = preview;
+    const nowIso = new Date().toISOString();
+
+    inv = {
+      ...q,
+      invoiceId: 'inv_' + Date.now(),
+      createdAt: nowIso,
+      quotationId,
+      actual,
+      discount,
+      final
+    };
+
+    invoices.push(inv);
+    idx = invoices.length - 1;
+
+    // Update context so future opens use the real invoice id
+    invIdCtx = inv.invoiceId || inv.id;
+    window.CURRENT_VIEWED_INVOICE = {
+      id: invIdCtx,
+      actual,
+      discount,
+      final,
+      invoice: inv
+    };
+
+  } else if (idx === -1) {
+    // Old behaviour for non-calendar flows
     alert('Invoice not found in storage. Cannot save payment info.');
     return;
+  } else {
+    inv = invoices[idx];
   }
-
-  const inv = invoices[idx];
 
   // --- Persist payment-related fields onto the invoice object ---
   inv.billedAmount          = baseAmount;          // optional, for reference
@@ -4630,17 +4565,12 @@ function handlePaymentSave(markCompleted = false) {
     alert(markCompleted ? 'Payment marked as Paid.' : 'Payment info saved.');
   }
 
-  // ⭐ NEW: if opened from calendar booking, do NOT revert bookings on close.
-  // Instead, clear CALENDAR_BOOKING_FLOW and refresh calendar after closing.
-  if (flowCtx && flowCtx.fromCalendar) {
-    const dateISO = flowCtx.dateISO;
-    // prevent closePaymentInfoModal() from reverting bookings
+  // ✅ IMPORTANT: if this came from calendar booking, do NOT revert bookings
+  if (ctxFlow && ctxFlow.fromCalendar) {
     window.CALENDAR_BOOKING_FLOW = null;
-    closePaymentInfoModal();
-
     try {
-      if (dateISO && typeof openCalendarDatePopup === 'function') {
-        openCalendarDatePopup(dateISO);
+      if (ctxFlow.dateISO && typeof openCalendarDatePopup === 'function') {
+        openCalendarDatePopup(ctxFlow.dateISO);
       }
       if (typeof renderCalendar === 'function') {
         renderCalendar();
@@ -4648,11 +4578,11 @@ function handlePaymentSave(markCompleted = false) {
     } catch (e) {
       console.warn('Calendar refresh after payment save failed:', e);
     }
-  } else {
-    // original behaviour
-    closePaymentInfoModal();
   }
+
+  closePaymentInfoModal();
 }
+
 
 
 
