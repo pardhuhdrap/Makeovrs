@@ -908,23 +908,55 @@ header {
   </div>
 
     <!-- Payment Info modal -->
-  <div id="paymentInfoModal" class="message-modal" style="z-index:1000; display:none;">
-    <div class="message-modal-content">
-      <h3 class="text-xl font-bold text-blue-600 mb-4">Payment Info</h3>
+<div id="paymentInfoModal" class="message-modal" style="z-index:1000; display:none;">
+  <div class="message-modal-content">
+    <h3 class="text-xl font-bold text-blue-600 mb-4">Payment Info</h3>
 
-      <div class="space-y-3 text-sm">
-        <!-- 1. Billed Amount -->
+    <div class="space-y-3 text-sm">
+      <!-- 0. Auto-capture text (read-only log) -->
+      <div>
+        <label class="block text-xs text-gray-700 mb-1">
+          Partial Payment History (auto-capture)
+        </label>
+        <textarea
+          id="paymentPartialLog"
+          class="w-full border rounded p-2 bg-gray-100 text-xs"
+          rows="4"
+          readonly
+          style="resize:vertical; max-height:120px; overflow-y:auto;"
+        ></textarea>
+      </div>
+
+      <!-- Row 1: Billed Amount + Advance Paid -->
+      <div class="grid grid-cols-2 gap-3">
+        <!-- Billed Amount -->
         <div>
           <label class="block text-xs text-gray-700 mb-1">Billed Amount</label>
           <input
             id="paymentBilledAmount"
-            type="text"
+            type="number"
+            step="0.01"
             class="w-full border rounded p-2 bg-gray-100"
             readonly
           />
         </div>
 
-        <!-- 2. Revised Amount + checkbox -->
+        <!-- Advance Paid -->
+        <div>
+          <label class="block text-xs text-gray-700 mb-1">Advance Paid</label>
+          <input
+            id="paymentAdvancePaid"
+            type="number"
+            step="0.01"
+            class="w-full border rounded p-2 bg-white"
+            oninput="recalcPaymentPending()"
+          />
+        </div>
+      </div>
+
+      <!-- Row 2: Revised Amount + Partial Amount (button + input) -->
+      <div class="grid grid-cols-2 gap-3">
+        <!-- Revised Amount + checkbox -->
         <div>
           <div class="flex items-center justify-between mb-1">
             <label class="block text-xs text-gray-700">Revised Amount</label>
@@ -940,82 +972,95 @@ header {
           <input
             id="paymentRevisedAmount"
             type="number"
-            step="1000"
+            step="0.01"
             class="w-full border rounded p-2 bg-white"
             disabled
             oninput="recalcPaymentPending()"
           />
-          <!-- if enabled, must be > 0; JS will mark red if not -->
         </div>
 
-        <!-- 3. Advance Paid -->
+        <!-- Partial Amount (Button + input) -->
         <div>
-          <label class="block text-xs text-gray-700 mb-1">Advance Paid</label>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-xs text-gray-700">Partial Amount</label>
+            <button
+              id="paymentPartialApplyBtn"
+              type="button"
+              onclick="handlePartialAmountApply()"
+              class="px-2 py-1 rounded bg-blue-600 text-white text-[11px]"
+            >
+              Add
+            </button>
+          </div>
           <input
-            id="paymentAdvancePaid"
+            id="paymentPartialValue"
             type="number"
-            step="500"
+            step="0.01"
             class="w-full border rounded p-2 bg-white"
-            oninput="recalcPaymentPending()"
           />
-          <!-- Later we can auto-fill this from the field you tell me -->
+        </div>
+      </div>
+
+      <!-- Row 3: Pending + Final Paid (both auto-calc) -->
+      <div class="grid grid-cols-2 gap-3">
+        <!-- Pending -->
+        <div>
+          <label class="block text-xs text-gray-700 mb-1">Pending</label>
+          <input
+            id="paymentPending"
+            type="number"
+            step="0.01"
+            class="w-full border rounded p-2 bg-gray-100"
+            readonly
+          />
         </div>
 
-        <!-- 4. Final Paid -->
+        <!-- Final Paid (auto-calculated, read-only) -->
         <div>
           <label class="block text-xs text-gray-700 mb-1">Final Paid</label>
           <input
             id="paymentFinalPaid"
             type="number"
-            step="1000"
-            class="w-full border rounded p-2 bg-white"
-            oninput="recalcPaymentPending()"
-          />
-        </div>
-
-        <!-- 5. Pending -->
-        <div>
-          <label class="block text-xs text-gray-700 mb-1">Pending</label>
-          <input
-            id="paymentPending"
-            type="text"
+            step="0.01"
             class="w-full border rounded p-2 bg-gray-100"
             readonly
           />
         </div>
       </div>
+    </div>
 
-      <div class="flex gap-2 justify-end mt-4">
-        <button
-          id="paymentPaidFinalBtn"
-          type="button"
-          onclick="handlePaymentPaidFinal()"
-          class="px-4 py-2 rounded bg-green-600 text-white text-sm disabled:opacity-50"
-          disabled
-        >
-          Paid
-        </button>
+    <!-- BOTTOM BUTTONS (assuming you already changed Partial to Save) -->
+    <div class="flex gap-2 justify-end mt-4">
+      <button
+        id="paymentSaveBtn"
+        type="button"
+        onclick="handlePaymentSave()"
+        class="px-4 py-2 rounded bg-black text-white text-sm"
+      >
+        Save
+      </button>
 
-        <button
-          id="paymentPartialBtn"
-          type="button"
-          onclick="handlePaymentPartial()"
-          class="px-4 py-2 rounded bg-black text-white text-sm disabled:opacity-50"
-          disabled
-        >
-          Partially Paid
-        </button>
+      <button
+        id="paymentPaidFinalBtn"
+        type="button"
+        onclick="handlePaymentPaidFinal()"
+        class="px-4 py-2 rounded bg-green-600 text-white text-sm disabled:opacity-50"
+        disabled
+      >
+        Paid
+      </button>
 
-        <button
-          type="button"
-          onclick="closePaymentInfoModal()"
-          class="px-4 py-2 rounded border bg-red-600 text-white text-sm"
-        >
-          Close
-        </button>     
-      </div>
+      <button
+        type="button"
+        onclick="closePaymentInfoModal()"
+        class="px-4 py-2 rounded border bg-red-600 text-white text-sm"
+      >
+        Close
+      </button>
     </div>
   </div>
+</div>
+
 
   <!-- calendar popup container -->
   <div id="calendarPopupContainer" class="hidden"></div>
@@ -3714,41 +3759,48 @@ function openPaymentInfoModal() {
   const modal = document.getElementById('paymentInfoModal');
   if (!modal) return;
 
-  const billedInput  = document.getElementById('paymentBilledAmount');
-  const revisedInput = document.getElementById('paymentRevisedAmount');
-  const revisedChk   = document.getElementById('paymentRevisedEnable');
-  const advInput     = document.getElementById('paymentAdvancePaid');
-  const finalInput   = document.getElementById('paymentFinalPaid');
-  const pendingInput = document.getElementById('paymentPending');
+  const billedInput   = document.getElementById('paymentBilledAmount');
+  const revisedInput  = document.getElementById('paymentRevisedAmount');
+  const revisedChk    = document.getElementById('paymentRevisedEnable');
+  const advInput      = document.getElementById('paymentAdvancePaid');
+  const finalInput    = document.getElementById('paymentFinalPaid');
+  const pendingInput  = document.getElementById('paymentPending');
+  const partialLog    = document.getElementById('paymentPartialLog');
+  const partialValue  = document.getElementById('paymentPartialValue');
+  const paidBtn       = document.getElementById('paymentPaidFinalBtn');
 
   const ctx = window.CURRENT_VIEWED_INVOICE || null;
   const billed = (ctx && typeof ctx.actual === 'number')
     ? ctx.actual
     : 0;
 
-   if (billedInput) billedInput.value = formatINR(billed);
+  if (billedInput) billedInput.value = billed.toFixed(2);
 
   // Reset other fields
-  if (revisedChk) revisedChk.checked = false;
+  if (revisedChk) {
+    revisedChk.checked = false;
+    revisedChk.disabled = false;
+  }
   if (revisedInput) {
     revisedInput.value = '';
     revisedInput.disabled = true;
     revisedInput.classList.remove('field-error-red');
   }
-  if (advInput) advInput.value = '';
-  if (finalInput) finalInput.value = '';
-  if (pendingInput) pendingInput.value = formatINR(0);
 
-  // Reset buttons
-  const partialBtn = document.getElementById('paymentPartialBtn');
-  const paidBtn    = document.getElementById('paymentPaidFinalBtn');
-  if (partialBtn) partialBtn.disabled = true;
-  if (paidBtn)    paidBtn.disabled    = true;
+  if (advInput) advInput.value = '';
+  if (finalInput) finalInput.value = '0.00';
+  if (pendingInput) pendingInput.value = '0.00';
+
+  if (partialLog) partialLog.value = '';
+  if (partialValue) partialValue.value = '';
+
+  if (paidBtn) paidBtn.disabled = true;
 
   recalcPaymentPending();
 
   modal.style.display = 'flex';
 }
+
 
 // Open Payment Info where only Advance + Partial payment are allowed (from calendar)
 function openPaymentInfoModalRestrictedFromCalendar() {
@@ -3862,6 +3914,7 @@ function toggleRevisedAmount() {
 }
 
 // Core math for Pending + button enabling
+// Core math for Pending + button enabling
 function recalcPaymentPending() {
   const billedInput  = document.getElementById('paymentBilledAmount');
   const revisedInput = document.getElementById('paymentRevisedAmount');
@@ -3869,14 +3922,14 @@ function recalcPaymentPending() {
   const advInput     = document.getElementById('paymentAdvancePaid');
   const finalInput   = document.getElementById('paymentFinalPaid');
   const pendingInput = document.getElementById('paymentPending');
-
-  const partialBtn   = document.getElementById('paymentPartialBtn');
   const paidBtn      = document.getElementById('paymentPaidFinalBtn');
 
-  let billed = parseINR (billedInput?.value || '0');
+  let billed = parseFloat(billedInput?.value || '0');
+  if (isNaN(billed)) billed = 0;
 
   const revisedEnabled = !!revisedChk?.checked;
-  let revised = parseINR(revisedInput?.value || '0');
+  let revised = parseFloat(revisedInput?.value || '0');
+  if (isNaN(revised)) revised = 0;
 
   // Revised must be > 0 if enabled
   if (revisedEnabled && (!revised || revised <= 0)) {
@@ -3891,28 +3944,71 @@ function recalcPaymentPending() {
     base = revised;
   }
 
-  let adv = parseINR(advInput?.value || '0');
+  let adv = parseFloat(advInput?.value || '0');
+  if (isNaN(adv)) adv = 0;
 
-  let final = parseINR(finalInput?.value || '0');
+  let final = parseFloat(finalInput?.value || '0');
+  if (isNaN(final)) final = 0;
 
-  // raw Pending = Point 1 or 2  -  (Point 3 + Point 4)
+  // raw Pending = Base - (Advance + Final)
   const rawPending = base - (adv + final);
 
-  // As you mentioned: display as normal number (no - sign),
-  // but internally treat as negative if < 0
+  // Display as absolute, but keep signed in data attribute
   const displayPending = Math.abs(rawPending);
 
   if (pendingInput) {
-    pendingInput.value = formatINR(displayPending);
+    pendingInput.value = displayPending.toFixed(2);
     pendingInput.dataset.rawPending = String(rawPending);
   }
 
-  // Button states:
-  //  - Partially Paid enabled if Pending > 0
-  //  - Paid enabled if Pending <= 0
-  if (partialBtn) partialBtn.disabled = !(rawPending > 0);
-  if (paidBtn)    paidBtn.disabled    = !(rawPending <= 0);
+  // Paid button enabled only if pending is 0 or less
+  if (paidBtn) {
+    paidBtn.disabled = !(rawPending <= 0);
+  }
 }
+
+// Apply Partial Amount → updates Final Paid, history log, and Pending
+function handlePartialAmountApply() {
+  const partialInput = document.getElementById('paymentPartialValue');
+  const finalInput   = document.getElementById('paymentFinalPaid');
+  const logArea      = document.getElementById('paymentPartialLog');
+
+  if (!partialInput || !finalInput || !logArea) return;
+
+  const raw = (partialInput.value || '').trim();
+  let amount = parseFloat(raw);
+  if (!raw || isNaN(amount) || amount <= 0) {
+    alert('Please enter a valid partial amount.');
+    return;
+  }
+
+  // Add to Final Paid (auto-calc, read-only)
+  let currentFinal = parseFloat(finalInput.value || '0');
+  if (isNaN(currentFinal)) currentFinal = 0;
+  const newFinal = currentFinal + amount;
+  finalInput.value = newFinal.toFixed(2);
+
+  // Append to history log with date + time
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-IN');
+  const timeStr = now.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+
+  const line = `[${dateStr} ${timeStr}] ${amount.toFixed(2)}`;
+  const existing = logArea.value.trim();
+  logArea.value = existing ? (existing + '\n' + line) : line;
+  logArea.scrollTop = logArea.scrollHeight;
+
+  // Clear partial input
+  partialInput.value = '';
+
+  // Recalculate Pending & Paid button state
+  recalcPaymentPending();
+}
+
 
 function handlePaymentPartial() {
   const ctxFlow = window.CALENDAR_BOOKING_FLOW;
