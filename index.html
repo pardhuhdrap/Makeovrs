@@ -1300,6 +1300,12 @@ function scheduleAutoSave(reason = '') {
   }, 1000);
 }
 
+// Simple wrapper so the rest of the code can call autoSaveDrive()
+function autoSaveDrive(reason = '') {
+  scheduleAutoSave(reason || 'change');
+}
+
+
 /* -------------------------
    Ensure existing saved quotations have eventId for each event
    (migrator run once on load)
@@ -6848,6 +6854,7 @@ function initGoogleTokenClient(){
         return;
       }
       accessToken = resp.access_token;
+      window.accessToken = accessToken;
       onSignedIn();
     }
   });
