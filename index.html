@@ -694,6 +694,9 @@ header {
   <!-- ROW 2: Payment status dropdown (this is the one that "wraps") -->
   <div id="paymentStatusFilterWrapper"
        style="display:none; align-self:flex-end;">
+       <label class="text-sm font-medium">
+            Payment Status:
+          </label>
     <select id="paymentStatusFilter"
             class="border rounded p-2 text-sm"
             style="width:9rem;">
@@ -782,20 +785,7 @@ header {
       </div>
        <!-- PAYMENTS TAB -->
       <div id="paymentsTab" class="hidden">
-        <!-- Payment status filter (Pending / Partial / Completed) -->
-        <div class="flex flex-wrap items-center gap-2 mb-2 text-sm">
-          <label class="text-sm font-medium">
-            Payment Status:
-          </label>
-          <select id="paymentStatusFilter"
-                  class="border rounded p-1 text-sm min-w-[140px]">
-            <option value="all">All</option>
-            <option value="pending">Pending</option>
-            <option value="partial">Partial Paid</option>
-            <option value="completed">Completed</option>
-          </select>
-        </div>
-
+        
         <div class="files-list" id="paymentsList"></div>
         <div id="paymentsEmpty"
              class="text-sm text-gray-500 text-center p-4 hidden">
