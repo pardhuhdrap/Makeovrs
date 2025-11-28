@@ -935,7 +935,6 @@ header {
           <input
             id="paymentBilledAmount"
             type="number"
-            step="0.01"
             class="w-full border rounded p-2 bg-gray-100"
             readonly
           />
@@ -947,7 +946,7 @@ header {
           <input
             id="paymentAdvancePaid"
             type="number"
-            step="0.01"
+            step="1000"
             class="w-full border rounded p-2 bg-white"
             oninput="recalcPaymentPending()"
           />
@@ -972,7 +971,7 @@ header {
           <input
             id="paymentRevisedAmount"
             type="number"
-            step="0.01"
+            step="1000"
             class="w-full border rounded p-2 bg-white"
             disabled
             oninput="recalcPaymentPending()"
@@ -995,7 +994,7 @@ header {
           <input
             id="paymentPartialValue"
             type="number"
-            step="0.01"
+            step="1000"
             class="w-full border rounded p-2 bg-white"
           />
         </div>
@@ -1009,7 +1008,6 @@ header {
           <input
             id="paymentPending"
             type="number"
-            step="0.01"
             class="w-full border rounded p-2 bg-gray-100"
             readonly
           />
@@ -1021,7 +1019,6 @@ header {
           <input
             id="paymentFinalPaid"
             type="number"
-            step="0.01"
             class="w-full border rounded p-2 bg-gray-100"
             readonly
           />
@@ -3787,9 +3784,16 @@ function openPaymentInfoModal() {
     revisedInput.classList.remove('field-error-red');
   }
 
-  if (advInput) advInput.value = '';
-  if (finalInput) finalInput.value = '0.00';
-  if (pendingInput) pendingInput.value = '0.00';
+  if (advInput) advInput.value = '0';
+
+if (finalInput) {
+  finalInput.value = '0';
+  // this will store ONLY the sum of partial amounts
+  finalInput.dataset.partialSum = '0';
+}
+
+if (pendingInput) pendingInput.value = '0';
+
 
   if (partialLog) partialLog.value = '';
   if (partialValue) partialValue.value = '';
