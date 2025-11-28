@@ -4015,7 +4015,9 @@ function openPaymentInfoForInvoiceId(invoiceId) {
 
 function openPaymentInfoModal() {
   // Close the invoice viewer popup (but keep CURRENT_VIEWED_INVOICE)
-  closeMessage();
+  if (typeof closeMessage === 'function') {
+    closeMessage();
+  }
 
   const modal = document.getElementById('paymentInfoModal');
   if (!modal) return;
@@ -4030,44 +4032,107 @@ function openPaymentInfoModal() {
   const partialValue  = document.getElementById('paymentPartialValue');
   const paidBtn       = document.getElementById('paymentPaidFinalBtn');
 
+  // Context from invoice viewer or payment tracker
   const ctx = window.CURRENT_VIEWED_INVOICE || null;
-  const billed = (ctx && typeof ctx.actual === 'number')
-    ? ctx.actual
+  const inv = ctx && ctx.invoice ? ctx.invoice : null;
+
+  // 1) Billed amount from context (actual/final)
+  let billed = 0;
+  if (ctx && typeof ctx.actual === 'number') {
+    billed = ctx.actual;
+  }
+  if (ctx && typeof ctx.final === 'number' && ctx.final > 0) {
+    // if you want final to be the billed base instead of actual
+    billed = ctx.final;
+  }
+
+  if (billedInput) {
+    billedInput.value = billed.toFixed(2);
+  }
+
+  // 2) Load any previously saved payment values from the invoice
+  const savedRevisedEnabled = inv && typeof inv.paymentRevisedEnabled === 'boolean'
+    ? inv.paymentRevisedEnabled
+    : false;
+
+  const savedRevisedAmount = inv && typeof inv.paymentRevisedAmount === 'number'
+    ? inv.paymentRevisedAmount
     : 0;
 
-  if (billedInput) billedInput.value = billed.toFixed(2);
+  const savedAdvance = inv && typeof inv.advancePaid === 'number'
+    ? inv.advancePaid
+    : 0;
 
-  // Reset other fields
+  const savedFinalPaid = inv && typeof inv.finalPaid === 'number'
+    ? inv.finalPaid
+    : 0;
+
+  const savedPartialLog = inv && typeof inv.paymentPartialLog === 'string'
+    ? inv.paymentPartialLog
+    : '';
+
+  // 3) Apply saved state to controls
+
+  // Revised
   if (revisedChk) {
-    revisedChk.checked = false;
+    revisedChk.checked  = savedRevisedEnabled;
     revisedChk.disabled = false;
   }
+
   if (revisedInput) {
-    revisedInput.value = '';
-    revisedInput.disabled = true;
+    if (savedRevisedEnabled && savedRevisedAmount > 0) {
+      revisedInput.disabled = false;
+      revisedInput.value    = savedRevisedAmount.toFixed(2);
+    } else {
+      revisedInput.disabled = true;
+      revisedInput.value    = '';
+    }
     revisedInput.classList.remove('field-error-red');
   }
 
-  if (advInput) advInput.value = '0';
+  // Advance Paid – this is the one you care about
+  if (advInput) {
+    if (savedAdvance > 0) {
+      advInput.value = savedAdvance.toFixed(2);
+    } else {
+      advInput.value = '';
+    }
+  }
 
-if (finalInput) {
-  finalInput.value = '0';
-  // this will store ONLY the sum of partial amounts
-  finalInput.dataset.partialSum = '0';
-}
+  // Final Paid – whatever was saved (sum of partial + previous)
+  if (finalInput) {
+    if (savedFinalPaid > 0) {
+      finalInput.value = savedFinalPaid.toFixed(2);
+    } else {
+      finalInput.value = '0.00';
+    }
+  }
 
-if (pendingInput) pendingInput.value = '0';
+  // Pending will be recalculated below
 
+  // Partial history + current partial input
+  if (partialLog) {
+    partialLog.value = savedPartialLog;
+    partialLog.scrollTop = partialLog.scrollHeight;
+  }
+  if (partialValue) {
+    partialValue.value = '';
+  }
 
-  if (partialLog) partialLog.value = '';
-  if (partialValue) partialValue.value = '';
+  // Buttons
+  if (paidBtn) {
+    // will be updated by recalcPaymentPending based on pending
+    paidBtn.disabled = true;
+  }
 
-  if (paidBtn) paidBtn.disabled = true;
-
-  recalcPaymentPending();
+  // Recalculate pending & button states based on loaded values
+  if (typeof recalcPaymentPending === 'function') {
+    recalcPaymentPending();
+  }
 
   modal.style.display = 'flex';
 }
+
 
 
 // Open Payment Info where only Advance + Partial payment are allowed (from calendar)
