@@ -4108,6 +4108,12 @@ function openPaymentInfoModal() {
     }
   }
 
+  // Initialize partial sum tracker on Final Paid
+  if (finalInput) {
+    // If you already have saved values, you can restore here.
+    // For now start at 0 and let partial adds build it up.
+    finalInput.dataset.partialSum = finalInput.dataset.partialSum || '0';
+  }
   // Pending will be recalculated below
 
   // Partial history + current partial input
@@ -4267,29 +4273,31 @@ function recalcPaymentPending() {
   let revised = parseFloat(revisedInput?.value || '0');
   if (isNaN(revised)) revised = 0;
 
-  // Revised must be > 0 if enabled
-  if (revisedEnabled && (!revised || revised <= 0)) {
-    revisedInput?.classList.add('field-error-red');
-  } else {
-    revisedInput?.classList.remove('field-error-red');
-  }
-
-  // base amount for calculation
+  // base amount (billed or revised)
   let base = billed;
   if (revisedEnabled && revised > 0) {
     base = revised;
   }
 
+  // Advance Paid (user typed)
   let adv = parseFloat(advInput?.value || '0');
   if (isNaN(adv)) adv = 0;
 
-  let final = parseFloat(finalInput?.value || '0');
-  if (isNaN(final)) final = 0;
+  // Sum of partial amounts (hidden tracker)
+  let partialSum = 0;
+  if (finalInput && finalInput.dataset && finalInput.dataset.partialSum != null) {
+    partialSum = parseFloat(finalInput.dataset.partialSum || '0');
+    if (isNaN(partialSum)) partialSum = 0;
+  }
 
-  // raw Pending = Base - (Advance + Final)
-  const rawPending = base - (adv + final);
+  // 🔴 Final Paid = Advance Paid + ALL partial amounts
+  const finalTotal = adv + partialSum;
+  if (finalInput) {
+    finalInput.value = finalTotal.toFixed(2);
+  }
 
-  // Display as absolute, but keep signed in data attribute
+  // Pending = Base - FinalTotal
+  const rawPending = base - finalTotal;
   const displayPending = Math.abs(rawPending);
 
   if (pendingInput) {
@@ -4297,11 +4305,12 @@ function recalcPaymentPending() {
     pendingInput.dataset.rawPending = String(rawPending);
   }
 
-  // Paid button enabled only if pending is 0 or less
+  // Paid button enabled only when nothing is pending (<= 0)
   if (paidBtn) {
     paidBtn.disabled = !(rawPending <= 0);
   }
 }
+
 
 // Save all Payment Info fields back to the invoice object
 function handlePaymentSave() {
@@ -4445,13 +4454,16 @@ function handlePartialAmountApply() {
     return;
   }
 
-  // Add to Final Paid (auto-calc, read-only)
-  let currentFinal = parseFloat(finalInput.value || '0');
-  if (isNaN(currentFinal)) currentFinal = 0;
-  const newFinal = currentFinal + amount;
-  finalInput.value = newFinal.toFixed(2);
+  // 1️⃣ Update PARTIAL SUM stored in dataset
+  let partialSum = 0;
+  if (finalInput.dataset && finalInput.dataset.partialSum != null) {
+    partialSum = parseFloat(finalInput.dataset.partialSum || '0');
+    if (isNaN(partialSum)) partialSum = 0;
+  }
+  partialSum += amount;
+  finalInput.dataset.partialSum = partialSum.toFixed(2);
 
-  // Append to history log with date + time
+  // 2️⃣ Append to history log with date + time
   const now = new Date();
   const dateStr = now.toLocaleDateString('en-IN');
   const timeStr = now.toLocaleTimeString('en-IN', {
@@ -4465,12 +4477,13 @@ function handlePartialAmountApply() {
   logArea.value = existing ? (existing + '\n' + line) : line;
   logArea.scrollTop = logArea.scrollHeight;
 
-  // Clear partial input
+  // 3️⃣ Clear partial input
   partialInput.value = '';
 
-  // Recalculate Pending & Paid button state
+  // 4️⃣ Recalculate Final Paid + Pending
   recalcPaymentPending();
 }
+
 
 
 function handlePaymentPartial() {
