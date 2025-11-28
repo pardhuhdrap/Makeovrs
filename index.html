@@ -4637,6 +4637,8 @@ function handlePartialAmountApply() {
 function ensureInvoiceForCalendarFlow(options = {}) {
   const opts = options || {};
   const ctxFlow = window.CALENDAR_BOOKING_FLOW;
+  const ctxInvoice = window.CURRENT_VIEWED_INVOICE || {};
+
   if (!ctxFlow || !ctxFlow.fromCalendar) {
     return null;
   }
@@ -4667,8 +4669,7 @@ if (ctxInvoice && (ctxInvoice.invoice || ctxInvoice.id)) {
 
   if (currentId) {
     idx = invoices.findIndex(inv =>
-      inv.invoiceId === currentId ||
-      inv.id === currentId
+      String(inv.invoiceId || inv.id) === String(currentId)
     );
   }
 }
@@ -4697,7 +4698,7 @@ if (idx === -1) {
       discount,
       final,
       // keep original invoiceId / createdAt
-      invoiceId: old.invoiceId || old.id || old.invoiceId,
+      invoiceId: old.invoiceId || old.id,
       createdAt: old.createdAt || nowIso,
       quotationId
     };
@@ -4810,9 +4811,9 @@ function handlePaymentPartial() {
       discount,
       final,
       // keep original invoiceId / createdAt
-      invoiceId: old.invoiceId || old.id || old.invoiceId,
+      invoiceId: old.invoiceId || old.id,
       createdAt: old.createdAt || nowIso,
-      quotationId: quotationId
+      quotationId
     };
 
     if (willBeVoid) {
