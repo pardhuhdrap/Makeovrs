@@ -2491,6 +2491,57 @@ function saveQuotationMultiEvent() {
       };
       existing.push(savedQuotation);
     }
+      
+    /* ===== SYNC QUOTATION → INVOICE if invoice exists ===== */
+try {
+  const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
+  const linkedInvoice = invoices.find(inv =>
+    inv.clientName.trim().toLowerCase() === savedQuotation.clientName.trim().toLowerCase() &&
+    inv.clientContact.trim() === savedQuotation.clientContact.trim()
+  );
+
+  if (linkedInvoice) {
+    // Preserve payments
+    const paidAdvance = Number(linkedInvoice.advancePaid || 0);
+    const paidFinal   = Number(linkedInvoice.finalPaid || 0);
+    const partialLog  = Array.isArray(linkedInvoice.paymentPartialLog)
+                        ? [...linkedInvoice.paymentPartialLog]
+                        : [];
+
+    // Update invoice with new quotation values
+    linkedInvoice.events = JSON.parse(JSON.stringify(savedQuotation.events));
+    linkedInvoice.actual = Number(savedQuotation.actual);
+    linkedInvoice.discount = Number(savedQuotation.discount || 0);
+    linkedInvoice.final = Number(savedQuotation.final);
+
+    linkedInvoice.billedAmount = linkedInvoice.final;
+
+    // Recalculate pending & status
+    const totalPaid = paidAdvance + paidFinal +
+      partialLog.reduce((s, x) => s + Number(x.amount || 0), 0);
+
+    linkedInvoice.paymentPendingRaw = linkedInvoice.billedAmount - totalPaid;
+    linkedInvoice.paymentPendingAbs = Math.max(0, linkedInvoice.paymentPendingRaw);
+
+    if (linkedInvoice.paymentPendingAbs === 0) {
+      linkedInvoice.paymentStatus = "Completed";
+    } else if (totalPaid === 0) {
+      linkedInvoice.paymentStatus = "Pending";
+    } else {
+      linkedInvoice.paymentStatus = "Partial";
+    }
+
+    // Put payments back
+    linkedInvoice.advancePaid = paidAdvance;
+    linkedInvoice.finalPaid = paidFinal;
+    linkedInvoice.paymentPartialLog = partialLog;
+
+    saveToLS(SAVED_INVOICES_KEY, invoices);
+    console.log("Quotation → Invoice synced:", linkedInvoice);
+  }
+} catch (e) {
+  console.warn("Invoice sync failed:", e);
+}
 
     // persist quotations
     saveToLS(SAVED_QUOTATIONS_KEY, existing);
