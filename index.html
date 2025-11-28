@@ -675,31 +675,61 @@ header {
 
 <!-- New line: toolbar below tabs -->
 <div class="files-toolbar mb-3"
-     style="display:flex; flex-direction:column; gap:0.5rem;">
+     style="display:flex; flex-direction:column; gap:0.5rem; width:100%; box-sizing:border-box;">
 
   <!-- ROW 1: Search + Date (NO WRAP between them) -->
-  <div style="display:flex; flex-wrap:nowrap; gap:0.5rem; align-items:center;">
-    <input id="filesSearch"
-           placeholder="Search by client"
-           class="border rounded p-2 text-sm"
-           style="flex:1; min-width:0;" />
+  <div
+    style="
+      display:flex;
+      flex-wrap:nowrap;
+      gap:0.5rem;
+      align-items:center;
+      width:100%;
+      box-sizing:border-box;
+    "
+  >
+    <input
+      id="filesSearch"
+      placeholder="Search by client"
+      class="border rounded p-2 text-sm"
+      style="
+        flex:1 1 auto;
+        min-width:0;
+        box-sizing:border-box;
+      "
+    />
 
-    <input id="filesDate"
-           type="text"
-           placeholder="YYYY, MM-YYYY or DD-MM-YYYY"
-           class="border rounded p-2 text-sm"
-           style="width:10rem; min-width:0;" />
+    <input
+      id="filesDate"
+      type="text"
+      placeholder="YYYY, MM-YYYY or DD-MM-YYYY"
+      class="border rounded p-2 text-sm"
+      style="
+        flex:0 0 10rem;
+        max-width:10rem;
+        box-sizing:border-box;
+      "
+    />
   </div>
 
-  <!-- ROW 2: Payment status dropdown (this is the one that "wraps") -->
-  <div id="paymentStatusFilterWrapper"
-       style="display:none; align-self:flex-end;">
-       <label class="text-sm font-medium">
-            Payment Status:
-          </label>
-    <select id="paymentStatusFilter"
-            class="border rounded p-2 text-sm"
-            style="width:9rem;">
+  <!-- ROW 2: Payment status dropdown (this can wrap / be on its own line) -->
+  <div
+    id="paymentStatusFilterWrapper"
+    style="
+      display:none;
+      align-self:flex-end;
+      box-sizing:border-box;
+      max-width:100%;
+    "
+  >
+    <label class="text-sm font-medium" style="margin-right:0.5rem;">
+      Payment Status:
+    </label>
+    <select
+      id="paymentStatusFilter"
+      class="border rounded p-2 text-sm"
+      style="width:9rem; box-sizing:border-box;"
+    >
       <option value="all">All</option>
       <option value="pending">Pending</option>
       <option value="partial">Partial paid</option>
@@ -708,6 +738,7 @@ header {
   </div>
 
 </div>
+
 
 
 <div id="filesContent">
