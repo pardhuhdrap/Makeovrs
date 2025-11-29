@@ -2,101 +2,416 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Client Event Details Form</title>
-  <link rel="stylesheet" href="styles.css" />
+  <title>Client Event Request</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Optional: include your existing CSS if it's in a separate file -->
+  <!-- Example: adjust file name/path to your project -->
+  <!-- <link rel="stylesheet" href="styles.css" /> -->
+
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    .section { margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 8px; }
-    .event-block { border: 1px solid #aaa; padding: 15px; margin-top: 10px; border-radius: 6px; }
-    button { padding: 10px 15px; margin-top: 10px; cursor: pointer; }
+    /* Basic layout – you can remove this if your own CSS already styles these classes */
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f3f4f6;
+      margin: 0;
+      padding: 16px;
+    }
+
+    .page-wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      padding: 20px 24px 24px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 1.6rem;
+    }
+
+    .subtitle {
+      color: #6b7280;
+      margin-bottom: 16px;
+      font-size: 0.9rem;
+    }
+
+    .form-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .form-group {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid #d1d5db;
+      font-size: 0.9rem;
+      outline: none;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 1px rgba(99,102,241,0.25);
+    }
+
+    .section-title {
+      margin: 16px 0 8px;
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+
+    /* Table-like events layout similar to quotation items */
+    .events-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 6px;
+      font-size: 0.88rem;
+    }
+
+    .events-table thead {
+      background: #f9fafb;
+    }
+
+    .events-table th,
+    .events-table td {
+      border: 1px solid #e5e7eb;
+      padding: 6px 8px;
+      vertical-align: top;
+    }
+
+    .events-table input,
+    .events-table textarea {
+      width: 100%;
+      border: none;
+      padding: 4px 6px;
+      font-size: 0.85rem;
+      box-shadow: none;
+    }
+
+    .events-table input:focus,
+    .events-table textarea:focus {
+      outline: none;
+      box-shadow: inset 0 0 0 1px rgba(99,102,241,0.25);
+      border-radius: 4px;
+    }
+
+    .events-table textarea {
+      min-height: 40px;
+    }
+
+    .table-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-primary {
+      background: #4f46e5;
+      color: #fff;
+    }
+
+    .btn-secondary {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    .btn-danger {
+      background: #ef4444;
+      color: #fff;
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    .footer-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 20px;
+      gap: 10px;
+    }
+
+    .small-text {
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+
+    @media (max-width: 640px) {
+      .page-wrap {
+        padding: 16px;
+      }
+
+      .events-table th,
+      .events-table td {
+        font-size: 0.8rem;
+      }
+    }
   </style>
 </head>
 <body>
-  <h2>Client Event Details Form</h2>
+  <div class="page-wrap">
+    <h1>Client Event Request</h1>
+    <div class="subtitle">
+      Please fill your event details. We’ll use this to prepare a quotation for you.
+    </div>
 
-  <div class="section">
-    <h3>Client Details</h3>
-    <label>Name</label><br />
-    <input id="clientName" type="text" style="width:100%" /><br /><br />
+    <!-- 🔹 Client info – same fields as your quotation header, but no code/amount stuff -->
+    <div class="section-title">Client Details</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="clientName">Client name</label>
+        <input id="clientName" type="text" placeholder="Your full name" />
+      </div>
+      <div class="form-group">
+        <label for="clientPhone">Phone / WhatsApp</label>
+        <input id="clientPhone" type="text" placeholder="Contact number" />
+      </div>
+    </div>
 
-    <label>Phone / WhatsApp</label><br />
-    <input id="clientPhone" type="text" style="width:100%" /><br /><br />
+    <div class="form-row">
+      <div class="form-group">
+        <label for="clientEmail">Email (optional)</label>
+        <input id="clientEmail" type="email" placeholder="you@example.com" />
+      </div>
+      <div class="form-group">
+        <label for="clientCity">City / Location</label>
+        <input id="clientCity" type="text" placeholder="City or area" />
+      </div>
+    </div>
 
-    <label>Email (optional)</label><br />
-    <input id="clientEmail" type="text" style="width:100%" />
+    <div class="form-row">
+      <div class="form-group">
+        <label for="clientNotes">Additional details (optional)</label>
+        <textarea id="clientNotes" placeholder="Share anything we should know about your event(s)..."></textarea>
+      </div>
+    </div>
+
+    <!-- 🔹 Event list – same idea as quotation items table, but NO price/amount columns -->
+    <div class="section-title">Event Details (like your quotation items, but no prices)</div>
+
+    <table class="events-table" id="eventsTable">
+      <thead>
+        <tr>
+          <th style="width:40px;">#</th>
+          <th style="width:140px;">Event Name</th>
+          <th style="width:120px;">Date</th>
+          <th style="width:100px;">Time</th>
+          <th style="width:180px;">Location</th>
+          <th>Package / Services / Notes</th>
+        </tr>
+      </thead>
+      <tbody id="eventsTbody">
+        <!-- JS will add rows here -->
+      </tbody>
+    </table>
+
+    <div class="table-actions">
+      <button type="button" class="btn btn-secondary" onclick="addEventRow()">
+        + Add Event
+      </button>
+      <div class="small-text">
+        You can add multiple events (Mehendi, Sangeet, Wedding, Reception, etc.).
+      </div>
+    </div>
+
+    <div class="footer-actions">
+      <button type="button" class="btn btn-secondary" onclick="resetForm()">
+        Clear
+      </button>
+      <button type="button" class="btn btn-primary" onclick="submitClientRequest()">
+        Submit Request
+      </button>
+    </div>
+
+    <div class="small-text" id="statusMsg" style="margin-top:8px;"></div>
   </div>
-
-  <div class="section" id="eventsSection">
-    <h3>Event Details</h3>
-    <div id="eventsContainer"></div>
-    <button onclick="addEvent()">+ Add Another Event</button>
-  </div>
-
-  <button onclick="submitForm()" style="background:#4CAF50; color:white;">Submit</button>
 
   <script>
-    let eventCounter = 0;
+    // 🔁 This is like your quotation items logic, but WITHOUT any amount fields
 
-    function addEvent() {
-      eventCounter++;
-      const container = document.getElementById('eventsContainer');
+    function addEventRow(initialData) {
+      const tbody = document.getElementById('eventsTbody');
+      const rowIndex = tbody.children.length + 1;
 
-      const block = document.createElement('div');
-      block.className = 'event-block';
-      block.id = `event_${eventCounter}`;
+      const tr = document.createElement('tr');
 
-      block.innerHTML = `
-        <label>Event Name</label><br />
-        <input type="text" class="ev-name" style="width:100%" /><br /><br />
-
-        <label>Date</label><br />
-        <input type="date" class="ev-date" style="width:100%" /><br /><br />
-
-        <label>Time</label><br />
-        <input type="time" class="ev-time" style="width:100%" /><br /><br />
-
-        <label>Location</label><br />
-        <input type="text" class="ev-location" style="width:100%" /><br /><br />
-
-        <label>Notes / Requirements</label><br />
-        <textarea class="ev-notes" style="width:100%; height:70px;"></textarea><br /><br />
-
-        <button onclick="removeEvent('${block.id}')" style="background:#d9534f; color:white;">Remove Event</button>
+      tr.innerHTML = `
+        <td>${rowIndex}</td>
+        <td>
+          <input
+            type="text"
+            class="ev-name"
+            placeholder="e.g. Wedding, Sangeet"
+          />
+        </td>
+        <td>
+          <input type="date" class="ev-date" />
+        </td>
+        <td>
+          <input type="time" class="ev-time" />
+        </td>
+        <td>
+          <input
+            type="text"
+            class="ev-location"
+            placeholder="Venue / area"
+          />
+        </td>
+        <td>
+          <textarea
+            class="ev-notes"
+            placeholder="Services needed, makeup type, number of people, etc."
+          ></textarea>
+        </td>
       `;
 
-      container.appendChild(block);
+      tbody.appendChild(tr);
+
+      // If we want to prefill (optional)
+      if (initialData) {
+        tr.querySelector('.ev-name').value = initialData.name || '';
+        tr.querySelector('.ev-date').value = initialData.date || '';
+        tr.querySelector('.ev-time').value = initialData.time || '';
+        tr.querySelector('.ev-location').value = initialData.location || '';
+        tr.querySelector('.ev-notes').value = initialData.notes || '';
+      }
     }
 
-    function removeEvent(id) {
-      const el = document.getElementById(id);
-      if (el) el.remove();
+    function resetForm() {
+      document.getElementById('clientName').value = '';
+      document.getElementById('clientPhone').value = '';
+      document.getElementById('clientEmail').value = '';
+      document.getElementById('clientCity').value = '';
+      document.getElementById('clientNotes').value = '';
+      document.getElementById('eventsTbody').innerHTML = '';
+      addEventRow();
+      setStatus('');
     }
 
-    async function submitForm() {
-      const name = document.getElementById('clientName').value.trim();
-      const phone = document.getElementById('clientPhone').value.trim();
-      const email = document.getElementById('clientEmail').value.trim();
+    function setStatus(msg, isError) {
+      const el = document.getElementById('statusMsg');
+      el.textContent = msg || '';
+      el.style.color = isError ? '#b91c1c' : '#065f46';
+    }
+
+    function collectClientRequestData() {
+      const client = {
+        name: document.getElementById('clientName').value.trim(),
+        phone: document.getElementById('clientPhone').value.trim(),
+        email: document.getElementById('clientEmail').value.trim(),
+        city: document.getElementById('clientCity').value.trim(),
+        notes: document.getElementById('clientNotes').value.trim(),
+      };
 
       const events = [];
-      document.querySelectorAll('.event-block').forEach(block => {
-        events.push({
-          name: block.querySelector('.ev-name').value,
-          date: block.querySelector('.ev-date').value,
-          time: block.querySelector('.ev-time').value,
-          location: block.querySelector('.ev-location').value,
-          notes: block.querySelector('.ev-notes').value,
-        });
+      document.querySelectorAll('#eventsTbody tr').forEach((row) => {
+        const name = row.querySelector('.ev-name').value.trim();
+        const date = row.querySelector('.ev-date').value;
+        const time = row.querySelector('.ev-time').value;
+        const location = row.querySelector('.ev-location').value.trim();
+        const notes = row.querySelector('.ev-notes').value.trim();
+
+        // Skip completely empty rows
+        if (!name && !date && !time && !location && !notes) return;
+
+        events.push({ name, date, time, location, notes });
       });
 
-      const payload = { client: { name, phone, email }, events, submittedAt: Date.now() };
-
-      alert("Form captured successfully! Now connect this to your Apps Script endpoint.");
-      console.log(payload);
+      return {
+        client,
+        events,
+        submittedAt: new Date().toISOString(),
+        source: 'client-form', // so you know it came from here
+      };
     }
 
-    // Add the first event by default
-    addEvent();
+    function validateClientRequest(payload) {
+      if (!payload.client.name) {
+        setStatus('Please enter your name.', true);
+        return false;
+      }
+      if (!payload.client.phone) {
+        setStatus('Please enter your phone / WhatsApp number.', true);
+        return false;
+      }
+      if (!payload.events.length) {
+        setStatus('Please add at least one event.', true);
+        return false;
+      }
+      setStatus('');
+      return true;
+    }
+
+    function submitClientRequest() {
+      const payload = collectClientRequestData();
+      if (!validateClientRequest(payload)) return;
+
+      // 🔸 For now we just log. Later this will POST to Apps Script / backend.
+      console.log('CLIENT REQUEST PAYLOAD:', payload);
+
+      // 👉 When you’re ready, replace this with a fetch() to your Apps Script URL.
+      // Example:
+      //
+      // fetch('YOUR_APPS_SCRIPT_WEBAPP_URL', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify(payload),
+      // })
+      // .then(r => r.json())
+      // .then(res => {
+      //   setStatus('Thank you! Your request was submitted successfully.');
+      //   resetForm();
+      // })
+      // .catch(err => {
+      //   console.error(err);
+      //   setStatus('Something went wrong. Please try again.', true);
+      // });
+
+      // Temporary success for now:
+      setStatus('Thank you! Your request was captured (check console).');
+      // resetForm(); // uncomment if you want to clear immediately
+    }
+
+    // Add one empty event row on load
+    addEventRow();
   </script>
 </body>
 </html>
