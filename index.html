@@ -931,7 +931,7 @@ header {
     checked
   />
   <span class="inline-block w-3 h-3 rounded" style="background:#f97316;"></span>
-  <span>Partial paid - which are partially paid</span>
+  <span>Partial paid - which are partially paid + pending</span>
 </label>
 
 <label class="flex items-center gap-2 cursor-pointer">
@@ -1176,6 +1176,23 @@ header {
         </div>
       </div>
     </div>
+    <div class="mt-3">
+      <label class="block text-sm font-medium text-gray-700 mb-1">
+        Miscellaneous
+      </label>
+      <input
+        id="paymentMiscAmount"
+        type="number"
+        step="100"
+        class="w-full border rounded p-2 bg-white"
+        placeholder="0.00"
+      />
+      <p class="text-[11px] text-gray-500 mt-1">
+        Extra costs like fuel, tolls, misc payments. This won’t change Pending;
+        it is only used in revenue calculations.
+      </p>
+    </div>
+
 
     <!-- BOTTOM BUTTONS (assuming you already changed Partial to Save) -->
     <div class="flex gap-2 justify-end mt-4">
@@ -4719,6 +4736,7 @@ function openPaymentInfoModal() {
   const partialLog    = document.getElementById('paymentPartialLog');
   const partialValue  = document.getElementById('paymentPartialValue');
   const paidBtn       = document.getElementById('paymentPaidFinalBtn');
+  const miscInput     = document.getElementById('paymentMiscAmount');
 
   // Context from invoice viewer or payment tracker
   const ctx = window.CURRENT_VIEWED_INVOICE || null;
@@ -4764,6 +4782,10 @@ function openPaymentInfoModal() {
   const savedPartialLog = inv && typeof inv.paymentPartialLog === 'string'
     ? inv.paymentPartialLog
     : '';
+  
+   const savedMisc = inv && typeof inv.miscAmount === 'number'
+    ? inv.miscAmount
+    : 0;  
 
   // 3) Apply saved state to controls
 
@@ -4822,6 +4844,11 @@ function openPaymentInfoModal() {
     partialValue.value = '';
   }
 
+  // Miscellaneous
+  if (miscInput) {
+    miscInput.value = savedMisc > 0 ? savedMisc.toFixed(2) : '';
+  }
+
   // Buttons
   if (paidBtn) {
     // will be updated by recalcPaymentPending based on pending
@@ -4853,6 +4880,7 @@ function openPaymentInfoModalRestrictedFromCalendar() {
   const pendingInput = document.getElementById('paymentPending');
   const partialBtn   = document.getElementById('paymentPartialBtn');
   const paidBtn      = document.getElementById('paymentPaidFinalBtn');
+  const miscInput    = document.getElementById('paymentMiscAmount');
 
     // 🧠 Use CURRENT_VIEWED_INVOICE + saved invoice to pre-fill if it exists
   const ctx = window.CURRENT_VIEWED_INVOICE || {};
@@ -4902,6 +4930,10 @@ function openPaymentInfoModalRestrictedFromCalendar() {
   const savedPartialLog = inv && typeof inv.paymentPartialLog === 'string'
     ? inv.paymentPartialLog
     : '';
+
+     const savedMisc = inv && typeof inv.miscAmount === 'number'
+    ? inv.miscAmount
+    : 0;
 
   // 3️⃣ Apply to controls
 
@@ -4981,6 +5013,10 @@ function openPaymentInfoModalRestrictedFromCalendar() {
       partialBtn.disabled = false;
       partialBtn.classList.remove('opacity-50');
     }
+  }
+
+   if (miscInput) {
+    miscInput.value = savedMisc > 0 ? savedMisc.toFixed(2) : '';
   }
 
   modal.style.display = 'flex';
@@ -5123,7 +5159,7 @@ function handlePaymentSave(markCompleted = false) {
   const finalInput    = document.getElementById('paymentFinalPaid');
   const pendingInput  = document.getElementById('paymentPending');
   const partialLog    = document.getElementById('paymentPartialLog');
-
+  const miscInput     = document.getElementById('paymentMiscAmount');
   // Helper: safely read numbers even if formatted
   function readNum(inputEl) {
     if (!inputEl) return 0;
@@ -5140,6 +5176,7 @@ function handlePaymentSave(markCompleted = false) {
   const revisedAmount  = readNum(revisedInput);
   const advancePaid    = readNum(advInput);
   const finalPaid      = readNum(finalInput);
+   const miscAmount     = miscInput ? readNum(miscInput) : 0;
 
   // Base = revised if enabled and > 0, else billed
   let baseAmount = billed;
@@ -5233,6 +5270,7 @@ function handlePaymentSave(markCompleted = false) {
   inv.paymentPendingAbs     = pendingAbs;
   inv.paymentPartialLog     = partialHistory;
   inv.paymentLastUpdated    = new Date().toISOString();
+   inv.miscAmount           = miscAmount;
 
   // --- Derive paymentStatus (used in Payment Info tab) ---
   const billedForStatus = Number(inv.final || inv.actual || baseAmount || 0) || 0;
