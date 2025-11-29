@@ -3543,7 +3543,7 @@ let RECYCLE_FILTERS_BOUND = false;
 
 function switchRecycleTab(kind) {
   console.log("switchRecycleTab() →", kind);
-  const isUser = (which === 'user');
+  const isUser = (kind === 'user');
 
   document.getElementById('recycleTabUser')
     ?.classList.toggle('active', isUser);
