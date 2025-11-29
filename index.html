@@ -3057,7 +3057,7 @@ function renderFilesList() {
       const raw = String(inv.paymentStatus || inv.statusPayment || '').toLowerCase();
       if (raw === 'pending') return 'Pending';
       if (raw === 'partial' || raw === 'partial paid') return 'Partial paid';
-      if (raw === 'completed' || raw === 'complete') return 'Completed';
+      if (raw === 'completed' || raw === 'complete') return 'Paid';
 
       // 2) Else derive from amounts – this will start working
       //    once you store advance/final paid on the invoice object.
