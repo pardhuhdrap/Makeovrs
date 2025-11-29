@@ -143,6 +143,48 @@ header {
   }
 }
 
+  /* === Client Requests floating button + panel === */
+  .client-req-fab {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    width: 52px;
+    height: 52px;
+    border-radius: 9999px;
+    background: var(--app-color);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.35);
+    cursor: pointer;
+    z-index: 60;
+    touch-action: none; /* helps drag on mobile */
+  }
+  .client-req-fab.dragging {
+    opacity: 0.85;
+  }
+
+  .client-req-panel {
+    position: absolute;
+    bottom: 80px;
+    right: 16px;
+    width: 320px;
+    max-width: calc(100% - 24px);
+    max-height: 70vh;
+    background: #ffffff;
+    border-radius: 1rem;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.35);
+    z-index: 55;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .client-req-panel.hidden {
+    display: none;
+  }
+
 
 </style>
 </head>
@@ -1313,6 +1355,58 @@ header {
   <!-- calendar popup container -->
   <div id="calendarPopupContainer" class="hidden"></div>
 
+      <!-- === Floating Client Requests button === -->
+    <div
+      id="clientRequestsFab"
+      class="client-req-fab"
+      title="Client Requests"
+    >
+      <i data-lucide="inbox" class="w-5 h-5"></i>
+    </div>
+
+    <!-- === Client Requests popup panel === -->
+    <div
+      id="clientRequestsPanel"
+      class="client-req-panel hidden"
+    >
+      <!-- Header -->
+      <div class="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-slate-50">
+        <div class="text-[12px] font-semibold text-gray-700">
+          Client Requests
+        </div>
+        <div class="flex items-center gap-2">
+          <button
+            id="clientReqRefreshBtn"
+            class="text-[11px] px-2 py-1 rounded-full border border-gray-200 bg-white hover:bg-gray-50"
+          >
+            Refresh
+          </button>
+          <button
+            id="clientReqCloseBtn"
+            class="text-gray-400 hover:text-gray-600"
+          >
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- List -->
+      <div
+        id="clientReqListContainer"
+        class="p-2 overflow-y-auto text-xs bg-white"
+        style="max-height: calc(70vh - 40px);"
+      >
+        <div
+          id="clientReqEmpty"
+          class="text-[11px] text-gray-400 text-center py-4"
+        >
+          No requests yet. Ask your client to submit the form.
+        </div>
+        <div id="clientReqList" class="space-y-2"></div>
+      </div>
+    </div>
+
+
 </div>
 
 
@@ -1321,6 +1415,28 @@ header {
 /* -------------------------
    Helpers & storage keys
    ------------------------- */
+
+// === Client Requests central API ===
+const CLIENT_REQ_API_URL =
+  'https://script.google.com/macros/s/AKfycbyF-IyhFuTopHGEWHGivYkWBhhV_pd5YcCKzSM5tNxrEbrmfatXIlO7GUViOqrihFc_/exec';
+
+// Who owns these requests? (the signed-in user)
+function getClientReqOwnerId() {
+  // Primary source: Google Sign-In profile (your app already stores this)
+  if (window.userProfile && userProfile.email) {
+    return userProfile.email;
+  }
+
+  // Secondary fallback (future use)
+  try {
+    const stored = localStorage.getItem('APP_OWNER_EMAIL') || '';
+    if (stored) return stored;
+  } catch (e) {}
+
+  return '';
+}
+   
+
 function createLucide(){ if(window.lucide && lucide.createIcons) try{ lucide.createIcons(); }catch(e){} }
 
 function showMessage(msg, title = 'Notice') {
@@ -6844,6 +6960,101 @@ function populateInvoiceFields() {
   }
 }
 
+// === Fetch + render client requests ===
+async function refreshClientRequestsUI() {
+  const listEl  = document.getElementById('clientReqList');
+  const emptyEl = document.getElementById('clientReqEmpty');
+  if (!listEl || !emptyEl) return;
+
+  listEl.innerHTML =
+    '<div class="text-[11px] text-gray-400 py-2">Loading…</div>';
+  emptyEl.classList.add('hidden');
+
+  const ownerId = getClientReqOwnerId();
+  if (!ownerId) {
+    listEl.innerHTML =
+      '<div class="text-[11px] text-red-500 py-2">Please sign in first.</div>';
+    return;
+  }
+
+  try {
+    const res = await fetch(
+      CLIENT_REQ_API_URL + '?ownerId=' + encodeURIComponent(ownerId)
+    );
+    const data = await res.json();
+
+    if (!data.ok) throw new Error(data.message);
+
+    const items = data.items || [];
+    listEl.innerHTML = '';
+
+    if (!items.length) {
+      emptyEl.classList.remove('hidden');
+      return;
+    }
+
+    items.forEach((row) => {
+      let payload = {};
+      try { payload = JSON.parse(row.payloadJson); } catch {}
+
+      const clientName = payload.clientName || '--';
+      const contact    = payload.clientContact || '';
+      const events     = payload.events || [];
+
+      const card = document.createElement('div');
+      card.className = 'border border-gray-200 rounded-lg p-2 bg-white shadow-sm';
+      card.dataset.payloadJson = row.payloadJson;
+
+      card.innerHTML = `
+        <div class="flex justify-between items-start">
+          <div>
+            <div class="text-[13px] font-semibold text-gray-800">${clientName}</div>
+            <div class="text-[11px] text-gray-500">${contact}</div>
+          </div>
+          <button class="clientReqCreateBtn text-[11px] px-2 py-1 rounded-full border app-color-border app-color-text">
+            Create quotation
+          </button>
+        </div>
+      `;
+
+      listEl.appendChild(card);
+    });
+
+  } catch (e) {
+    listEl.innerHTML =
+      '<div class="text-[11px] text-red-500">Failed to load.</div>';
+  }
+}
+
+// === Convert client request → prefilled quotation ===
+function createQuotationFromClientRequestPayload(payload) {
+  const qDraft = {
+    clientName: payload.clientName || '',
+    clientContact: payload.clientContact || '',
+    discount: 0,
+    events: (payload.events || []).map(ev => ({
+      name: ev.name || '',
+      date: ev.date || '',
+      packageName: ev.packageIdea || '',
+      packagePrice: 0,
+      addOnPrice: 0,
+      transportPrice: 0,
+      addonDetails: ev.addons || '',
+      notes: ev.notes || '',
+      location: ev.location || ''
+    }))
+  };
+
+  localStorage.setItem('CURRENT_EDIT_QUOTATION', JSON.stringify(qDraft));
+
+  navigate('quotation');
+  setTimeout(() => {
+    if (typeof populateQuotationFields === 'function') {
+      populateQuotationFields();
+    }
+  }, 80);
+}
+
 
 function updateEventPanelSummary(panelId){
   const panel = document.getElementById(panelId); if(!panel) return;
@@ -7575,6 +7786,76 @@ function confirmMapPrice() {
 }
 
 
+function initClientRequestsFloatingUi() {
+  const fab   = document.getElementById('clientRequestsFab');
+  const panel = document.getElementById('clientRequestsPanel');
+  const close = document.getElementById('clientReqCloseBtn');
+  const refreshBtn = document.getElementById('clientReqRefreshBtn');
+  const listEl = document.getElementById('clientReqList');
+
+  if (!fab || !panel) return;
+
+  // toggle popup
+  fab.addEventListener('click', () => {
+    panel.classList.toggle('hidden');
+    if (!panel.classList.contains('hidden')) {
+      refreshClientRequestsUI();
+    }
+  });
+
+  if (close) close.addEventListener('click', () => {
+    panel.classList.add('hidden');
+  });
+
+  if (refreshBtn) refreshBtn.addEventListener('click', () => {
+    refreshClientRequestsUI();
+  });
+
+  // convert → quotation
+  if (listEl) {
+    listEl.addEventListener('click', (e) => {
+      const btn = e.target.closest('.clientReqCreateBtn');
+      if (!btn) return;
+
+      const card = btn.closest('[data-payload-json]');
+      let payload = {};
+      try { payload = JSON.parse(card.dataset.payloadJson); } catch {}
+
+      createQuotationFromClientRequestPayload(payload);
+    });
+  }
+
+  // simple drag inside app
+  let dragging = false;
+  let offsetX = 0;
+  let offsetY = 0;
+
+  fab.addEventListener('mousedown', (e) => {
+    dragging = true;
+    offsetX = e.offsetX;
+    offsetY = e.offsetY;
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const appRect = document.getElementById('app').getBoundingClientRect();
+    let x = e.clientX - appRect.left - offsetX;
+    let y = e.clientY - appRect.top - offsetY;
+
+    // clamp inside
+    x = Math.max(0, Math.min(appRect.width - 52, x));
+    y = Math.max(0, Math.min(appRect.height - 52, y));
+
+    fab.style.left = x + 'px';
+    fab.style.top  = y + 'px';
+    fab.style.right = 'auto';
+    fab.style.bottom = 'auto';
+  });
+
+  document.addEventListener('mouseup', () => {
+    dragging = false;
+  });
+}
 
 
 /* -------------------------
@@ -7623,7 +7904,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
       });
     }
   }
+
+initClientRequestsFloatingUi();
+
 });
+
 
 if (document.getElementById('eventsContainer')?.children.length === 0)
   createEventPanel();
