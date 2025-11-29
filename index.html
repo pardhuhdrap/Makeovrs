@@ -7258,6 +7258,8 @@ async function onSignedIn(){
       document.getElementById('btnLoadDrive').style.display = 'inline-block';
       document.getElementById('gdrive-status').innerText =
         'Signed in as ' + (userProfile.email || '');
+      const userSettingsBtn = document.getElementById('btnUserProfileSettings');
+      if (userSettingsBtn) userSettingsBtn.style.display = 'block';  
 
       // remember we are signed in
       try { localStorage.setItem('gdrive_signed_in', '1'); } catch(e) {}
@@ -7311,6 +7313,8 @@ function signOutFromGoogle(){
     document.getElementById('btnLoadDrive').style.display = 'none';
     document.getElementById('gdrive-status').innerText = '';
     localStorage.removeItem('gdrive_signed_in');
+    const userSettingsBtn = document.getElementById('btnUserProfileSettings');
+    if (userSettingsBtn) userSettingsBtn.style.display = 'none';
 
     // 🔁 when logged out, go back to default icon
     updateProfileIcon();
