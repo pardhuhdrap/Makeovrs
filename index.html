@@ -7134,7 +7134,7 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
   try {
     const isSigned = localStorage.getItem('gdrive_signed_in') === '1';
     if (!isSigned) {
-      firstScreen = 'settings';
+      firstScreen = 'dashboard';
 
       // Gentle reminder so user doesn't forget to log in
       const msg =
