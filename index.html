@@ -1195,6 +1195,42 @@ function navigate(id, opts = {}) {
   const pushHistory = (opts.pushHistory !== false);
   const skipInit    = (opts.skipInit === true);
 
+   // 🔒 Guard: block protected screens when not signed in
+  try {
+    const signedIn = localStorage.getItem('gdrive_signed_in') === '1';
+    const protectedScreens = [
+      'dashboard',
+      'master',
+      'quotation',
+      'calendar',
+      'invoice',
+      'files',
+      'recycle',
+      'maps'
+    ];
+
+    if (!signedIn && protectedScreens.includes(id)) {
+      if (id !== 'settings') {
+        // show friendly message just once when they try to go elsewhere
+        if (typeof showMessage === 'function') {
+          showMessage(
+            'Please sign in with Google Drive first.\n\n' +
+            'After sign-in, Dashboard and all features will be unlocked.',
+            'Sign-in required'
+          );
+        } else {
+          alert('Please sign in with Google Drive first.');
+        }
+      }
+
+      // Force navigation to Settings instead
+      id = 'settings';
+    }
+  } catch (e) {
+    console.warn('Sign-in guard failed:', e);
+  }
+
+
   // Show only the requested screen
   screens.forEach(s => {
     const el = document.getElementById(s);
@@ -3019,7 +3055,7 @@ function renderFilesList() {
             isVoid
               ? '<span class="ml-2 text-xs font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 align-middle">VOID</span>'
               : isValidated
-              ? '<span class="ml-2 text-xs font-bold px-1.5 py-0.5 rounded bg-orange-100 text-green-700 align-middle">VALID</span>'
+              ? '<span class="ml-2 text-xs font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-900 align-middle">VALID</span>'
               : ''
           }
         </div>
