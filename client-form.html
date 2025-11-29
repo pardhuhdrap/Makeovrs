@@ -1,417 +1,484 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Client Event Request</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Client Event Request - Makeovrs</title>
 
-  <!-- Optional: include your existing CSS if it's in a separate file -->
-  <!-- Example: adjust file name/path to your project -->
-  <!-- <link rel="stylesheet" href="styles.css" /> -->
+  <!-- Tailwind & icons (same style base as your app) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
 
   <style>
-    /* Basic layout – you can remove this if your own CSS already styles these classes */
+    :root {
+      --app-color:#3b82f6;
+    }
+    .app-color-bg{background:var(--app-color);}
+    .app-color-text{color:var(--app-color);}
+    .app-color-border{border-color:var(--app-color);}
+
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #f3f4f6;
-      margin: 0;
-      padding: 16px;
+      background:#f3f4f6;
     }
 
-    .page-wrap {
-      max-width: 1100px;
-      margin: 0 auto;
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-      padding: 20px 24px 24px;
+    #app {
+      position: relative;
     }
 
-    h1 {
-      margin: 0 0 8px;
-      font-size: 1.6rem;
+    header {
+      position: relative;
+      z-index: 40;
     }
 
-    .subtitle {
-      color: #6b7280;
-      margin-bottom: 16px;
-      font-size: 0.9rem;
+    .screen-container{
+      position:relative;
+      background:#f8fafc;
+      padding:1rem;
+      overflow-y:auto;
     }
 
-    .form-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 12px;
+    .event-panel{
+      border:1px solid #e5e7eb;
+      border-radius:.75rem;
+      background:#fff;
+      overflow:hidden;
+    }
+    .event-panel .header{
+      background:#f9fafb;
+      padding:.75rem 1rem;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      cursor:pointer;
+    }
+    .event-panel .body{
+      padding:1rem;
+      border-top:1px solid #e5e7eb;
     }
 
-    .form-group {
-      flex: 1;
-      min-width: 200px;
-    }
-
-    label {
-      display: block;
-      font-size: 0.85rem;
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
-
-    input, textarea, select {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 8px 10px;
-      border-radius: 6px;
-      border: 1px solid #d1d5db;
-      font-size: 0.9rem;
-      outline: none;
-    }
-
-    textarea {
-      resize: vertical;
-      min-height: 60px;
-    }
-
-    input:focus, textarea:focus, select:focus {
-      border-color: #6366f1;
-      box-shadow: 0 0 0 1px rgba(99,102,241,0.25);
-    }
-
-    .section-title {
-      margin: 16px 0 8px;
-      font-size: 1.05rem;
-      font-weight: 600;
-    }
-
-    /* Table-like events layout similar to quotation items */
-    .events-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 6px;
-      font-size: 0.88rem;
-    }
-
-    .events-table thead {
-      background: #f9fafb;
-    }
-
-    .events-table th,
-    .events-table td {
-      border: 1px solid #e5e7eb;
-      padding: 6px 8px;
-      vertical-align: top;
-    }
-
-    .events-table input,
-    .events-table textarea {
-      width: 100%;
-      border: none;
-      padding: 4px 6px;
-      font-size: 0.85rem;
-      box-shadow: none;
-    }
-
-    .events-table input:focus,
-    .events-table textarea:focus {
-      outline: none;
-      box-shadow: inset 0 0 0 1px rgba(99,102,241,0.25);
-      border-radius: 4px;
-    }
-
-    .events-table textarea {
-      min-height: 40px;
-    }
-
-    .table-actions {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 8px;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .btn {
-      border: none;
-      border-radius: 999px;
-      padding: 8px 14px;
-      font-size: 0.9rem;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .btn-primary {
-      background: #4f46e5;
-      color: #fff;
-    }
-
-    .btn-secondary {
-      background: #e5e7eb;
-      color: #111827;
-    }
-
-    .btn-danger {
-      background: #ef4444;
-      color: #fff;
-    }
-
-    .btn:disabled {
-      opacity: 0.6;
-      cursor: default;
-    }
-
-    .footer-actions {
-      display: flex;
-      justify-content: flex-end;
-      margin-top: 20px;
-      gap: 10px;
-    }
-
-    .small-text {
-      font-size: 0.8rem;
-      color: #6b7280;
-    }
-
-    @media (max-width: 640px) {
-      .page-wrap {
-        padding: 16px;
-      }
-
-      .events-table th,
-      .events-table td {
-        font-size: 0.8rem;
-      }
+    .field-error-red {
+      border: 2px solid #ef4444 !important;
+      background: #fee2e2 !important;
     }
   </style>
 </head>
-<body>
-  <div class="page-wrap">
-    <h1>Client Event Request</h1>
-    <div class="subtitle">
-      Please fill your event details. We’ll use this to prepare a quotation for you.
+
+<body class="bg-gray-100 min-h-screen flex items-center justify-center font-sans">
+  <div id="app" class="w-full max-w-sm h-[92vh] bg-white rounded-3xl shadow-2xl overflow-hidden relative">
+
+    <!-- Header (similar style as main app) -->
+    <header class="p-4 flex items-center justify-center text-white app-color-bg shadow-md">
+      <h1 class="text-lg font-bold truncate text-center">
+        Client Event Request
+      </h1>
+    </header>
+
+    <!-- Content -->
+    <div class="screen-container h-[calc(100%-64px)]">
+      <form id="clientRequestForm" class="space-y-4">
+
+        <!-- Client details -->
+        <div class="bg-white rounded-xl shadow p-4">
+          <h2 class="text-lg font-semibold mb-2 app-color-text border-b pb-1">
+            Client Details
+          </h2>
+
+          <div class="mb-3">
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Client Name
+            </label>
+            <input
+              id="clientName"
+              type="text"
+              class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+              placeholder="Enter your name"
+              required
+            />
+          </div>
+
+          <div class="mb-3">
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Phone / WhatsApp
+            </label>
+            <input
+              id="clientContact"
+              type="text"
+              class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+              placeholder="Enter your mobile / WhatsApp"
+              required
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Email (optional)
+            </label>
+            <input
+              id="clientEmail"
+              type="email"
+              class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+              placeholder="Enter your email"
+            />
+          </div>
+        </div>
+
+        <!-- Events section -->
+        <div class="bg-white rounded-xl shadow p-4">
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="text-lg font-semibold app-color-text">
+              Event(s) for this client
+            </h2>
+            <button
+              id="addEventBtn"
+              type="button"
+              class="inline-flex items-center px-2 py-1 rounded-full border app-color-border text-xs app-color-text"
+            >
+              <i data-lucide="plus" class="w-3 h-3 mr-1"></i> Add Event
+            </button>
+          </div>
+          <p class="text-xs text-gray-500 mb-3">
+            Add all functions / events (e.g. Haldi, Mehendi, Reception…).
+          </p>
+
+          <div id="eventsContainer" class="space-y-3">
+            <!-- Event cards injected by JS -->
+          </div>
+        </div>
+
+        <!-- Submit -->
+        <div class="flex flex-col gap-2 mt-4">
+          <button
+            type="submit"
+            class="w-full py-3 rounded-xl text-white app-color-bg font-semibold text-sm shadow"
+          >
+            Submit Request
+          </button>
+          <button
+            type="button"
+            id="resetFormBtn"
+            class="w-full py-3 rounded-xl bg-gray-100 text-gray-700 text-sm border"
+          >
+            Clear &amp; Start Again
+          </button>
+
+          <p class="text-[11px] text-gray-400 mt-1 text-center">
+            This form only collects your event details – no pricing is shown here.
+          </p>
+        </div>
+      </form>
     </div>
-
-    <!-- 🔹 Client info – same fields as your quotation header, but no code/amount stuff -->
-    <div class="section-title">Client Details</div>
-    <div class="form-row">
-      <div class="form-group">
-        <label for="clientName">Client name</label>
-        <input id="clientName" type="text" placeholder="Your full name" />
-      </div>
-      <div class="form-group">
-        <label for="clientPhone">Phone / WhatsApp</label>
-        <input id="clientPhone" type="text" placeholder="Contact number" />
-      </div>
-    </div>
-
-    <div class="form-row">
-      <div class="form-group">
-        <label for="clientEmail">Email (optional)</label>
-        <input id="clientEmail" type="email" placeholder="you@example.com" />
-      </div>
-      <div class="form-group">
-        <label for="clientCity">City / Location</label>
-        <input id="clientCity" type="text" placeholder="City or area" />
-      </div>
-    </div>
-
-    <div class="form-row">
-      <div class="form-group">
-        <label for="clientNotes">Additional details (optional)</label>
-        <textarea id="clientNotes" placeholder="Share anything we should know about your event(s)..."></textarea>
-      </div>
-    </div>
-
-    <!-- 🔹 Event list – same idea as quotation items table, but NO price/amount columns -->
-    <div class="section-title">Event Details (like your quotation items, but no prices)</div>
-
-    <table class="events-table" id="eventsTable">
-      <thead>
-        <tr>
-          <th style="width:40px;">#</th>
-          <th style="width:140px;">Event Name</th>
-          <th style="width:120px;">Date</th>
-          <th style="width:100px;">Time</th>
-          <th style="width:180px;">Location</th>
-          <th>Package / Services / Notes</th>
-        </tr>
-      </thead>
-      <tbody id="eventsTbody">
-        <!-- JS will add rows here -->
-      </tbody>
-    </table>
-
-    <div class="table-actions">
-      <button type="button" class="btn btn-secondary" onclick="addEventRow()">
-        + Add Event
-      </button>
-      <div class="small-text">
-        You can add multiple events (Mehendi, Sangeet, Wedding, Reception, etc.).
-      </div>
-    </div>
-
-    <div class="footer-actions">
-      <button type="button" class="btn btn-secondary" onclick="resetForm()">
-        Clear
-      </button>
-      <button type="button" class="btn btn-primary" onclick="submitClientRequest()">
-        Submit Request
-      </button>
-    </div>
-
-    <div class="small-text" id="statusMsg" style="margin-top:8px;"></div>
   </div>
 
   <script>
-    // 🔁 This is like your quotation items logic, but WITHOUT any amount fields
-
-    function addEventRow(initialData) {
-      const tbody = document.getElementById('eventsTbody');
-      const rowIndex = tbody.children.length + 1;
-
-      const tr = document.createElement('tr');
-
-      tr.innerHTML = `
-        <td>${rowIndex}</td>
-        <td>
-          <input
-            type="text"
-            class="ev-name"
-            placeholder="e.g. Wedding, Sangeet"
-          />
-        </td>
-        <td>
-          <input type="date" class="ev-date" />
-        </td>
-        <td>
-          <input type="time" class="ev-time" />
-        </td>
-        <td>
-          <input
-            type="text"
-            class="ev-location"
-            placeholder="Venue / area"
-          />
-        </td>
-        <td>
-          <textarea
-            class="ev-notes"
-            placeholder="Services needed, makeup type, number of people, etc."
-          ></textarea>
-        </td>
-      `;
-
-      tbody.appendChild(tr);
-
-      // If we want to prefill (optional)
-      if (initialData) {
-        tr.querySelector('.ev-name').value = initialData.name || '';
-        tr.querySelector('.ev-date').value = initialData.date || '';
-        tr.querySelector('.ev-time').value = initialData.time || '';
-        tr.querySelector('.ev-location').value = initialData.location || '';
-        tr.querySelector('.ev-notes').value = initialData.notes || '';
+    // Simple helper for icons
+    function createLucide() {
+      if (window.lucide && typeof window.lucide.createIcons === "function") {
+        window.lucide.createIcons();
       }
     }
 
-    function resetForm() {
-      document.getElementById('clientName').value = '';
-      document.getElementById('clientPhone').value = '';
-      document.getElementById('clientEmail').value = '';
-      document.getElementById('clientCity').value = '';
-      document.getElementById('clientNotes').value = '';
-      document.getElementById('eventsTbody').innerHTML = '';
-      addEventRow();
-      setStatus('');
+    let eventCounter = 0;
+
+    function createEventPanel() {
+      eventCounter++;
+      const panel = document.createElement("div");
+      panel.className = "event-panel";
+      panel.innerHTML = `
+        <div class="header">
+          <div>
+            <div class="text-xs font-semibold text-gray-500">
+              Event <span class="event-number">${eventCounter}</span>
+            </div>
+            <div class="text-xs text-gray-400 event-summary">
+              Not updated yet
+            </div>
+          </div>
+          <button
+            type="button"
+            class="text-xs text-red-500 hover:text-red-600 remove-event-btn"
+          >
+            Remove
+          </button>
+        </div>
+        <div class="body space-y-3">
+          <!-- Event name -->
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">
+              Event Name
+            </label>
+            <input
+              type="text"
+              class="event-name block w-full border-gray-300 rounded p-2 text-sm"
+              placeholder="e.g. Haldi, Reception"
+            />
+          </div>
+
+          <!-- Date & time -->
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">
+              Event Date &amp; Time
+            </label>
+            <div class="flex items-center gap-2">
+              <input
+                type="date"
+                class="event-date border-gray-300 rounded p-2 text-sm flex-1"
+              />
+            </div>
+            <div class="mt-2 flex items-center gap-2">
+              <input
+                type="number"
+                min="1" max="12"
+                value="6"
+                class="event-hour border-gray-300 rounded p-2 text-sm text-center w-16"
+              />
+              <span class="text-sm text-gray-500">:</span>
+              <input
+                type="number"
+                min="0" max="59"
+                value="30"
+                class="event-minute border-gray-300 rounded p-2 text-sm text-center w-16"
+              />
+              <select class="event-period border-gray-300 rounded p-2 text-sm w-20">
+                <option>AM</option>
+                <option selected>PM</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Location -->
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">
+              Event Location
+            </label>
+            <input
+              type="text"
+              class="event-location block w-full border-gray-300 rounded p-2 text-sm"
+              placeholder="Venue / Address"
+            />
+          </div>
+
+          <!-- Package idea (no price) -->
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">
+              Package / Theme / Idea
+            </label>
+            <input
+              type="text"
+              class="event-packageIdea block w-full border-gray-300 rounded p-2 text-sm"
+              placeholder="e.g. Candid + Traditional, Cinematic video, etc."
+            />
+          </div>
+
+          <!-- Add-ons / extra needs (no price) -->
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">
+              Extra Requirements / Add-ons
+            </label>
+            <textarea
+              rows="3"
+              class="event-addons block w-full border-gray-300 rounded p-2 text-sm"
+              placeholder="e.g. Drone, live screen, extra albums…"
+            ></textarea>
+          </div>
+
+          <!-- Notes -->
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">
+              Notes
+            </label>
+            <textarea
+              rows="2"
+              class="event-notes block w-full border-gray-300 rounded p-2 text-sm"
+              placeholder="Any additional information"
+            ></textarea>
+          </div>
+
+          <div class="pt-1 flex justify-end">
+            <button
+              type="button"
+              class="update-btn text-xs px-3 py-1 rounded-full border app-color-border app-color-text"
+            >
+              Update event summary
+            </button>
+          </div>
+        </div>
+      `;
+
+      // Remove event
+      panel.querySelector(".remove-event-btn").addEventListener("click", () => {
+        const container = document.getElementById("eventsContainer");
+        container.removeChild(panel);
+        renumberEvents();
+      });
+
+      // Update header summary
+      panel.querySelector(".update-btn").addEventListener("click", () => {
+        updateEventSummary(panel);
+      });
+
+      return panel;
     }
 
-    function setStatus(msg, isError) {
-      const el = document.getElementById('statusMsg');
-      el.textContent = msg || '';
-      el.style.color = isError ? '#b91c1c' : '#065f46';
+    function renumberEvents() {
+      const panels = document.querySelectorAll("#eventsContainer .event-panel");
+      panels.forEach((panel, idx) => {
+        const numSpan = panel.querySelector(".event-number");
+        if (numSpan) numSpan.textContent = idx + 1;
+      });
+      eventCounter = panels.length;
     }
 
-    function collectClientRequestData() {
-      const client = {
-        name: document.getElementById('clientName').value.trim(),
-        phone: document.getElementById('clientPhone').value.trim(),
-        email: document.getElementById('clientEmail').value.trim(),
-        city: document.getElementById('clientCity').value.trim(),
-        notes: document.getElementById('clientNotes').value.trim(),
-      };
+    function updateEventSummary(panel) {
+      const name  = (panel.querySelector(".event-name")?.value || "").trim();
+      const date  = panel.querySelector(".event-date")?.value || "";
+      const hour  = panel.querySelector(".event-hour")?.value || "";
+      const min   = panel.querySelector(".event-minute")?.value || "";
+      const per   = panel.querySelector(".event-period")?.value || "";
+
+      const summaryEl = panel.querySelector(".event-summary");
+      const parts = [];
+
+      if (name) parts.push(name);
+      if (date) parts.push(date);
+      if (hour || min) {
+        const t = `${hour || "?"}:${(min || "00").toString().padStart(2,"0")} ${per || ""}`;
+        parts.push(t.trim());
+      }
+
+      summaryEl.textContent = parts.length
+        ? parts.join(" • ")
+        : "Not updated yet";
+    }
+
+    function collectFormData() {
+      const clientName    = (document.getElementById("clientName")?.value || "").trim();
+      const clientContact = (document.getElementById("clientContact")?.value || "").trim();
+      const clientEmail   = (document.getElementById("clientEmail")?.value || "").trim();
 
       const events = [];
-      document.querySelectorAll('#eventsTbody tr').forEach((row) => {
-        const name = row.querySelector('.ev-name').value.trim();
-        const date = row.querySelector('.ev-date').value;
-        const time = row.querySelector('.ev-time').value;
-        const location = row.querySelector('.ev-location').value.trim();
-        const notes = row.querySelector('.ev-notes').value.trim();
+      const panels = document.querySelectorAll("#eventsContainer .event-panel");
 
-        // Skip completely empty rows
-        if (!name && !date && !time && !location && !notes) return;
+      panels.forEach(panel => {
+        const name    = (panel.querySelector(".event-name")?.value || "").trim();
+        const date    = panel.querySelector(".event-date")?.value || "";
+        const hour    = (panel.querySelector(".event-hour")?.value || "").trim();
+        const minute  = (panel.querySelector(".event-minute")?.value || "").trim();
+        const period  = (panel.querySelector(".event-period")?.value || "").trim();
+        const loc     = (panel.querySelector(".event-location")?.value || "").trim();
+        const pkgIdea = (panel.querySelector(".event-packageIdea")?.value || "").trim();
+        const addons  = (panel.querySelector(".event-addons")?.value || "").trim();
+        const notes   = (panel.querySelector(".event-notes")?.value || "").trim();
 
-        events.push({ name, date, time, location, notes });
+        if (!name && !date && !loc && !pkgIdea && !addons && !notes) {
+          // completely empty panel → skip
+          return;
+        }
+
+        events.push({
+          name,
+          date,
+          time: `${hour}:${minute} ${period}`.trim(),
+          location: loc,
+          packageIdea: pkgIdea,
+          addons,
+          notes,
+        });
       });
 
       return {
-        client,
+        clientName,
+        clientContact,
+        clientEmail,
         events,
-        submittedAt: new Date().toISOString(),
-        source: 'client-form', // so you know it came from here
       };
     }
 
-    function validateClientRequest(payload) {
-      if (!payload.client.name) {
-        setStatus('Please enter your name.', true);
-        return false;
+    function validateForm(payload) {
+      let ok = true;
+
+      // reset errors
+      document
+        .querySelectorAll(".field-error-red")
+        .forEach(el => el.classList.remove("field-error-red"));
+
+      if (!payload.clientName) {
+        ok = false;
+        document.getElementById("clientName")?.classList.add("field-error-red");
       }
-      if (!payload.client.phone) {
-        setStatus('Please enter your phone / WhatsApp number.', true);
-        return false;
+      if (!payload.clientContact) {
+        ok = false;
+        document.getElementById("clientContact")?.classList.add("field-error-red");
       }
+
       if (!payload.events.length) {
-        setStatus('Please add at least one event.', true);
+        alert("Please add at least one event.");
         return false;
       }
-      setStatus('');
-      return true;
+
+      payload.events.forEach((ev, idx) => {
+        const panel = document.querySelectorAll("#eventsContainer .event-panel")[idx];
+        if (!panel) return;
+
+        if (!ev.name) {
+          ok = false;
+          panel.querySelector(".event-name")?.classList.add("field-error-red");
+        }
+        if (!ev.date) {
+          ok = false;
+          panel.querySelector(".event-date")?.classList.add("field-error-red");
+        }
+      });
+
+      if (!ok) {
+        alert("Please fill the highlighted fields.");
+      }
+      return ok;
     }
 
-    function submitClientRequest() {
-      const payload = collectClientRequestData();
-      if (!validateClientRequest(payload)) return;
+    document.addEventListener("DOMContentLoaded", () => {
+      const eventsContainer = document.getElementById("eventsContainer");
+      const addEventBtn     = document.getElementById("addEventBtn");
+      const form            = document.getElementById("clientRequestForm");
+      const resetBtn        = document.getElementById("resetFormBtn");
 
-      // 🔸 For now we just log. Later this will POST to Apps Script / backend.
-      console.log('CLIENT REQUEST PAYLOAD:', payload);
+      // initial one event
+      eventsContainer.appendChild(createEventPanel());
+      createLucide();
 
-      // 👉 When you’re ready, replace this with a fetch() to your Apps Script URL.
-      // Example:
-      //
-      // fetch('YOUR_APPS_SCRIPT_WEBAPP_URL', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(payload),
-      // })
-      // .then(r => r.json())
-      // .then(res => {
-      //   setStatus('Thank you! Your request was submitted successfully.');
-      //   resetForm();
-      // })
-      // .catch(err => {
-      //   console.error(err);
-      //   setStatus('Something went wrong. Please try again.', true);
-      // });
+      addEventBtn.addEventListener("click", () => {
+        eventsContainer.appendChild(createEventPanel());
+        renumberEvents();
+        createLucide();
+      });
 
-      // Temporary success for now:
-      setStatus('Thank you! Your request was captured (check console).');
-      // resetForm(); // uncomment if you want to clear immediately
-    }
+      resetBtn.addEventListener("click", () => {
+        form.reset();
+        eventsContainer.innerHTML = "";
+        eventCounter = 0;
+        eventsContainer.appendChild(createEventPanel());
+        createLucide();
+      });
 
-    // Add one empty event row on load
-    addEventRow();
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const payload = collectFormData();
+
+        if (!validateForm(payload)) return;
+
+        // 🔴 IMPORTANT:
+        // Here is where you will later send to Google Apps Script / backend.
+        // For now we just log it.
+        console.log("Client request payload:", payload);
+
+        alert("Thank you! Your details have been submitted.");
+
+        form.reset();
+        eventsContainer.innerHTML = "";
+        eventCounter = 0;
+        eventsContainer.appendChild(createEventPanel());
+        createLucide();
+      });
+    });
   </script>
 </body>
 </html>
