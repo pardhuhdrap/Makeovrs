@@ -112,13 +112,23 @@
 
         <!-- Events section -->
         <div class="bg-white rounded-xl shadow p-4">
-          <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center justify-end mb-2">
             <h2 class="text-lg font-semibold app-color-text">
               Event(s) for this client
             </h2>
+
+            <!-- 🔹 Global Add Event button (outside event boxes) -->
+            <button
+              type="button"
+              id="addEventBtn"
+              class="text-xs px-3 py-1 rounded-full border bg-gray-200 text-gray-400 cursor-not-allowed"
+              disabled
+            >
+              + Add Event
+            </button>
           </div>
           <p class="text-xs text-gray-500 mb-3">
-            Add all functions / events (e.g. Haldi, Mehendi, Reception…).
+            Add all functions / events (e.g. Haldi, Marriage, Reception…).
           </p>
 
           <div id="eventsContainer" class="space-y-3">
@@ -160,19 +170,18 @@
 
     let eventCounter = 0;
 
-    function updateAddButtonsVisibility() {
-      const panels = Array.from(
-        document.querySelectorAll("#eventsContainer .event-panel")
-      );
-      panels.forEach(panel => {
-        const btn = panel.querySelector(".add-event-btn");
-        if (!btn) return;
-        btn.classList.add("hidden");
-      });
-      if (panels.length) {
-        const last = panels[panels.length - 1];
-        const btn = last.querySelector(".add-event-btn");
-        if (btn) btn.classList.remove("hidden");
+    // 🔹 Enable / disable global Add Event button
+    function setAddEventEnabled(enabled) {
+      const btn = document.getElementById("addEventBtn");
+      if (!btn) return;
+      btn.disabled = !enabled;
+
+      if (enabled) {
+        btn.classList.remove("bg-gray-200","text-gray-400","cursor-not-allowed");
+        btn.classList.add("app-color-border","app-color-text","bg-white","cursor-pointer");
+      } else {
+        btn.classList.add("bg-gray-200","text-gray-400","cursor-not-allowed");
+        btn.classList.remove("app-color-border","app-color-text","bg-white","cursor-pointer");
       }
     }
 
@@ -185,7 +194,6 @@
         if (numSpan) numSpan.textContent = idx + 1;
       });
       eventCounter = panels.length;
-      updateAddButtonsVisibility();
     }
 
     function updateEventSummary(panel) {
@@ -327,7 +335,7 @@
             ></textarea>
           </div>
 
-          <div class="pt-1 flex justify-between items-center gap-2">
+          <div class="pt-1 flex justify-start items-center gap-2">
             <button
               type="button"
               class="update-btn text-xs px-3 py-1 rounded-full border app-color-border app-color-text"
@@ -335,19 +343,13 @@
               Update event summary
             </button>
           </div>
-         </div>
+        </div>
       `;
-      <button
-              type="button"
-              class="add-event-btn text-xs px-3 py-1 rounded-full border app-color-border app-color-text hidden"
-            >
-              + Add Event
-            </button>
 
       const header = panel.querySelector(".header");
       const body   = panel.querySelector(".body");
 
-      // Header click → collapse/expand, like quotation screen
+      // Header click → collapse/expand (like quotation screen)
       header.addEventListener("click", (e) => {
         // ignore clicks on remove button (so it doesn't toggle)
         if (e.target.closest(".remove-event-btn")) return;
@@ -380,40 +382,11 @@
         renumberEvents();
       });
 
-      // Update summary
+      // Update summary → also enable Add Event button
       panel.querySelector(".update-btn").addEventListener("click", (ev) => {
         ev.stopPropagation();
         updateEventSummary(panel);
-      });
-
-      // Add Event button at bottom of the current event
-      panel.querySelector(".add-event-btn").addEventListener("click", (ev) => {
-        ev.stopPropagation();
-
-        const container = document.getElementById("eventsContainer");
-        if (!container) return;
-
-        // Collapse all existing
-        container
-          .querySelectorAll(".event-panel .body")
-          .forEach(b => b.classList.add("hidden"));
-
-        // Create and append new panel (expanded)
-        const newPanel = createEventPanel(true);
-        container.appendChild(newPanel);
-
-        renumberEvents();
-        createLucide();
-
-        // Scroll inside this screen like your quotation logic
-        const scrollContainer = document.querySelector(".screen-container");
-        if (scrollContainer) {
-          const offsetTop = newPanel.offsetTop - 16; // small margin
-          scrollContainer.scrollTo({
-            top: offsetTop < 0 ? 0 : offsetTop,
-            behavior: "smooth"
-          });
-        }
+        setAddEventEnabled(true);
       });
 
       return panel;
@@ -510,6 +483,7 @@
       const eventsContainer = document.getElementById("eventsContainer");
       const form            = document.getElementById("clientRequestForm");
       const resetBtn        = document.getElementById("resetFormBtn");
+      const addEventBtn     = document.getElementById("addEventBtn");
 
       // initial one event (expanded)
       if (eventsContainer) {
@@ -518,6 +492,38 @@
         renumberEvents();
       }
       createLucide();
+      setAddEventEnabled(false);
+
+      // Global Add Event button handler
+      addEventBtn.addEventListener("click", () => {
+        if (addEventBtn.disabled) return;
+
+        const container = document.getElementById("eventsContainer");
+        if (!container) return;
+
+        // Collapse all existing
+        container
+          .querySelectorAll(".event-panel .body")
+          .forEach(b => b.classList.add("hidden"));
+
+        // Create and append new panel (expanded)
+        const newPanel = createEventPanel(true);
+        container.appendChild(newPanel);
+
+        renumberEvents();
+        createLucide();
+        setAddEventEnabled(false); // disable again until new summary updated
+
+        // Scroll to new panel
+        const scrollContainer = document.querySelector(".screen-container");
+        if (scrollContainer) {
+          const offsetTop = newPanel.offsetTop - 16; // small margin
+          scrollContainer.scrollTo({
+            top: offsetTop < 0 ? 0 : offsetTop,
+            behavior: "smooth"
+          });
+        }
+      });
 
       resetBtn.addEventListener("click", () => {
         form.reset();
@@ -527,6 +533,7 @@
           eventsContainer.appendChild(first);
           renumberEvents();
           createLucide();
+          setAddEventEnabled(false);
         }
       });
 
@@ -548,6 +555,7 @@
           eventsContainer.appendChild(first);
           renumberEvents();
           createLucide();
+          setAddEventEnabled(false);
         }
       });
     });
