@@ -112,12 +112,18 @@
 
         <!-- Events section -->
         <div class="bg-white rounded-xl shadow p-4">
-          <div class="flex items-center justify-end mb-2">
+          <div class="flex items-center justify-between mb-2">
             <h2 class="text-lg font-semibold app-color-text">
               Event(s) for this client
             </h2>
-
-            <!-- 🔹 Global Add Event button (outside event boxes) -->
+          </div>
+          <p class="text-xs text-gray-500 mb-3">
+            Add all functions / events (e.g. Haldi, Marriage, Reception…).
+          </p>
+          <div id="eventsContainer" class="space-y-3">
+            <!-- Event cards injected by JS -->
+          </div>
+          <!-- 🔹 Global Add Event button (outside event boxes) -->
             <button
               type="button"
               id="addEventBtn"
@@ -126,14 +132,6 @@
             >
               + Add Event
             </button>
-          </div>
-          <p class="text-xs text-gray-500 mb-3">
-            Add all functions / events (e.g. Haldi, Marriage, Reception…).
-          </p>
-
-          <div id="eventsContainer" class="space-y-3">
-            <!-- Event cards injected by JS -->
-          </div>
         </div>
 
         <!-- Submit -->
