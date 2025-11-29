@@ -191,10 +191,11 @@ header {
   <div class="flex flex-col px-2 py-2 gap-1">
     <!-- NEW: open your existing Settings screen from here -->
     <button
+  id="btnUserProfileSettings"
   type="button"
-  style="display:none;"
   onclick="navigate('settings'); document.getElementById('profileMenu')?.classList.add('hidden');"
   class="w-full text-left px-2 py-1 rounded hover:bg-gray-100"
+  style="display:none;"
 >
   User Profile &amp; Settings
 </button>
@@ -3018,7 +3019,7 @@ function renderFilesList() {
             isVoid
               ? '<span class="ml-2 text-xs font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 align-middle">VOID</span>'
               : isValidated
-              ? '<span class="ml-2 text-xs font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 align-middle">VALID</span>'
+              ? '<span class="ml-2 text-xs font-bold px-1.5 py-0.5 rounded bg-orange-100 text-green-700 align-middle">VALID</span>'
               : ''
           }
         </div>
@@ -7258,6 +7259,7 @@ async function onSignedIn(){
       document.getElementById('btnLoadDrive').style.display = 'inline-block';
       document.getElementById('gdrive-status').innerText =
         'Signed in as ' + (userProfile.email || '');
+
       const userSettingsBtn = document.getElementById('btnUserProfileSettings');
       if (userSettingsBtn) userSettingsBtn.style.display = 'block';  
 
