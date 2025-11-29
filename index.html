@@ -7727,7 +7727,7 @@ document.getElementById("removeInvoiceLayoutBtn")?.addEventListener("click", () 
     });
   }
 
-  const quoteBulkDelete = document.getElementById('quoteBulkDelete');
+    const quoteBulkDelete = document.getElementById('quoteBulkDelete');
   if (quoteBulkDelete) {
     quoteBulkDelete.addEventListener('click', () => {
       const ids = getCheckedQuoteIds();
@@ -7737,21 +7737,43 @@ document.getElementById("removeInvoiceLayoutBtn")?.addEventListener("click", () 
       }
       if (!confirm('Delete selected quotations? This cannot be undone.')) return;
 
-      const list = loadFromLS(SAVED_QUOTATIONS_KEY, []);
+      const list        = loadFromLS(SAVED_QUOTATIONS_KEY, []);
+      const recycleUser = loadFromLS(RECYCLE_USER_KEY, []);
+      const nowIso      = new Date().toISOString();
+
+      // ⭐ Move deleted quotations into Recycle Bin → User Removed
+      list.forEach(q => {
+        if (ids.includes(String(q.id))) {
+          recycleUser.push({
+            type: 'quotation',
+            kind: 'quotation',
+            label: q.clientName || 'Quotation',
+            clientName: q.clientName,
+            clientContact: q.clientContact,
+            quotationId: q.id,
+            removedAt: nowIso,
+            reason: 'Deleted by user from Files → Quotations'
+          });
+        }
+      });
+      saveToLS(RECYCLE_USER_KEY, recycleUser);
+
+      // Now actually remove them from main storage
       const remaining = list.filter(q => !ids.includes(String(q.id)));
       saveToLS(SAVED_QUOTATIONS_KEY, remaining);
       renderFilesList();
 
       // 🔁 auto-save to Drive after delete
-    try {
-      if (typeof saveToDrive === 'function' && accessToken) {
-        saveToDrive();
+      try {
+        if (typeof saveToDrive === 'function' && accessToken) {
+          saveToDrive();
+        }
+      } catch (e) {
+        console.warn('Auto-save to Drive after quotation delete failed:', e);
       }
-    } catch (e) {
-      console.warn('Auto-save to Drive after quotation delete failed:', e);
-    }
     });
   }
+
 
   // ===== FILES → Invoices bulk actions =====
   const invoiceSelectAll = document.getElementById('invoiceSelectAll');
@@ -7786,7 +7808,7 @@ document.getElementById("removeInvoiceLayoutBtn")?.addEventListener("click", () 
     });
   }
 
-  const invoiceBulkDelete = document.getElementById('invoiceBulkDelete');
+    const invoiceBulkDelete = document.getElementById('invoiceBulkDelete');
   if (invoiceBulkDelete) {
     invoiceBulkDelete.addEventListener('click', () => {
       const ids = getCheckedInvoiceIds();
@@ -7796,7 +7818,30 @@ document.getElementById("removeInvoiceLayoutBtn")?.addEventListener("click", () 
       }
       if (!confirm('Delete selected invoices? This cannot be undone.')) return;
 
-      const list = loadFromLS(SAVED_INVOICES_KEY, []);
+      const list        = loadFromLS(SAVED_INVOICES_KEY, []);
+      const recycleUser = loadFromLS(RECYCLE_USER_KEY, []);
+      const nowIso      = new Date().toISOString();
+
+      // ⭐ Move deleted invoices into Recycle Bin → User Removed
+      list.forEach(inv => {
+        const idForInvoice = inv.invoiceId || inv.id;
+        if (ids.includes(String(idForInvoice))) {
+          recycleUser.push({
+            type: 'invoice',
+            kind: 'invoice',
+            label: inv.clientName || 'Invoice',
+            clientName: inv.clientName,
+            clientContact: inv.clientContact,
+            invoiceId: idForInvoice,
+            quotationId: inv.quotationId,
+            removedAt: nowIso,
+            reason: 'Deleted by user from Files → Invoices'
+          });
+        }
+      });
+      saveToLS(RECYCLE_USER_KEY, recycleUser);
+
+      // Now actually remove them from main storage
       const remaining = list.filter(inv => {
         const idForInvoice = inv.invoiceId || inv.id;
         return !ids.includes(String(idForInvoice));
@@ -7805,15 +7850,16 @@ document.getElementById("removeInvoiceLayoutBtn")?.addEventListener("click", () 
       renderFilesList();
 
       // 🔁 auto-save to Drive after delete
-    try {
-      if (typeof saveToDrive === 'function' && accessToken) {
-        saveToDrive();
+      try {
+        if (typeof saveToDrive === 'function' && accessToken) {
+          saveToDrive();
+        }
+      } catch (e) {
+        console.warn('Auto-save to Drive after invoice delete failed:', e);
       }
-    } catch (e) {
-      console.warn('Auto-save to Drive after invoice delete failed:', e);
-    }
     });
   }
+
 
 
     // Invoice add event behavior (reuse event panel and move, with dirty + scroll)
