@@ -1,1 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Client Event Details Form</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .section { margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 8px; }
+    .event-block { border: 1px solid #aaa; padding: 15px; margin-top: 10px; border-radius: 6px; }
+    button { padding: 10px 15px; margin-top: 10px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h2>Client Event Details Form</h2>
 
+  <div class="section">
+    <h3>Client Details</h3>
+    <label>Name</label><br />
+    <input id="clientName" type="text" style="width:100%" /><br /><br />
+
+    <label>Phone / WhatsApp</label><br />
+    <input id="clientPhone" type="text" style="width:100%" /><br /><br />
+
+    <label>Email (optional)</label><br />
+    <input id="clientEmail" type="text" style="width:100%" />
+  </div>
+
+  <div class="section" id="eventsSection">
+    <h3>Event Details</h3>
+    <div id="eventsContainer"></div>
+    <button onclick="addEvent()">+ Add Another Event</button>
+  </div>
+
+  <button onclick="submitForm()" style="background:#4CAF50; color:white;">Submit</button>
+
+  <script>
+    let eventCounter = 0;
+
+    function addEvent() {
+      eventCounter++;
+      const container = document.getElementById('eventsContainer');
+
+      const block = document.createElement('div');
+      block.className = 'event-block';
+      block.id = `event_${eventCounter}`;
+
+      block.innerHTML = `
+        <label>Event Name</label><br />
+        <input type="text" class="ev-name" style="width:100%" /><br /><br />
+
+        <label>Date</label><br />
+        <input type="date" class="ev-date" style="width:100%" /><br /><br />
+
+        <label>Time</label><br />
+        <input type="time" class="ev-time" style="width:100%" /><br /><br />
+
+        <label>Location</label><br />
+        <input type="text" class="ev-location" style="width:100%" /><br /><br />
+
+        <label>Notes / Requirements</label><br />
+        <textarea class="ev-notes" style="width:100%; height:70px;"></textarea><br /><br />
+
+        <button onclick="removeEvent('${block.id}')" style="background:#d9534f; color:white;">Remove Event</button>
+      `;
+
+      container.appendChild(block);
+    }
+
+    function removeEvent(id) {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    }
+
+    async function submitForm() {
+      const name = document.getElementById('clientName').value.trim();
+      const phone = document.getElementById('clientPhone').value.trim();
+      const email = document.getElementById('clientEmail').value.trim();
+
+      const events = [];
+      document.querySelectorAll('.event-block').forEach(block => {
+        events.push({
+          name: block.querySelector('.ev-name').value,
+          date: block.querySelector('.ev-date').value,
+          time: block.querySelector('.ev-time').value,
+          location: block.querySelector('.ev-location').value,
+          notes: block.querySelector('.ev-notes').value,
+        });
+      });
+
+      const payload = { client: { name, phone, email }, events, submittedAt: Date.now() };
+
+      alert("Form captured successfully! Now connect this to your Apps Script endpoint.");
+      console.log(payload);
+    }
+
+    // Add the first event by default
+    addEvent();
+  </script>
+</body>
+</html>
