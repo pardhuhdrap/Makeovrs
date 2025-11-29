@@ -1210,7 +1210,7 @@ function navigate(id, opts = {}) {
     ];
 
     if (!signedIn && protectedScreens.includes(id)) {
-      if (id !== 'settings') {
+      if (id !== 'dashboard') {
         // show friendly message just once when they try to go elsewhere
         if (typeof showMessage === 'function') {
           showMessage(
