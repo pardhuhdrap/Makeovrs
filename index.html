@@ -831,140 +831,156 @@ header {
 </div>
     
 <!-- ================= REVENUE SCREEN ================= -->
+<!-- ================= REVENUE SCREEN ================= -->
 <div id="revenue" class="screen-container translate-x-full">
   <h2 class="text-xl font-bold mb-4">Revenue</h2>
 
   <div id="revenueContent" class="space-y-4">
 
-  <!-- 🔍 Filter bar -->
-  <div class="flex flex-wrap items-center gap-3 mb-2">
-    <label for="revenueFilterPreset" class="text-sm font-medium text-gray-700">
-      Filter by:
-    </label>
+    <!-- 🔍 Filter bar -->
+    <div class="flex flex-wrap items-center gap-3 mb-2">
+      <label for="revenueFilterPreset" class="text-sm font-medium text-gray-700">
+        Filter by:
+      </label>
 
-    <select
-      id="revenueFilterPreset"
-      class="border border-gray-300 rounded px-2 py-1 text-sm"
-    >
-      <option value="this_week">This week</option>
-      <option value="last_week">Last week</option>
-      <option value="this_month">This month</option>
-      <option value="last_month">Last month</option>
-      <option value="this_year">This year</option>
-      <option value="last_year">Last year</option>
-      <option value="range">Date range</option>
-    </select>
+      <select
+        id="revenueFilterPreset"
+        class="border border-gray-300 rounded px-2 py-1 text-sm"
+      >
+        <option value="this_week">This week</option>
+        <option value="last_week">Last week</option>
+        <option value="this_month">This month</option>
+        <option value="last_month">Last month</option>
+        <option value="this_year">This year</option>
+        <option value="last_year">Last year</option>
+        <option value="range">Date range</option>
+      </select>
 
-    <!-- Date range inputs (enabled only when "Date range" is selected) -->
-    <div class="flex items-center gap-2">
-      <label for="revenueFromDate" class="text-xs text-gray-600">From</label>
-      <input
-        type="date"
-        id="revenueFromDate"
-        class="border border-gray-300 rounded px-2 py-1 text-xs"
-        disabled
-      />
-      <label for="revenueToDate" class="text-xs text-gray-600">To</label>
-      <input
-        type="date"
-        id="revenueToDate"
-        class="border border-gray-300 rounded px-2 py-1 text-xs"
-        disabled
-      />
+      <!-- Date range inputs (enabled only when "Date range" is selected) -->
+      <div class="flex items-center gap-2">
+        <label for="revenueFromDate" class="text-xs text-gray-600">From</label>
+        <input
+          type="date"
+          id="revenueFromDate"
+          class="border border-gray-300 rounded px-2 py-1 text-xs"
+          disabled
+        />
+        <label for="revenueToDate" class="text-xs text-gray-600">To</label>
+        <input
+          type="date"
+          id="revenueToDate"
+          class="border border-gray-300 rounded px-2 py-1 text-xs"
+          disabled
+        />
+      </div>
+    </div>
+
+    <!-- 📊 Chart + Legend + Table -->
+    <div class="flex flex-col lg:flex-row gap-4">
+
+      <!-- Left: Pie chart + legend -->
+      <div class="bg-white rounded-xl shadow p-4 flex-1 flex flex-col items-center">
+        <div class="w-52 h-52 sm:w-64 sm:h-64">
+          <canvas id="revenuePieCanvas" width="260" height="260"></canvas>
+        </div>
+
+        <!-- Legend with checkboxes -->
+        <div id="revenueLegend" class="mt-4 w-full space-y-2 text-sm">
+          <div class="font-semibold text-gray-700 mb-1">Legend</div>
+
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              class="revenueLegendChk h-4 w-4"
+              data-key="enquiry"
+              checked
+            />
+            <span class="inline-block w-3 h-3 rounded" style="background:#000000;"></span>
+            <span>Enquiry - which are not booked</span>
+          </label>
+
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              class="revenueLegendChk h-4 w-4"
+              data-key="booked"
+              checked
+            />
+            <span class="inline-block w-3 h-3 rounded" style="background:#2563eb;"></span>
+            <span>Booked - which are booked</span>
+          </label>
+
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              class="revenueLegendChk h-4 w-4"
+              data-key="partial"
+              checked
+            />
+            <span class="inline-block w-3 h-3 rounded" style="background:#f97316;"></span>
+            <span>Partial paid - which are partially paid</span>
+          </label>
+
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              class="revenueLegendChk h-4 w-4"
+              data-key="paid"
+              checked
+            />
+            <span class="inline-block w-3 h-3 rounded" style="background:#22c55e;"></span>
+            <span>Paid - which are marked as paid</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Right: Dynamic table -->
+      <div class="bg-white rounded-xl shadow p-4 flex-1">
+        <div class="flex items-center justify-between mb-2 text-sm">
+          <div class="font-semibold text-gray-700">Revenue breakdown</div>
+          <div id="revenuePeriodLabel" class="text-xs text-gray-500"></div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-xs border border-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="border border-gray-200 px-2 py-1 text-left">Status</th>
+                <th class="border border-gray-200 px-2 py-1 text-right"># Events</th>
+                <th class="border border-gray-200 px-2 py-1 text-right">Amount (₹)</th>
+              </tr>
+            </thead>
+            <tbody id="revenueTableBody">
+              <!-- Rows injected by JS -->
+            </tbody>
+            <tfoot class="bg-gray-50">
+              <tr>
+                <td class="border border-gray-200 px-2 py-1 font-semibold">Total</td>
+                <td class="border border-gray-200 px-2 py-1 text-right font-semibold">–</td>
+                <td
+                  class="border border-gray-200 px-2 py-1 text-right font-semibold"
+                  id="revenueTableTotal"
+                >
+                  –
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <p
+          id="revenueEmptyMessage"
+          class="mt-2 text-[11px] text-gray-500"
+        >
+          Table reflects the same data shown in the pie chart for the selected date period.
+        </p>
+      </div>
+
     </div>
   </div>
-
-  <!-- Placeholder for future revenue stats / table / chart -->
-  <div class="border border-dashed border-gray-300 rounded p-4 text-sm text-gray-500">
-    Revenue summary and analytics will appear here based on the selected period.
-  </div>
 </div>
-</div>
+<!-- END REVENUE SCREEN -->
 
-<!-- RECYCLE BIN -->
-<div id="recycle" class="screen-container translate-x-full">
-  <h2 class="text-2xl font-semibold mb-4 app-color-text border-b pb-2">
-    Recycle Bin
-  </h2>
-
-  <div class="bg-white p-4 rounded-xl shadow-lg space-y-4">
-    <!-- Tabs -->
-    <div class="flex items-center gap-2 mb-2">
-      <div id="recycleTabUser"
-           class="tab active"
-           onclick="switchRecycleTab('user')">
-        User Removed
-      </div>
-      <div id="recycleTabSystem"
-           class="tab"
-           onclick="switchRecycleTab('system')">
-        System Removed
-      </div>
-    </div>
-
-    <!-- User Removed tab content -->
-    <div id="recycleUserTab">
-      <!-- Filters row -->
-      <div class="flex flex-wrap items-center gap-2 mb-3 text-sm">
-        <select id="recycleUserType"
-                class="border border-gray-300 rounded px-2 py-1">
-          <option value="all">All</option>
-          <option value="quotation">Quotation</option>
-          <option value="invoice">Invoice</option>
-          <option value="others">Others</option>
-        </select>
-
-        <input id="recycleUserName"
-               type="text"
-               class="border border-gray-300 rounded px-2 py-1 flex-1 min-w-[140px]"
-               placeholder="Search by name" />
-
-        <input id="recycleUserDate"
-               type="text"
-               class="border border-gray-300 rounded px-2 py-1 w-44"
-               placeholder="Date (YYYY / MM-YYYY / DD-MM-YYYY)" />
-      </div>
-
-      <div id="recycleUserEmpty"
-           class="text-sm text-gray-500 text-center p-4 hidden">
-        No user-removed items yet.
-      </div>
-
-      <div id="recycleUserList" class="space-y-2 text-sm"></div>
-    </div>
-
-    <!-- System Removed tab content -->
-    <div id="recycleSystemTab" class="hidden">
-      <!-- Filters row -->
-      <div class="flex flex-wrap items-center gap-2 mb-3 text-sm">
-        <select id="recycleSystemType"
-                class="border border-gray-300 rounded px-2 py-1">
-          <option value="all">All</option>
-          <option value="quotation">Quotation</option>
-          <option value="invoice">Invoice</option>
-          <option value="others">Others</option>
-        </select>
-
-        <input id="recycleSystemName"
-               type="text"
-               class="border border-gray-300 rounded px-2 py-1 flex-1 min-w-[140px]"
-               placeholder="Search by name" />
-
-        <input id="recycleSystemDate"
-               type="text"
-               class="border border-gray-300 rounded px-2 py-1 w-44"
-               placeholder="Date (YYYY / MM-YYYY / DD-MM-YYYY)" />
-      </div>
-
-      <div id="recycleSystemEmpty"
-           class="text-sm text-gray-500 text-center p-4 hidden">
-        No system-removed items yet.
-      </div>
-
-      <div id="recycleSystemList" class="space-y-2 text-sm"></div>
-    </div>
-  </div>
-</div>
 
 
     <!-- message modal (used by showMessage) -->
@@ -2670,6 +2686,375 @@ try {
   }
 }
 
+// =======================
+// REVENUE HELPERS & UI
+// =======================
+
+// Small date formatter for period label
+function formatRevenueDate(d) {
+  if (!(d instanceof Date) || isNaN(d.getTime())) return '';
+  const day   = String(d.getDate()).padStart(2, '0');
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const mon   = monthNames[d.getMonth()];
+  const year  = d.getFullYear();
+  return `${day} ${mon} ${year}`;
+}
+
+function formatRevenueRangeLabel(start, end) {
+  if (!start || !end) return '';
+  return `${formatRevenueDate(start)} - ${formatRevenueDate(end)}`;
+}
+
+// Compute date range based on filter preset / custom range
+function getRevenueDateRange() {
+  const presetSelect = document.getElementById('revenueFilterPreset');
+  const fromInput    = document.getElementById('revenueFromDate');
+  const toInput      = document.getElementById('revenueToDate');
+  if (!presetSelect || !fromInput || !toInput) return null;
+
+  const preset = presetSelect.value || 'this_month';
+  const today  = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let start = null;
+  let end   = null;
+
+  if (preset === 'range') {
+    const fromVal = fromInput.value;
+    const toVal   = toInput.value;
+    if (!fromVal || !toVal) return null;
+
+    start = new Date(fromVal);
+    end   = new Date(toVal);
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
+      return null;
+    }
+  } else if (preset === 'this_week' || preset === 'last_week') {
+    // Monday–Sunday weeks
+    const cur = new Date(today);
+    const day = cur.getDay(); // 0=Sun,1=Mon,...6=Sat
+    const diffToMonday = (day + 6) % 7;
+    const thisWeekStart = new Date(cur);
+    thisWeekStart.setDate(thisWeekStart.getDate() - diffToMonday);
+    const thisWeekEnd = new Date(thisWeekStart);
+    thisWeekEnd.setDate(thisWeekStart.getDate() + 6);
+
+    if (preset === 'this_week') {
+      start = thisWeekStart;
+      end   = thisWeekEnd;
+    } else {
+      // last week
+      start = new Date(thisWeekStart);
+      start.setDate(start.getDate() - 7);
+      end = new Date(thisWeekStart);
+      end.setDate(end.getDate() - 1);
+    }
+  } else if (preset === 'this_month' || preset === 'last_month') {
+    const year  = today.getFullYear();
+    const month = today.getMonth(); // 0-based
+    if (preset === 'this_month') {
+      start = new Date(year, month, 1);
+      end   = new Date(year, month + 1, 0);
+    } else {
+      const prevMonth = month - 1;
+      const y = prevMonth < 0 ? year - 1 : year;
+      const m = prevMonth < 0 ? 11 : prevMonth;
+      start = new Date(y, m, 1);
+      end   = new Date(y, m + 1, 0);
+    }
+  } else if (preset === 'this_year' || preset === 'last_year') {
+    const year = today.getFullYear();
+    if (preset === 'this_year') {
+      start = new Date(year, 0, 1);
+      end   = new Date(year, 11, 31);
+    } else {
+      start = new Date(year - 1, 0, 1);
+      end   = new Date(year - 1, 11, 31);
+    }
+  }
+
+  if (!start || !end) return null;
+  start.setHours(0, 0, 0, 0);
+  end.setHours(23, 59, 59, 999);
+
+  return {
+    start,
+    end,
+    label: formatRevenueRangeLabel(start, end)
+  };
+}
+
+// Map invoice.paymentStatus -> revenue bucket
+//  - 'pending'  => booked
+//  - 'partial'  => partial
+//  - 'completed'/'paid' => paid
+function getInvoiceRevenueBucket(inv) {
+  if (!inv) return null;
+  const statusRaw = String(inv.paymentStatus || '').toLowerCase();
+  const voidRaw   = String(inv.status || '').toLowerCase();
+  if (voidRaw === 'void') return null; // ignore void invoices in revenue
+
+  if (statusRaw === 'completed' || statusRaw === 'paid' || statusRaw === 'complete') {
+    return 'paid';
+  }
+  if (statusRaw === 'partial' || statusRaw === 'partial paid') {
+    return 'partial';
+  }
+  // default: pending / empty
+  return 'booked';
+}
+
+// Find a related invoice for a quotation (by id or by client+contact)
+function findInvoiceForQuotationFromList(q, invoices) {
+  if (!q || !Array.isArray(invoices)) return null;
+
+  const nameKey    = (q.clientName    || '').trim().toLowerCase();
+  const contactKey = (q.clientContact || '').trim().toLowerCase();
+
+  const matches = invoices.filter(inv => {
+    if (!inv) return false;
+    const invName    = (inv.clientName    || '').trim().toLowerCase();
+    const invContact = (inv.clientContact || '').trim().toLowerCase();
+
+    const sameClient =
+      !!invName && !!invContact &&
+      invName === nameKey &&
+      invContact === contactKey;
+
+    const sameQuotation =
+      inv.id === q.id ||
+      inv.quotationId === q.id;
+
+    return sameClient || sameQuotation;
+  });
+
+  if (!matches.length) return null;
+
+  // Pick the latest by createdAt
+  matches.sort((a, b) => {
+    const da = new Date(a.createdAt || 0).getTime();
+    const db = new Date(b.createdAt || 0).getTime();
+    return db - da;
+  });
+
+  return matches[0];
+}
+
+// Build revenue buckets using quotation events + bookings + invoices
+function computeRevenueBuckets() {
+  const range = getRevenueDateRange();
+  if (!range) return null;
+
+  const bookingsMap = loadFromLS(BOOKED_EVENTS_KEY, {});
+  const quotations  = loadFromLS(SAVED_QUOTATIONS_KEY, []);
+  const invoices    = loadFromLS(SAVED_INVOICES_KEY, []);
+
+  const buckets = {
+    enquiry: { label: 'Enquiry - not booked', amount: 0, count: 0 },
+    booked:  { label: 'Booked',               amount: 0, count: 0 },
+    partial: { label: 'Partial paid',         amount: 0, count: 0 },
+    paid:    { label: 'Paid',                 amount: 0, count: 0 }
+  };
+
+  quotations.forEach(q => {
+    const inv = findInvoiceForQuotationFromList(q, invoices);
+    const invBucket = getInvoiceRevenueBucket(inv);
+
+    (q.events || []).forEach(ev => {
+      if (!ev || !ev.date) return;
+
+      const evDate = new Date(ev.date);
+      if (isNaN(evDate.getTime())) return;
+      if (evDate < range.start || evDate > range.end) return;
+
+      const eventId = ev.eventId;
+      const isBooked = eventId && bookingsMap[eventId];
+
+      const amount =
+        Number(ev.packagePrice   || 0) +
+        Number(ev.addOnPrice     || 0) +
+        Number(ev.transportPrice || 0);
+
+      let key = 'enquiry';
+      if (invBucket === 'paid') key = 'paid';
+      else if (invBucket === 'partial') key = 'partial';
+      else if (invBucket === 'booked' || isBooked) key = 'booked';
+
+      buckets[key].amount += amount;
+      buckets[key].count  += 1;
+    });
+  });
+
+  const total = ['enquiry','booked','partial','paid']
+    .reduce((sum, k) => sum + buckets[k].amount, 0);
+
+  return {
+    rangeLabel: range.label,
+    buckets,
+    total
+  };
+}
+
+// Draw simple pie chart on canvas based on selected buckets
+function drawRevenuePie(data, selectedKeys) {
+  const canvas = document.getElementById('revenuePieCanvas');
+  if (!canvas || !canvas.getContext) return;
+
+  const ctx = canvas.getContext('2d');
+  const width  = canvas.width;
+  const height = canvas.height;
+  ctx.clearRect(0, 0, width, height);
+
+  const centerX = width  / 2;
+  const centerY = height / 2;
+  const radius  = Math.min(width, height) / 2 - 10;
+
+  const colors = {
+    enquiry: '#000000', // black
+    booked:  '#2563eb', // blue-ish
+    partial: '#f97316', // orange
+    paid:    '#22c55e'  // green
+  };
+
+  const buckets = data && data.buckets ? data.buckets : {};
+  const order   = ['enquiry','booked','partial','paid'];
+
+  const slices = [];
+  let totalValue = 0;
+  order.forEach(key => {
+    if (!selectedKeys.includes(key)) return;
+    const b = buckets[key] || { amount: 0 };
+    const val = Number(b.amount || 0);
+    if (val <= 0) return;
+    slices.push({ key, value: val });
+    totalValue += val;
+  });
+
+  if (!slices.length || totalValue <= 0) {
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '14px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('No data for this period', centerX, centerY);
+    return;
+  }
+
+  let startAngle = -Math.PI / 2; // start at top
+  slices.forEach(s => {
+    const angle = (s.value / totalValue) * Math.PI * 2;
+    const endAngle = startAngle + angle;
+
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+    ctx.closePath();
+    ctx.fillStyle = colors[s.key] || '#9ca3af';
+    ctx.fill();
+
+    startAngle = endAngle;
+  });
+}
+
+// Render table rows based on buckets + selected statuses
+function renderRevenueTable(data, selectedKeys) {
+  const tbody   = document.getElementById('revenueTableBody');
+  const totalEl = document.getElementById('revenueTableTotal');
+  const noteEl  = document.getElementById('revenueEmptyMessage');
+
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+
+  if (!data) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td colspan="3" class="border px-2 py-2 text-center text-gray-500 text-xs">
+        Select a valid date or range to view revenue.
+      </td>
+    `;
+    tbody.appendChild(tr);
+    if (totalEl) totalEl.textContent = '–';
+    if (noteEl) noteEl.textContent =
+      'Choose a preset or a valid From–To date range to see revenue breakdown.';
+    return;
+  }
+
+  const order = [
+    ['enquiry', 'Enquiry - not booked'],
+    ['booked',  'Booked'],
+    ['partial', 'Partial paid'],
+    ['paid',    'Paid']
+  ];
+
+  const buckets = data.buckets || {};
+  let sumAmount = 0;
+  let anyRow    = false;
+
+  order.forEach(([key, label]) => {
+    if (!selectedKeys.includes(key)) return;
+    const b = buckets[key] || { amount: 0, count: 0 };
+    if (!b.count && !b.amount) return;
+
+    anyRow = true;
+    sumAmount += Number(b.amount || 0);
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="border border-gray-200 px-2 py-1 whitespace-nowrap">${label}</td>
+      <td class="border border-gray-200 px-2 py-1 text-right">${b.count}</td>
+      <td class="border border-gray-200 px-2 py-1 text-right">${formatINR(b.amount)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  if (!anyRow) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td colspan="3" class="border px-2 py-2 text-center text-gray-500 text-xs">
+        No events found for this period.
+      </td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  if (totalEl) {
+    totalEl.textContent = sumAmount > 0 ? formatINR(sumAmount) : '–';
+  }
+
+  if (noteEl) {
+    noteEl.textContent =
+      'Table reflects the same data shown in the pie chart for the selected date period.';
+  }
+}
+
+// Main refresh for Revenue screen
+function refreshRevenueUI() {
+  const periodLabelEl = document.getElementById('revenuePeriodLabel');
+  const canvas = document.getElementById('revenuePieCanvas');
+  if (!canvas) return;
+
+  // Which statuses are enabled?
+  const selectedKeys = [];
+  document
+    .querySelectorAll('#revenueLegend input.revenueLegendChk')
+    .forEach(cb => {
+      if (cb.checked) {
+        const key = cb.dataset.key;
+        if (key) selectedKeys.push(key);
+      }
+    });
+
+  const data = computeRevenueBuckets();
+
+  if (periodLabelEl) {
+    periodLabelEl.textContent = data && data.rangeLabel ? data.rangeLabel : '';
+  }
+
+  drawRevenuePie(data, selectedKeys);
+  renderRevenueTable(data, selectedKeys);
+}
+
+// Initialiser called from navigate('revenue')
 function initRevenueFilters() {
   const presetSelect = document.getElementById('revenueFilterPreset');
   const fromInput    = document.getElementById('revenueFromDate');
@@ -2685,21 +3070,40 @@ function initRevenueFilters() {
     toInput.disabled   = !isRange;
 
     if (!isRange) {
-      // clear values when leaving Date range
       fromInput.value = '';
       toInput.value   = '';
     }
   };
 
-  // Attach listener once
   if (!presetSelect.dataset.revenueInitDone) {
-    presetSelect.addEventListener('change', updateRangeState);
+    // When preset changes, toggle range inputs + refresh
+    presetSelect.addEventListener('change', () => {
+      updateRangeState();
+      refreshRevenueUI();
+    });
+
+    // React to manual date changes
+    fromInput.addEventListener('change', refreshRevenueUI);
+    toInput.addEventListener('change', refreshRevenueUI);
+
+    // Legend checkbox changes
+    const legend = document.getElementById('revenueLegend');
+    if (legend) {
+      legend.addEventListener('change', (ev) => {
+        if (ev.target && ev.target.classList.contains('revenueLegendChk')) {
+          refreshRevenueUI();
+        }
+      });
+    }
+
     presetSelect.dataset.revenueInitDone = '1';
   }
 
-  // Ensure correct state on first show
+  // Ensure correct state + initial data
   updateRangeState();
+  refreshRevenueUI();
 }
+
 
 /* -------------------------
    Files UI & PDF helpers
