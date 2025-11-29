@@ -2871,7 +2871,9 @@ function findInvoiceForQuotationFromList(q, invoices) {
   return matches[0];
 }
 
-// Build revenue buckets using quotation events + bookings + invoices
+// Build revenue buckets:
+// - Enquiry / Booked  → from quotation events + bookings (same as before)
+// - Misc / Partial / Paid → from Payment Info on invoices
 function computeRevenueBuckets() {
   const range = getRevenueDateRange();
   if (!range) return null;
@@ -2888,10 +2890,8 @@ function computeRevenueBuckets() {
     paid:    { label: 'Paid',                 amount: 0, count: 0 }
   };
 
+  // 1️⃣ Enquiry / Booked from quotation events (same as earlier)
   quotations.forEach(q => {
-    const inv = findInvoiceForQuotationFromList(q, invoices);
-    const invBucket = getInvoiceRevenueBucket(inv);
-
     (q.events || []).forEach(ev => {
       if (!ev || !ev.date) return;
 
@@ -2907,7 +2907,6 @@ function computeRevenueBuckets() {
         Number(ev.addOnPrice     || 0) +
         Number(ev.transportPrice || 0);
 
-      // Base bucket for enquiry / booked (visual only)
       if (isBooked) {
         buckets.booked.amount += amount;
         buckets.booked.count  += 1;
@@ -2915,17 +2914,71 @@ function computeRevenueBuckets() {
         buckets.enquiry.amount += amount;
         buckets.enquiry.count  += 1;
       }
-
-      // Payment-based buckets (partial / paid) – same event amount counted there too
-      if (invBucket === 'paid') {
-        buckets.paid.amount += amount;
-        buckets.paid.count  += 1;
-      } else if (invBucket === 'partial') {
-        buckets.partial.amount += amount;
-        buckets.partial.count  += 1;
-      }
-      // NOTE: misc is separate; you will fill it later from your own data
     });
+  });
+
+  // 2️⃣ Payment-based buckets from invoices (Partial / Paid / Misc)
+  invoices.forEach(inv => {
+    if (!inv) return;
+
+    // Use paymentLastUpdated if present, otherwise createdAt/date
+    const whenStr = inv.paymentLastUpdated || inv.createdAt || inv.date;
+    if (!whenStr) return;
+
+    const when = new Date(whenStr);
+    if (isNaN(when.getTime())) return;
+    if (when < range.start || when > range.end) return;
+
+    // --- work out payment status key: pending / partial / paid ---
+    let raw = String(inv.paymentStatus || inv.statusPayment || '').toLowerCase();
+    let statusKey = '';
+
+    if (raw === 'pending') {
+      statusKey = 'pending';
+    } else if (raw === 'partial' || raw === 'partial paid') {
+      statusKey = 'partial';
+    } else if (raw === 'completed' || raw === 'complete' || raw === 'paid') {
+      statusKey = 'paid';
+    } else {
+      // Fallback: derive from billed vs paid
+      const billed    = Number(inv.final || inv.actual || 0) || 0;
+      const advance   = Number(inv.advancePaid || inv.paymentAdvance || 0) || 0;
+      const finalPaid = Number(inv.finalPaid   || inv.paymentFinal   || 0) || 0;
+      const totalPaid = advance + finalPaid;
+
+      if (!billed || totalPaid <= 0) {
+        statusKey = 'pending';
+      } else if (totalPaid + 0.01 < billed) {
+        statusKey = 'partial';
+      } else {
+        statusKey = 'paid';
+      }
+    }
+
+    // Amounts from Payment Info
+    const finalPaid =
+      Number(inv.finalPaid || inv.paymentFinal || 0) || 0;
+
+    const misc =
+      Number(inv.miscAmount || 0) || 0;
+
+    // Partial paid → sum of Final Paid for partial invoices
+    if (statusKey === 'partial' && finalPaid > 0) {
+      buckets.partial.amount += finalPaid;
+      buckets.partial.count  += 1;
+    }
+
+    // Paid → sum of Final Paid for fully paid invoices
+    if (statusKey === 'paid' && finalPaid > 0) {
+      buckets.paid.amount += finalPaid;
+      buckets.paid.count  += 1;
+    }
+
+    // Miscellaneous → sum of Misc for any invoice where misc > 0
+    if (misc > 0) {
+      buckets.misc.amount += misc;
+      buckets.misc.count  += 1;
+    }
   });
 
   return {
