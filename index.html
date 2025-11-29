@@ -1362,9 +1362,10 @@ function navigate(id, opts = {}) {
     if (id === 'quotation') populateQuotationFields();
     if (id === 'invoice')   populateInvoiceFields();
     if (id === 'calendar')  renderCalendar();
+    if (id === 'revenue')   initRevenueScreenFromPayments(); 
     if (id === 'files')     loadFilesUI();
     if (id === 'recycle')   loadRecycleUI();
-    if (id === 'revenue')   initRevenueScreenFromPayments(); 
+    
   }
 
   createLucide();
