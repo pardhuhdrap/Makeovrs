@@ -109,16 +109,28 @@
             />
           </div>
 
-          <div>
+          <div class="">
             <label class="block text-sm font-medium text-gray-700 mb-1">
-              Email (optional)
+              City / Location (optional)
             </label>
             <input
-              id="clientEmail"
-              type="email"
+              id="clientCity"
+              type="text"
               class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              placeholder="Enter your email"
+              placeholder="City or area"
             />
+          </div>
+
+          <div class="mt-3">
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Additional details (optional)
+            </label>
+            <textarea
+              id="clientNotes"
+              class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+              rows="3"
+              placeholder="Anything else we should know..."
+            ></textarea>
           </div>
         </div>
 
@@ -128,13 +140,6 @@
             <h2 class="text-lg font-semibold app-color-text">
               Event(s) for this client
             </h2>
-            <button
-              id="addEventBtn"
-              type="button"
-              class="inline-flex items-center px-2 py-1 rounded-full border app-color-border text-xs app-color-text"
-            >
-              <i data-lucide="plus" class="w-3 h-3 mr-1"></i> Add Event
-            </button>
           </div>
           <p class="text-xs text-gray-500 mb-3">
             Add all functions / events (e.g. Haldi, Mehendi, Reception…).
@@ -179,15 +184,68 @@
 
     let eventCounter = 0;
 
-    function createEventPanel() {
+    function updateAddButtonsVisibility() {
+      const panels = Array.from(
+        document.querySelectorAll("#eventsContainer .event-panel")
+      );
+      panels.forEach(panel => {
+        const btn = panel.querySelector(".add-event-btn");
+        if (!btn) return;
+        btn.classList.add("hidden");
+      });
+      if (panels.length) {
+        const last = panels[panels.length - 1];
+        const btn = last.querySelector(".add-event-btn");
+        if (btn) btn.classList.remove("hidden");
+      }
+    }
+
+    function renumberEvents() {
+      const panels = Array.from(
+        document.querySelectorAll("#eventsContainer .event-panel")
+      );
+      panels.forEach((panel, idx) => {
+        const numSpan = panel.querySelector(".event-number");
+        if (numSpan) numSpan.textContent = idx + 1;
+      });
+      eventCounter = panels.length;
+      updateAddButtonsVisibility();
+    }
+
+    function updateEventSummary(panel) {
+      const name  = (panel.querySelector(".event-name")?.value || "").trim();
+      const date  = panel.querySelector(".event-date")?.value || "";
+      const hour  = (panel.querySelector(".event-hour")?.value || "").trim();
+      const min   = (panel.querySelector(".event-minute")?.value || "").trim();
+      const per   = (panel.querySelector(".event-period")?.value || "").trim();
+
+      const summaryEl = panel.querySelector(".event-summary");
+      const parts = [];
+
+      if (name) parts.push(name);
+      if (date) parts.push(date);
+      if (hour || min) {
+        const t = `${hour || "?"}:${(min || "00").toString().padStart(2,"0")} ${per || ""}`;
+        parts.push(t.trim());
+      }
+
+      summaryEl.textContent = parts.length
+        ? parts.join(" • ")
+        : "Not updated yet";
+    }
+
+    function createEventPanel(expand = false) {
       eventCounter++;
       const panel = document.createElement("div");
       panel.className = "event-panel";
+
       panel.innerHTML = `
         <div class="header">
           <div>
-            <div class="text-xs font-semibold text-gray-500">
-              Event <span class="event-number">${eventCounter}</span>
+            <div class="flex items-center gap-2">
+              <strong class="event-title">
+                Event <span class="event-number">${eventCounter}</span>
+              </strong>
             </div>
             <div class="text-xs text-gray-400 event-summary">
               Not updated yet
@@ -200,7 +258,7 @@
             Remove
           </button>
         </div>
-        <div class="body space-y-3">
+        <div class="body ${expand ? "" : "hidden"} space-y-3">
           <!-- Event name -->
           <div>
             <label class="block text-xs font-medium text-gray-700 mb-1">
@@ -218,13 +276,13 @@
             <label class="block text-xs font-medium text-gray-700 mb-1">
               Event Date &amp; Time
             </label>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 mb-2">
               <input
                 type="date"
                 class="event-date border-gray-300 rounded p-2 text-sm flex-1"
               />
             </div>
-            <div class="mt-2 flex items-center gap-2">
+            <div class="flex items-center gap-2">
               <input
                 type="number"
                 min="1" max="12"
@@ -293,67 +351,103 @@
             ></textarea>
           </div>
 
-          <div class="pt-1 flex justify-end">
+          <div class="pt-1 flex justify-between items-center gap-2">
             <button
               type="button"
               class="update-btn text-xs px-3 py-1 rounded-full border app-color-border app-color-text"
             >
               Update event summary
             </button>
+            <button
+              type="button"
+              class="add-event-btn text-xs px-3 py-1 rounded-full border app-color-border app-color-text hidden"
+            >
+              + Add Event
+            </button>
           </div>
         </div>
       `;
 
-      // Remove event
-      panel.querySelector(".remove-event-btn").addEventListener("click", () => {
+      const header = panel.querySelector(".header");
+      const body   = panel.querySelector(".body");
+
+      // Header click → collapse/expand, like quotation screen
+      header.addEventListener("click", (e) => {
+        // ignore clicks on remove button (so it doesn't toggle)
+        if (e.target.closest(".remove-event-btn")) return;
+
+        const isHidden = body.classList.contains("hidden");
         const container = document.getElementById("eventsContainer");
-        container.removeChild(panel);
+        if (container) {
+          container
+            .querySelectorAll(".event-panel .body")
+            .forEach(b => b.classList.add("hidden"));
+        }
+        if (isHidden) {
+          body.classList.remove("hidden");
+        } else {
+          body.classList.add("hidden");
+        }
+      });
+
+      // Remove event
+      panel.querySelector(".remove-event-btn").addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        const container = document.getElementById("eventsContainer");
+        if (container) {
+          container.removeChild(panel);
+        }
+        if (!document.querySelector("#eventsContainer .event-panel")) {
+          const cont = document.getElementById("eventsContainer");
+          if (cont) cont.appendChild(createEventPanel(true));
+        }
         renumberEvents();
       });
 
-      // Update header summary
-      panel.querySelector(".update-btn").addEventListener("click", () => {
+      // Update summary
+      panel.querySelector(".update-btn").addEventListener("click", (ev) => {
+        ev.stopPropagation();
         updateEventSummary(panel);
+      });
+
+      // Add Event button at bottom of the current event
+      panel.querySelector(".add-event-btn").addEventListener("click", (ev) => {
+        ev.stopPropagation();
+
+        const container = document.getElementById("eventsContainer");
+        if (!container) return;
+
+        // Collapse all existing
+        container
+          .querySelectorAll(".event-panel .body")
+          .forEach(b => b.classList.add("hidden"));
+
+        // Create and append new panel (expanded)
+        const newPanel = createEventPanel(true);
+        container.appendChild(newPanel);
+
+        renumberEvents();
+        createLucide();
+
+        // Scroll inside this screen like your quotation logic
+        const scrollContainer = document.querySelector(".screen-container");
+        if (scrollContainer) {
+          const offsetTop = newPanel.offsetTop - 16; // small margin
+          scrollContainer.scrollTo({
+            top: offsetTop < 0 ? 0 : offsetTop,
+            behavior: "smooth"
+          });
+        }
       });
 
       return panel;
     }
 
-    function renumberEvents() {
-      const panels = document.querySelectorAll("#eventsContainer .event-panel");
-      panels.forEach((panel, idx) => {
-        const numSpan = panel.querySelector(".event-number");
-        if (numSpan) numSpan.textContent = idx + 1;
-      });
-      eventCounter = panels.length;
-    }
-
-    function updateEventSummary(panel) {
-      const name  = (panel.querySelector(".event-name")?.value || "").trim();
-      const date  = panel.querySelector(".event-date")?.value || "";
-      const hour  = panel.querySelector(".event-hour")?.value || "";
-      const min   = panel.querySelector(".event-minute")?.value || "";
-      const per   = panel.querySelector(".event-period")?.value || "";
-
-      const summaryEl = panel.querySelector(".event-summary");
-      const parts = [];
-
-      if (name) parts.push(name);
-      if (date) parts.push(date);
-      if (hour || min) {
-        const t = `${hour || "?"}:${(min || "00").toString().padStart(2,"0")} ${per || ""}`;
-        parts.push(t.trim());
-      }
-
-      summaryEl.textContent = parts.length
-        ? parts.join(" • ")
-        : "Not updated yet";
-    }
-
     function collectFormData() {
       const clientName    = (document.getElementById("clientName")?.value || "").trim();
       const clientContact = (document.getElementById("clientContact")?.value || "").trim();
-      const clientEmail   = (document.getElementById("clientEmail")?.value || "").trim();
+      const clientCity    = (document.getElementById("clientCity")?.value || "").trim();
+      const clientNotes   = (document.getElementById("clientNotes")?.value || "").trim();
 
       const events = [];
       const panels = document.querySelectorAll("#eventsContainer .event-panel");
@@ -370,8 +464,7 @@
         const notes   = (panel.querySelector(".event-notes")?.value || "").trim();
 
         if (!name && !date && !loc && !pkgIdea && !addons && !notes) {
-          // completely empty panel → skip
-          return;
+          return; // skip empty panel
         }
 
         events.push({
@@ -388,15 +481,17 @@
       return {
         clientName,
         clientContact,
-        clientEmail,
+        clientCity,
+        clientNotes,
         events,
+        submittedAt: new Date().toISOString(),
+        source: "client-form"
       };
     }
 
     function validateForm(payload) {
       let ok = true;
 
-      // reset errors
       document
         .querySelectorAll(".field-error-red")
         .forEach(el => el.classList.remove("field-error-red"));
@@ -437,26 +532,26 @@
 
     document.addEventListener("DOMContentLoaded", () => {
       const eventsContainer = document.getElementById("eventsContainer");
-      const addEventBtn     = document.getElementById("addEventBtn");
       const form            = document.getElementById("clientRequestForm");
       const resetBtn        = document.getElementById("resetFormBtn");
 
-      // initial one event
-      eventsContainer.appendChild(createEventPanel());
-      createLucide();
-
-      addEventBtn.addEventListener("click", () => {
-        eventsContainer.appendChild(createEventPanel());
+      // initial one event (expanded)
+      if (eventsContainer) {
+        const first = createEventPanel(true);
+        eventsContainer.appendChild(first);
         renumberEvents();
-        createLucide();
-      });
+      }
+      createLucide();
 
       resetBtn.addEventListener("click", () => {
         form.reset();
-        eventsContainer.innerHTML = "";
-        eventCounter = 0;
-        eventsContainer.appendChild(createEventPanel());
-        createLucide();
+        if (eventsContainer) {
+          eventsContainer.innerHTML = "";
+          const first = createEventPanel(true);
+          eventsContainer.appendChild(first);
+          renumberEvents();
+          createLucide();
+        }
       });
 
       form.addEventListener("submit", (e) => {
@@ -465,18 +560,19 @@
 
         if (!validateForm(payload)) return;
 
-        // 🔴 IMPORTANT:
-        // Here is where you will later send to Google Apps Script / backend.
-        // For now we just log it.
+        // 🔴 Later: send to Apps Script / backend.
         console.log("Client request payload:", payload);
 
         alert("Thank you! Your details have been submitted.");
 
         form.reset();
-        eventsContainer.innerHTML = "";
-        eventCounter = 0;
-        eventsContainer.appendChild(createEventPanel());
-        createLucide();
+        if (eventsContainer) {
+          eventsContainer.innerHTML = "";
+          const first = createEventPanel(true);
+          eventsContainer.appendChild(first);
+          renumberEvents();
+          createLucide();
+        }
       });
     });
   </script>
