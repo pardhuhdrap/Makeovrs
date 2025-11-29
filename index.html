@@ -1364,7 +1364,7 @@ function navigate(id, opts = {}) {
     if (id === 'calendar')  renderCalendar();
     if (id === 'files')     loadFilesUI();
     if (id === 'recycle')   loadRecycleUI();
-    if (id === 'revenue')   initRevenueFilters();    
+    if (id === 'revenue')   initRevenueScreenFromPayments(); 
   }
 
   createLucide();
@@ -3226,6 +3226,207 @@ if (legend) {
   updateRangeState();
   refreshRevenueUI();
 }
+
+// =============================
+// Revenue screen ← Payment data
+// =============================
+
+// Read current date range from the Revenue filter controls
+function getRevenueDateRangeForInvoices() {
+  const presetSelect = document.getElementById('revenueFilterPreset');
+  const fromInput    = document.getElementById('revenueFromDate');
+  const toInput      = document.getElementById('revenueToDate');
+
+  const preset = presetSelect ? presetSelect.value : 'thisMonth';
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let start = null;
+  let end   = null;
+  let label = '';
+
+  const makeMonthRange = (y, m) => {
+    const s = new Date(y, m, 1);
+    const e = new Date(y, m + 1, 0);
+    s.setHours(0, 0, 0, 0);
+    e.setHours(23, 59, 59, 999);
+    return { start: s, end: e };
+  };
+
+  if (preset === 'thisWeek' || preset === 'lastWeek') {
+    // Monday-first week
+    const day = today.getDay();            // 0..6 (Sun..Sat)
+    const diffToMon = (day + 6) % 7;       // days since Monday
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - diffToMon);
+
+    if (preset === 'lastWeek') {
+      monday.setDate(monday.getDate() - 7);
+    }
+
+    start = new Date(monday);
+    start.setHours(0, 0, 0, 0);
+
+    end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+
+    label = preset === 'thisWeek' ? 'This week' : 'Last week';
+  } else if (preset === 'thisMonth' || preset === 'lastMonth') {
+    let y = today.getFullYear();
+    let m = today.getMonth();
+
+    if (preset === 'lastMonth') {
+      m -= 1;
+      if (m < 0) { m = 11; y -= 1; }
+    }
+
+    const range = makeMonthRange(y, m);
+    start = range.start;
+    end   = range.end;
+    label = preset === 'thisMonth' ? 'This month' : 'Last month';
+  } else if (preset === 'thisYear' || preset === 'lastYear') {
+    let y = today.getFullYear();
+    if (preset === 'lastYear') y -= 1;
+
+    start = new Date(y, 0, 1);
+    end   = new Date(y, 11, 31);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+    label = preset === 'thisYear' ? 'This year' : 'Last year';
+  } else if (preset === 'range') {
+    const fVal = fromInput ? fromInput.value : '';
+    const tVal = toInput ? toInput.value   : '';
+
+    if (fVal) {
+      start = new Date(fVal);
+      start.setHours(0, 0, 0, 0);
+    }
+    if (tVal) {
+      end = new Date(tVal);
+      end.setHours(23, 59, 59, 999);
+    }
+    label = (fVal || tVal) ? `${fVal || '…'} to ${tVal || '…'}` : 'Custom range';
+  }
+
+  return { preset, start, end, label };
+}
+
+// Compute Pending / Partial paid / Paid buckets from invoices
+function computeRevenueBucketsFromInvoices(rangeInfo) {
+  const invoices = loadFromLS(SAVED_INVOICES_KEY, []) || [];
+  const range = rangeInfo || {};
+  const start = range.start || null;
+  const end   = range.end   || null;
+
+  const buckets = {
+    pending: { amount: 0, count: 0 }, // sum of Pending amounts
+    partial: { amount: 0, count: 0 }, // sum of Final Paid for partial invoices
+    paid:    { amount: 0, count: 0 }  // sum of Final Paid for fully paid invoices
+  };
+
+  invoices.forEach(inv => {
+    const createdStr = inv.createdAt || inv.date;
+    if (!createdStr) return;
+
+    const created = new Date(createdStr);
+    if (start && created < start) return;
+    if (end && created > end)     return;
+
+    // --- work out payment status key: pending / partial / paid ---
+    let raw = String(inv.paymentStatus || inv.statusPayment || '').toLowerCase();
+    let statusKey = '';
+
+    if (raw === 'pending') statusKey = 'pending';
+    else if (raw === 'partial' || raw === 'partial paid') statusKey = 'partial';
+    else if (raw === 'completed' || raw === 'complete' || raw === 'paid') statusKey = 'paid';
+    else {
+      const billed   = Number(inv.final || inv.actual || 0) || 0;
+      const advance  = Number(inv.advancePaid || inv.paymentAdvance || 0) || 0;
+      const finalPd  = Number(inv.finalPaid   || inv.paymentFinal   || 0) || 0;
+      const totalPaid = advance + finalPd;
+
+      if (!billed || totalPaid <= 0) statusKey = 'pending';
+      else if (totalPaid + 0.01 < billed) statusKey = 'partial';
+      else statusKey = 'paid';
+    }
+
+    // --- amounts ---
+    const pendingAbs =
+      Number(
+        inv.paymentPendingAbs != null
+          ? inv.paymentPendingAbs
+          : (inv.paymentPendingRaw != null
+              ? Math.max(0, inv.paymentPendingRaw)
+              : 0)
+      ) || 0;
+
+    const finalPaid =
+      Number(inv.finalPaid || inv.paymentFinal || 0) || 0;
+
+    if (statusKey === 'pending') {
+      buckets.pending.amount += pendingAbs;
+      buckets.pending.count += 1;
+    } else if (statusKey === 'partial') {
+      buckets.partial.amount += finalPaid;
+      buckets.partial.count += 1;
+    } else if (statusKey === 'paid') {
+      buckets.paid.amount += finalPaid;
+      buckets.paid.count += 1;
+    }
+  });
+
+  return buckets;
+}
+
+// Main hook called when Revenue screen opens and filters change
+function refreshRevenueFromPayments() {
+  const rangeInfo = getRevenueDateRangeForInvoices();
+  const buckets   = computeRevenueBucketsFromInvoices(rangeInfo);
+
+  // 👉 This is the data you should feed into:
+  //    - the Revenue pie chart
+  //    - the dynamic table (amount + count per bucket)
+  //
+  // Example shape:
+  // buckets = {
+  //   pending: { amount: 12345, count: 3 },
+  //   partial: { amount: 4567,  count: 2 },
+  //   paid:    { amount: 8900,  count: 5 }
+  // }
+
+  console.log('[Revenue] range:', rangeInfo.label, 'buckets:', buckets);
+
+  // If you already have functions to draw pie & table, call them here, e.g.:
+  // updateRevenuePieAndTable(buckets, rangeInfo);
+}
+
+// Wrapper used by navigate('revenue')
+function initRevenueScreenFromPayments() {
+  // keep existing behaviour (enable/disable date fields)
+  initRevenueFilters();
+
+  const presetSelect = document.getElementById('revenueFilterPreset');
+  const fromInput    = document.getElementById('revenueFromDate');
+  const toInput      = document.getElementById('revenueToDate');
+
+  if (presetSelect && !presetSelect.dataset.revenuePaymentsInit) {
+    presetSelect.addEventListener('change', () => {
+      // date range state is already updated by initRevenueFilters listener
+      refreshRevenueFromPayments();
+    });
+
+    if (fromInput) fromInput.addEventListener('change', refreshRevenueFromPayments);
+    if (toInput)   toInput.addEventListener('change', refreshRevenueFromPayments);
+
+    presetSelect.dataset.revenuePaymentsInit = '1';
+  }
+
+  // First render when screen opens
+  refreshRevenueFromPayments();
+}
+
 
 
 /* -------------------------
