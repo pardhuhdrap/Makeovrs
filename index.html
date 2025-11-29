@@ -248,7 +248,7 @@ header {
         <div class="app-icon text-center" onclick="navigate('maps')"><i data-lucide="map-pin" class="w-8 h-8 app-color-text"></i><span class="mt-2 text-sm font-medium text-gray-700">Distance Calculator</span></div>
         <div class="app-icon" onclick="navigate('master')"><i data-lucide="database" class="w-8 h-8 app-color-text"></i><span class="mt-2 text-sm font-medium text-gray-700">Master Data</span></div>
         <div class="app-icon" onclick="navigate('files')"><i data-lucide="folder" class="w-8 h-8 app-color-text"></i><span class="mt-2 text-sm font-medium text-gray-700">Files</span></div>
-        <div class="app-icon" onclick="navigate('revenue')"><i data-lucide="bag-hand" class="w-8 h-8 app-color-text"></i><span class="mt-2 text-sm font-medium text-gray-700">Revenue</span></div>
+        <div class="app-icon" onclick="navigate('revenue')"><i data-lucide="banknote" class="w-8 h-8 app-color-text"></i><span class="mt-2 text-sm font-medium text-gray-700">Revenue</span></div>
         <div class="app-icon" onclick="navigate('recycle')"><i data-lucide="trash-2" class="w-8 h-8 app-color-text"></i><span class="mt-2 text-sm font-medium text-gray-700">Recycle Bin</span></div>
       </div>
     </div>
@@ -1316,7 +1316,8 @@ function navigate(id, opts = {}) {
     if (id === 'invoice')   populateInvoiceFields();
     if (id === 'calendar')  renderCalendar();
     if (id === 'files')     loadFilesUI();
-    if (id === 'recycle')   loadRecycleUI();  
+    if (id === 'recycle')   loadRecycleUI();
+    if (id === 'revenue')   initRevenueFilters();    
   }
 
   createLucide();
@@ -2669,6 +2670,36 @@ try {
   }
 }
 
+function initRevenueFilters() {
+  const presetSelect = document.getElementById('revenueFilterPreset');
+  const fromInput    = document.getElementById('revenueFromDate');
+  const toInput      = document.getElementById('revenueToDate');
+
+  if (!presetSelect || !fromInput || !toInput) return;
+
+  const updateRangeState = () => {
+    const val = presetSelect.value;
+    const isRange = (val === 'range');
+
+    fromInput.disabled = !isRange;
+    toInput.disabled   = !isRange;
+
+    if (!isRange) {
+      // clear values when leaving Date range
+      fromInput.value = '';
+      toInput.value   = '';
+    }
+  };
+
+  // Attach listener once
+  if (!presetSelect.dataset.revenueInitDone) {
+    presetSelect.addEventListener('change', updateRangeState);
+    presetSelect.dataset.revenueInitDone = '1';
+  }
+
+  // Ensure correct state on first show
+  updateRangeState();
+}
 
 /* -------------------------
    Files UI & PDF helpers
@@ -4157,8 +4188,6 @@ function openPaymentInfoForInvoiceId(invoiceId) {
   // Directly open Payment Info popup (no invoice viewer)
   openPaymentInfoModal();
 }
-
-// ---- Payment Info helpers ----
 
 // ---- Payment Info helpers ----
 
