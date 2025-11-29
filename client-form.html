@@ -168,6 +168,17 @@
       }
     }
 
+    // 🔹 helper: mark a field in error & auto-clear on input
+    function markFieldError(el) {
+      if (!el) return;
+      el.classList.add("field-error-red");
+      const handler = () => {
+        el.classList.remove("field-error-red");
+        el.removeEventListener("input", handler);
+      };
+      el.addEventListener("input", handler);
+    }
+
     let eventCounter = 0;
 
     // 🔹 Enable / disable global Add Event button
@@ -216,6 +227,35 @@
       summaryEl.textContent = parts.length
         ? parts.join(" • ")
         : "Not updated yet";
+    }
+
+    // 🔹 validate a single event panel (for Update summary)
+    function validateSingleEventPanel(panel, showAlert) {
+      let ok = true;
+
+      const requiredSelectors = [
+        ".event-name",
+        ".event-date",
+        ".event-hour",
+        ".event-minute",
+        ".event-period",
+        ".event-packageIdea"
+      ];
+
+      requiredSelectors.forEach(sel => {
+        const el = panel.querySelector(sel);
+        if (!el) return;
+        const val = (el.value || "").toString().trim();
+        if (!val) {
+          ok = false;
+          markFieldError(el);
+        }
+      });
+
+      if (!ok && showAlert) {
+        alert("Please fill the highlighted fields for this event.");
+      }
+      return ok;
     }
 
     function createEventPanel(expand = false) {
@@ -287,7 +327,7 @@
             </div>
           </div>
 
-          <!-- Location -->
+          <!-- Location (optional) -->
           <div>
             <label class="block text-xs font-medium text-gray-700 mb-1">
               Event Location
@@ -299,7 +339,7 @@
             />
           </div>
 
-          <!-- Package idea (no price) -->
+          <!-- Package idea (required) -->
           <div>
             <label class="block text-xs font-medium text-gray-700 mb-1">
               Package / Makeup Look
@@ -311,11 +351,14 @@
             />
           </div>
 
-          <!-- Add-ons / extra needs (no price) -->
+          <!-- Add-ons / extra needs (optional) -->
           <div>
             <label class="block text-xs font-medium text-gray-700 mb-1">
               Add-ons
             </label>
+            <p class="text-xs text-gray-500 mb-3">
+              These are Chargeable.
+            </p>
             <textarea
               rows="3"
               class="event-addons block w-full border-gray-300 rounded p-2 text-sm"
@@ -323,7 +366,7 @@
             ></textarea>
           </div>
 
-          <!-- Notes -->
+          <!-- Notes (optional) -->
           <div>
             <label class="block text-xs font-medium text-gray-700 mb-1">
               Notes
@@ -382,9 +425,14 @@
         renumberEvents();
       });
 
-      // Update summary → also enable Add Event button
+      // Update summary → validate required fields first, then enable Add Event
       panel.querySelector(".update-btn").addEventListener("click", (ev) => {
         ev.stopPropagation();
+
+        if (!validateSingleEventPanel(panel, true)) {
+          return; // don't update summary / enable add when invalid
+        }
+
         updateEventSummary(panel);
         setAddEventEnabled(true);
       });
@@ -395,15 +443,13 @@
     function collectFormData() {
       const clientName    = (document.getElementById("clientName")?.value || "").trim();
       const clientContact = (document.getElementById("clientContact")?.value || "").trim();
-      const clientCity    = (document.getElementById("clientCity")?.value || "").trim();
-      const clientNotes   = (document.getElementById("clientNotes")?.value || "").trim();
 
       const events = [];
       const panels = document.querySelectorAll("#eventsContainer .event-panel");
 
       panels.forEach(panel => {
         const name    = (panel.querySelector(".event-name")?.value || "").trim();
-        const date    = panel.querySelector(".event-date")?.value || "";
+        const date    = (panel.querySelector(".event-date")?.value || "");
         const hour    = (panel.querySelector(".event-hour")?.value || "").trim();
         const minute  = (panel.querySelector(".event-minute")?.value || "").trim();
         const period  = (panel.querySelector(".event-period")?.value || "").trim();
@@ -412,7 +458,7 @@
         const addons  = (panel.querySelector(".event-addons")?.value || "").trim();
         const notes   = (panel.querySelector(".event-notes")?.value || "").trim();
 
-        if (!name && !date && !loc && !pkgIdea && !addons && !notes) {
+        if (!name && !date && !loc && !pkgIdea && !addons && !notes && !hour && !minute && !period) {
           return; // skip empty panel
         }
 
@@ -430,8 +476,6 @@
       return {
         clientName,
         clientContact,
-        clientCity,
-        clientNotes,
         events,
         submittedAt: new Date().toISOString(),
         source: "client-form"
@@ -441,17 +485,19 @@
     function validateForm(payload) {
       let ok = true;
 
+      // clear all existing errors
       document
         .querySelectorAll(".field-error-red")
         .forEach(el => el.classList.remove("field-error-red"));
 
+      // Client side required
       if (!payload.clientName) {
         ok = false;
-        document.getElementById("clientName")?.classList.add("field-error-red");
+        markFieldError(document.getElementById("clientName"));
       }
       if (!payload.clientContact) {
         ok = false;
-        document.getElementById("clientContact")?.classList.add("field-error-red");
+        markFieldError(document.getElementById("clientContact"));
       }
 
       if (!payload.events.length) {
@@ -459,17 +505,41 @@
         return false;
       }
 
+      // Event required fields
       payload.events.forEach((ev, idx) => {
         const panel = document.querySelectorAll("#eventsContainer .event-panel")[idx];
         if (!panel) return;
 
+        const nameEl   = panel.querySelector(".event-name");
+        const dateEl   = panel.querySelector(".event-date");
+        const hourEl   = panel.querySelector(".event-hour");
+        const minuteEl = panel.querySelector(".event-minute");
+        const periodEl = panel.querySelector(".event-period");
+        const pkgEl    = panel.querySelector(".event-packageIdea");
+
         if (!ev.name) {
           ok = false;
-          panel.querySelector(".event-name")?.classList.add("field-error-red");
+          markFieldError(nameEl);
         }
         if (!ev.date) {
           ok = false;
-          panel.querySelector(".event-date")?.classList.add("field-error-red");
+          markFieldError(dateEl);
+        }
+        if (!hourEl.value.trim()) {
+          ok = false;
+          markFieldError(hourEl);
+        }
+        if (!minuteEl.value.trim()) {
+          ok = false;
+          markFieldError(minuteEl);
+        }
+        if (!periodEl.value.trim()) {
+          ok = false;
+          markFieldError(periodEl);
+        }
+        if (!ev.packageIdea) {
+          ok = false;
+          markFieldError(pkgEl);
         }
       });
 
