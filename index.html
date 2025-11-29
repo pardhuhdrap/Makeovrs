@@ -1350,8 +1350,10 @@ function navigate(id, opts = {}) {
     backBtn.classList.toggle('opacity-0', noHistory);
     backBtn.classList.toggle('pointer-events-none', noHistory);
   }
-
+  
+  
   // Screen-specific initialisation (only if NOT skipping init)
+  console.log("Navigate called →", id, "skipInit:", skipInit);
   if (!skipInit) {
     if (id === 'master')    loadMasterData();
     if (id === 'maps') {
