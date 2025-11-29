@@ -888,49 +888,63 @@ header {
         <div id="revenueLegend" class="mt-4 w-full space-y-2 text-sm">
           <div class="font-semibold text-gray-700 mb-1">Legend</div>
 
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              class="revenueLegendChk h-4 w-4"
-              data-key="enquiry"
-              checked
-            />
-            <span class="inline-block w-3 h-3 rounded" style="background:#000000;"></span>
-            <span>Enquiry - which are not booked</span>
-          </label>
+<label class="flex items-center gap-2 cursor-pointer">
+  <input
+    type="checkbox"
+    class="revenueLegendChk h-4 w-4"
+    data-key="enquiry"
+    checked
+  />
+  <span class="inline-block w-3 h-3 rounded" style="background:#000000;"></span>
+  <span>Enquiry - which are not booked</span>
+</label>
 
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              class="revenueLegendChk h-4 w-4"
-              data-key="booked"
-              checked
-            />
-            <span class="inline-block w-3 h-3 rounded" style="background:#2563eb;"></span>
-            <span>Booked - which are booked</span>
-          </label>
+<label class="flex items-center gap-2 cursor-pointer">
+  <input
+    type="checkbox"
+    class="revenueLegendChk h-4 w-4"
+    data-key="booked"
+    checked
+  />
+  <span class="inline-block w-3 h-3 rounded" style="background:#2563eb;"></span>
+  <span>Booked - which are booked</span>
+</label>
 
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              class="revenueLegendChk h-4 w-4"
-              data-key="partial"
-              checked
-            />
-            <span class="inline-block w-3 h-3 rounded" style="background:#f97316;"></span>
-            <span>Partial paid - which are partially paid</span>
-          </label>
+<hr class="my-2">
 
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              class="revenueLegendChk h-4 w-4"
-              data-key="paid"
-              checked
-            />
-            <span class="inline-block w-3 h-3 rounded" style="background:#22c55e;"></span>
-            <span>Paid - which are marked as paid</span>
-          </label>
+<label class="flex items-center gap-2 cursor-pointer">
+  <input
+    type="checkbox"
+    class="revenueLegendChk h-4 w-4"
+    data-key="misc"
+    checked
+  />
+  <span class="inline-block w-3 h-3 rounded" style="background:#a855f7;"></span>
+  <span>Miscellaneous - Payments, Fuel, etc.</span>
+</label>
+
+<label class="flex items-center gap-2 cursor-pointer">
+  <input
+    type="checkbox"
+    class="revenueLegendChk h-4 w-4"
+    data-key="partial"
+    checked
+  />
+  <span class="inline-block w-3 h-3 rounded" style="background:#f97316;"></span>
+  <span>Partial paid - which are partially paid</span>
+</label>
+
+<label class="flex items-center gap-2 cursor-pointer">
+  <input
+    type="checkbox"
+    class="revenueLegendChk h-4 w-4"
+    data-key="paid"
+    checked
+  />
+  <span class="inline-block w-3 h-3 rounded" style="background:#22c55e;"></span>
+  <span>Paid - which are marked as paid</span>
+</label>
+
         </div>
       </div>
 
@@ -2852,6 +2866,7 @@ function computeRevenueBuckets() {
   const buckets = {
     enquiry: { label: 'Enquiry - not booked', amount: 0, count: 0 },
     booked:  { label: 'Booked',               amount: 0, count: 0 },
+    misc:    { label: 'Miscellaneous',        amount: 0, count: 0 },
     partial: { label: 'Partial paid',         amount: 0, count: 0 },
     paid:    { label: 'Paid',                 amount: 0, count: 0 }
   };
@@ -2867,7 +2882,7 @@ function computeRevenueBuckets() {
       if (isNaN(evDate.getTime())) return;
       if (evDate < range.start || evDate > range.end) return;
 
-      const eventId = ev.eventId;
+      const eventId  = ev.eventId;
       const isBooked = eventId && bookingsMap[eventId];
 
       const amount =
@@ -2875,25 +2890,33 @@ function computeRevenueBuckets() {
         Number(ev.addOnPrice     || 0) +
         Number(ev.transportPrice || 0);
 
-      let key = 'enquiry';
-      if (invBucket === 'paid') key = 'paid';
-      else if (invBucket === 'partial') key = 'partial';
-      else if (invBucket === 'booked' || isBooked) key = 'booked';
+      // Base bucket for enquiry / booked (visual only)
+      if (isBooked) {
+        buckets.booked.amount += amount;
+        buckets.booked.count  += 1;
+      } else {
+        buckets.enquiry.amount += amount;
+        buckets.enquiry.count  += 1;
+      }
 
-      buckets[key].amount += amount;
-      buckets[key].count  += 1;
+      // Payment-based buckets (partial / paid) – same event amount counted there too
+      if (invBucket === 'paid') {
+        buckets.paid.amount += amount;
+        buckets.paid.count  += 1;
+      } else if (invBucket === 'partial') {
+        buckets.partial.amount += amount;
+        buckets.partial.count  += 1;
+      }
+      // NOTE: misc is separate; you will fill it later from your own data
     });
   });
 
-  const total = ['enquiry','booked','partial','paid']
-    .reduce((sum, k) => sum + buckets[k].amount, 0);
-
   return {
     rangeLabel: range.label,
-    buckets,
-    total
+    buckets
   };
 }
+
 
 // Draw simple pie chart on canvas based on selected buckets
 function drawRevenuePie(data, selectedKeys) {
@@ -2912,12 +2935,13 @@ function drawRevenuePie(data, selectedKeys) {
   const colors = {
     enquiry: '#000000', // black
     booked:  '#2563eb', // blue-ish
+     misc:    '#a855f7', // violet
     partial: '#f97316', // orange
     paid:    '#22c55e'  // green
   };
 
   const buckets = data && data.buckets ? data.buckets : {};
-  const order   = ['enquiry','booked','partial','paid'];
+  const order   = ['enquiry','booked','misc','partial','paid'];
 
   const slices = [];
   let totalValue = 0;
@@ -2974,20 +2998,22 @@ function renderRevenueTable(data, selectedKeys) {
     `;
     tbody.appendChild(tr);
     if (totalEl) totalEl.textContent = '–';
-    if (noteEl) noteEl.textContent =
-      'Choose a preset or a valid From–To date range to see revenue breakdown.';
+    if (noteEl) {
+      noteEl.textContent =
+        'Choose a preset or a valid From–To date range to see revenue breakdown.';
+    }
     return;
   }
 
   const order = [
     ['enquiry', 'Enquiry - not booked'],
     ['booked',  'Booked'],
+    ['misc',    'Miscellaneous'],
     ['partial', 'Partial paid'],
     ['paid',    'Paid']
   ];
 
   const buckets = data.buckets || {};
-  let sumAmount = 0;
   let anyRow    = false;
 
   order.forEach(([key, label]) => {
@@ -2996,7 +3022,6 @@ function renderRevenueTable(data, selectedKeys) {
     if (!b.count && !b.amount) return;
 
     anyRow = true;
-    sumAmount += Number(b.amount || 0);
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -3011,21 +3036,49 @@ function renderRevenueTable(data, selectedKeys) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td colspan="3" class="border px-2 py-2 text-center text-gray-500 text-xs">
-        No events found for this period.
+        No events found for this period / filter.
       </td>
     `;
     tbody.appendChild(tr);
   }
 
+  // 🔢 Net revenue = (partial + paid) - misc, but ONLY using selected keys
+  let revenueTotal = null;
+  if (Array.isArray(selectedKeys) && selectedKeys.length) {
+    const b = buckets;
+
+    const usePartial = selectedKeys.includes('partial');
+    const usePaid    = selectedKeys.includes('paid');
+    const useMisc    = selectedKeys.includes('misc');
+
+    const hasGroup2 = usePartial || usePaid || useMisc;
+
+    if (hasGroup2) {
+      const partialAmt = usePartial ? (b.partial?.amount || 0) : 0;
+      const paidAmt    = usePaid    ? (b.paid?.amount    || 0) : 0;
+      const miscAmt    = useMisc    ? (b.misc?.amount    || 0) : 0;
+
+      revenueTotal = (partialAmt + paidAmt) - miscAmt;
+    } else {
+      // None of misc/partial/paid selected → net = 0
+      revenueTotal = 0;
+    }
+  }
+
   if (totalEl) {
-    totalEl.textContent = sumAmount > 0 ? formatINR(sumAmount) : '–';
+    if (revenueTotal === null) {
+      totalEl.textContent = '–';
+    } else {
+      totalEl.textContent = formatINR(revenueTotal);
+    }
   }
 
   if (noteEl) {
     noteEl.textContent =
-      'Table reflects the same data shown in the pie chart for the selected date period.';
+      'Total = (Partial + Paid) − Miscellaneous for the selected statuses.';
   }
 }
+
 
 // Main refresh for Revenue screen
 function refreshRevenueUI() {
@@ -3055,6 +3108,7 @@ function refreshRevenueUI() {
 }
 
 // Initialiser called from navigate('revenue')
+let _revenueLegendUpdating = false;
 function initRevenueFilters() {
   const presetSelect = document.getElementById('revenueFilterPreset');
   const fromInput    = document.getElementById('revenueFromDate');
@@ -3087,14 +3141,66 @@ function initRevenueFilters() {
     toInput.addEventListener('change', refreshRevenueUI);
 
     // Legend checkbox changes
-    const legend = document.getElementById('revenueLegend');
-    if (legend) {
-      legend.addEventListener('change', (ev) => {
-        if (ev.target && ev.target.classList.contains('revenueLegendChk')) {
-          refreshRevenueUI();
+   // Legend checkbox changes
+const legend = document.getElementById('revenueLegend');
+if (legend) {
+  legend.addEventListener('change', (ev) => {
+    const target = ev.target;
+    if (!target || !target.classList.contains('revenueLegendChk')) return;
+    if (_revenueLegendUpdating) return;
+
+    const key      = target.dataset.key;
+    const isChecked = target.checked;
+
+    const allCbs = Array.from(
+      document.querySelectorAll('#revenueLegend input.revenueLegendChk')
+    );
+
+    const cbEnquiry = allCbs.find(cb => cb.dataset.key === 'enquiry');
+    const cbBooked  = allCbs.find(cb => cb.dataset.key === 'booked');
+    const cbMisc    = allCbs.find(cb => cb.dataset.key === 'misc');
+    const cbPartial = allCbs.find(cb => cb.dataset.key === 'partial');
+    const cbPaid    = allCbs.find(cb => cb.dataset.key === 'paid');
+
+    _revenueLegendUpdating = true;
+    try {
+      // Group 1: Enquiry & Booked are linked
+      if (key === 'enquiry' || key === 'booked') {
+        if (isChecked) {
+          if (cbEnquiry) cbEnquiry.checked = true;
+          if (cbBooked)  cbBooked.checked  = true;
+
+          // When user chooses Enquiry/Booked, allow them exclusively
+          if (cbMisc)    cbMisc.checked    = false;
+          if (cbPartial) cbPartial.checked = false;
+          if (cbPaid)    cbPaid.checked    = false;
+        } else {
+          // If user unticks either, both get unticked
+          if (cbEnquiry) cbEnquiry.checked = false;
+          if (cbBooked)  cbBooked.checked  = false;
         }
-      });
+      }
+
+      // Group 2: Misc / Partial / Paid
+      if (key === 'misc' || key === 'partial' || key === 'paid') {
+        if (isChecked) {
+          // As soon as any of these 3 is selected,
+          // Enquiry & Booked get auto-unticked
+          if (cbEnquiry) cbEnquiry.checked = false;
+          if (cbBooked)  cbBooked.checked  = false;
+        }
+        // User can freely pick any combination among misc/partial/paid,
+        // so we don't auto-change other group-2 checkboxes here.
+      }
+    } finally {
+      _revenueLegendUpdating = false;
     }
+
+    // After we’ve normalized all checkboxes, redraw chart + table
+    refreshRevenueUI();
+  });
+}
+
 
     presetSelect.dataset.revenueInitDone = '1';
   }
