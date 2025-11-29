@@ -1436,7 +1436,7 @@ function navigate(id, opts = {}) {
   
   
   // Screen-specific initialisation (only if NOT skipping init)
-  console.log("Navigate called →", id, "skipInit:", skipInit);
+  
   if (!skipInit) {
     if (id === 'master')    loadMasterData();
     if (id === 'maps') {
@@ -3624,9 +3624,9 @@ function getFileDate(file) {
 // -------------------------
 let RECYCLE_FILTERS_BOUND = false;
 
-function switchRecycleTab(kind) {
-  console.log("switchRecycleTab() →", kind);
-  const isUser = (kind === 'user');
+function switchRecycleTab(which) {
+  
+  const isUser = (which === 'user');
 
   document.getElementById('recycleTabUser')
     ?.classList.toggle('active', isUser);
@@ -3718,7 +3718,7 @@ function filterRecycleItems(kind) {
 }
 
 function renderRecycleList(kind) {
-  console.log("renderRecycleList() →", kind);
+  
   const listId  = (kind === 'user') ? 'recycleUserList'  : 'recycleSystemList';
   const emptyId = (kind === 'user') ? 'recycleUserEmpty' : 'recycleSystemEmpty';
 
@@ -3727,7 +3727,7 @@ function renderRecycleList(kind) {
   if (!container) return;
 
   const items = filterRecycleItems(kind);
-  console.log("Recycle items for", kind, "=", items);
+  
 
   if (!items.length) {
     container.innerHTML = '';
@@ -3755,7 +3755,7 @@ function renderRecycleList(kind) {
 }
 
 function loadRecycleUI() {
-  console.log("loadRecycleUI() fired");
+  
   // Bind filters only once
   if (!RECYCLE_FILTERS_BOUND) {
     ['user', 'system'].forEach((kind) => {
@@ -5086,11 +5086,7 @@ function openPaymentInfoModal() {
   const ctx = window.CURRENT_VIEWED_INVOICE || null;
   const inv = ctx && ctx.invoice ? ctx.invoice : null;
 
-  // Debug (optional)
-  console.log('PAYMENT-LOAD ctx/invoice:', {
-    ctx,
-    inv,
-  });
+
 
   // 1) Billed amount from context (actual/final)
   let billed = 0;
@@ -8182,7 +8178,7 @@ const name = (() => {
       // feedback
       const msg = document.getElementById('settings-message');
       if (msg) { msg.style.visibility = 'visible'; setTimeout(()=>{ msg.style.visibility='hidden'; }, 1400); }
-      console.log('Settings saved:', { name, color, fontSize });
+      
     } catch(err) {
       console.error('Save settings error', err);
       showMessage('Unable to save settings. See console for details.', 'Save Error');
