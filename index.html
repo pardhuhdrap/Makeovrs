@@ -192,6 +192,7 @@ header {
     <!-- NEW: open your existing Settings screen from here -->
     <button
   type="button"
+  style="display:none;"
   onclick="navigate('settings'); document.getElementById('profileMenu')?.classList.add('hidden');"
   class="w-full text-left px-2 py-1 rounded hover:bg-gray-100"
 >
@@ -3009,7 +3010,7 @@ function renderFilesList() {
       <div>
         <div class="font-semibold ${
           isVoid ? 'text-red-600'
-                 : isValidated ? 'text-orange-600'
+                 : isValidated ? 'text-green-600'
                                : ''
         }">
           ${inv.clientName || 'Unnamed'}
@@ -7091,7 +7092,29 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
   // init
   renderFilesList();
   renderCalendar();
-  navigate('dashboard',{pushHistory:false});
+  // 🆕 Decide first screen based on Drive sign-in
+  let firstScreen = 'dashboard';
+  try {
+    const isSigned = localStorage.getItem('gdrive_signed_in') === '1';
+    if (!isSigned) {
+      firstScreen = 'settings';
+
+      // Gentle reminder so user doesn't forget to log in
+      const msg =
+        'Please sign in with Google Drive so your data is backed up and synced.\n' +
+        'You can explore all features after signing in.';
+      if (typeof showMessage === 'function') {
+        showMessage(msg, 'Sign in required');
+      } else {
+        alert(msg);
+      }
+    }
+  } catch (e) {
+    // if anything fails, just fall back to dashboard
+    console.warn('Sign-in check failed, falling back to dashboard', e);
+  }
+
+  navigate(firstScreen, { pushHistory: false });
 });
 
 // Single canonical Save Settings handler — safe and defensive
@@ -7603,6 +7626,11 @@ document.addEventListener('DOMContentLoaded', () => {
     e.stopPropagation();
     if (!profileMenu) return;
     profileMenu.classList.toggle('hidden');
+  });
+
+   // close profile menu when any option inside it is clicked
+  profileMenu?.addEventListener('click', () => {
+    profileMenu.classList.add('hidden');
   });
 
   // click outside closes menu
