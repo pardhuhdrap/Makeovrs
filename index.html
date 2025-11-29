@@ -2422,15 +2422,18 @@ function openCalendarDatePopup(dateISO){
               relatedInvoices.forEach(inv => {
                 const idForInvoice = inv.invoiceId || inv.id;
                 recycleSystem.push({
+                  recycleId: uid('recycle'),
                   type: 'invoice',
                   kind: 'invoice',
                   label: (inv.clientName || 'Invoice'),
                   clientName: inv.clientName,
                   clientContact: inv.clientContact,
                   invoiceId: idForInvoice,
+                  invoiceNo: inv.invoiceNo,
                   quotationId: evObj.quotationId,
                   removedAt: nowIso,
-                  reason: 'Auto-deleted because all quotation events were un-booked from calendar'
+                  reason: 'Auto-deleted because all quotation events were un-booked from calendar',
+                  original: inv
                 });
               });
 
@@ -3718,7 +3721,6 @@ function filterRecycleItems(kind) {
 }
 
 function renderRecycleList(kind) {
-  
   const listId  = (kind === 'user') ? 'recycleUserList'  : 'recycleSystemList';
   const emptyId = (kind === 'user') ? 'recycleUserEmpty' : 'recycleSystemEmpty';
 
@@ -3727,7 +3729,6 @@ function renderRecycleList(kind) {
   if (!container) return;
 
   const items = filterRecycleItems(kind);
-  
 
   if (!items.length) {
     container.innerHTML = '';
@@ -3738,21 +3739,153 @@ function renderRecycleList(kind) {
   if (emptyEl) emptyEl.classList.add('hidden');
 
   container.innerHTML = items.map((it, idx) => {
-    const label = it.label || it.clientName || it.name || it.id || `Item ${idx + 1}`;
-    const when  = it.removedAt ? new Date(it.removedAt).toLocaleString() : '';
-    const type  = it.type || it.kind || '';
+    const label  = it.label || it.clientName || it.name || it.id || `Item ${idx + 1}`;
+    const when   = it.removedAt ? new Date(it.removedAt).toLocaleString() : '';
+    const type   = it.type || it.kind || '';
+    const reason = it.reason || '';
+    const rid    = it.recycleId || `${kind}_${idx}`;
 
     return `
       <div class="flex items-center justify-between p-2 border-b bg-gray-50 rounded">
-        <div>
-          <div class="font-semibold">${label}</div>
+        <div class="min-w-0">
+          <div class="font-semibold truncate">${label}</div>
           <div class="text-[11px] text-gray-500">
             ${type ? (type + ' • ') : ''}${when}
           </div>
+          ${reason ? `<div class="text-[11px] text-gray-400 italic">${reason}</div>` : ''}
+        </div>
+        <div class="flex flex-shrink-0 gap-2 ml-4">
+          <button
+            class="text-xs px-2 py-1 border rounded hover:bg-gray-100"
+            onclick="openRecycleView('${rid}','${kind}')">
+            View
+          </button>
+          <button
+            class="text-xs px-2 py-1 border rounded text-emerald-700 hover:bg-emerald-50"
+            onclick="restoreRecycleItem('${rid}','${kind}')">
+            Restore
+          </button>
         </div>
       </div>`;
   }).join('');
 }
+
+function findRecycleEntry(kind, recycleId) {
+  const key  = (kind === 'user') ? RECYCLE_USER_KEY : RECYCLE_SYSTEM_KEY;
+  const list = loadFromLS(key, []) || [];
+  const idx  = list.findIndex(it => it.recycleId === recycleId);
+  return { key, list, idx };
+}
+
+function openRecycleView(recycleId, kind) {
+  const { list, idx } = findRecycleEntry(kind, recycleId);
+  if (idx === -1) {
+    showMessage('Could not find this recycle entry. It may have been restored already.', 'Recycle Bin');
+    return;
+  }
+  const it = list[idx];
+
+  const typeRaw = String(it.type || it.kind || '').toLowerCase();
+  let title;
+  if (typeRaw.includes('invoice')) {
+    title = 'Invoice (Recycle Bin)';
+  } else if (typeRaw.includes('quotation')) {
+    title = 'Quotation (Recycle Bin)';
+  } else {
+    title = 'Recycle Item';
+  }
+
+  let html = '<div class="text-sm space-y-1">';
+  html += `<div><strong>Label:</strong> ${it.label || '-'}</div>`;
+  if (it.clientName)    html += `<div><strong>Client:</strong> ${it.clientName}</div>`;
+  if (it.clientContact) html += `<div><strong>Contact:</strong> ${it.clientContact}</div>`;
+  if (it.invoiceNo)     html += `<div><strong>Invoice No:</strong> ${it.invoiceNo}</div>`;
+  if (it.quotationNo)   html += `<div><strong>Quotation No:</strong> ${it.quotationNo}</div>`;
+  if (it.removedAt)     html += `<div><strong>Removed at:</strong> ${new Date(it.removedAt).toLocaleString()}</div>`;
+  if (it.reason)        html += `<div><strong>Reason:</strong> ${it.reason}</div>`;
+  html += '</div>';
+
+  showMessage(html, title);
+}
+
+function restoreRecycleItem(recycleId, kind) {
+  const { key, list, idx } = findRecycleEntry(kind, recycleId);
+  if (idx === -1) {
+    showMessage('Could not find this recycle entry. It may have been restored already.', 'Restore');
+    return;
+  }
+
+  const entry    = list[idx];
+  const original = entry.original;
+  if (!original) {
+    showMessage('Cannot restore: original data is missing for this item.', 'Restore');
+    return;
+  }
+
+  const typeRaw = String(entry.type || entry.kind || '').toLowerCase();
+
+  try {
+    if (typeRaw.includes('invoice')) {
+      const invoices = loadFromLS(SAVED_INVOICES_KEY, []) || [];
+      const newId    = original.invoiceId || original.id;
+      const newNo    = (original.invoiceNo || '').trim().toLowerCase();
+
+      const duplicate = invoices.some(inv => {
+        const existId = inv.invoiceId || inv.id;
+        const existNo = (inv.invoiceNo || '').trim().toLowerCase();
+        return (newId && existId && String(existId) === String(newId)) ||
+               (newNo && existNo && existNo === newNo);
+      });
+
+      if (duplicate) {
+        showMessage(
+          'Another invoice with same ID / number already exists. Restore cancelled.',
+          'Restore invoice'
+        );
+        return;
+      }
+
+      invoices.push(original);
+      saveToLS(SAVED_INVOICES_KEY, invoices);
+    } else if (typeRaw.includes('quotation')) {
+      const quotations = loadFromLS(SAVED_QUOTATIONS_KEY, []) || [];
+      const newId      = original.id || original.quotationId;
+
+      const duplicateQ = quotations.some(q =>
+        newId && String(q.id) === String(newId)
+      );
+
+      if (!duplicateQ) {
+        quotations.push(original);
+        saveToLS(SAVED_QUOTATIONS_KEY, quotations);
+      }
+    } else {
+      showMessage('Restore is currently supported only for quotations and invoices.', 'Restore');
+      return;
+    }
+
+    // Remove from recycle list
+    list.splice(idx, 1);
+    saveToLS(key, list);
+
+    // Refresh recycle + files UI
+    renderRecycleList('user');
+    renderRecycleList('system');
+    if (typeof renderFilesList === 'function') {
+      renderFilesList();
+    }
+
+    if (typeof autoSaveDrive === 'function' && window.accessToken) {
+      try { autoSaveDrive('restore from recycle'); } catch (e) { console.warn(e); }
+    }
+
+    showMessage('Item restored back to Files.', 'Restore');
+  } catch (e) {
+    console.error(e);
+    showMessage('Restore failed. See console for details.', 'Error');
+  }
+}
+
 
 function loadRecycleUI() {
   
@@ -7728,51 +7861,55 @@ document.getElementById("removeInvoiceLayoutBtn")?.addEventListener("click", () 
   }
 
     const quoteBulkDelete = document.getElementById('quoteBulkDelete');
-  if (quoteBulkDelete) {
-    quoteBulkDelete.addEventListener('click', () => {
-      const ids = getCheckedQuoteIds();
-      if (!ids.length) {
-        showMessage('Please select at least one quotation to delete.');
-        return;
-      }
-      if (!confirm('Delete selected quotations? This cannot be undone.')) return;
+if (quoteBulkDelete) {
+  quoteBulkDelete.addEventListener('click', () => {
+    const ids = getCheckedQuoteIds();
+    if (!ids.length) {
+      showMessage('Please select at least one quotation to delete.');
+      return;
+    }
+    if (!confirm('Delete selected quotations? This cannot be undone.')) return;
 
-      const list        = loadFromLS(SAVED_QUOTATIONS_KEY, []);
-      const recycleUser = loadFromLS(RECYCLE_USER_KEY, []);
-      const nowIso      = new Date().toISOString();
+    const list        = loadFromLS(SAVED_QUOTATIONS_KEY, []) || [];
+    const recycleUser = loadFromLS(RECYCLE_USER_KEY, []) || [];
+    const nowIso      = new Date().toISOString();
 
-      // ⭐ Move deleted quotations into Recycle Bin → User Removed
-      list.forEach(q => {
-        if (ids.includes(String(q.id))) {
-          recycleUser.push({
-            type: 'quotation',
-            kind: 'quotation',
-            label: q.clientName || 'Quotation',
-            clientName: q.clientName,
-            clientContact: q.clientContact,
-            quotationId: q.id,
-            removedAt: nowIso,
-            reason: 'Deleted by user from Files → Quotations'
-          });
-        }
-      });
-      saveToLS(RECYCLE_USER_KEY, recycleUser);
-
-      // Now actually remove them from main storage
-      const remaining = list.filter(q => !ids.includes(String(q.id)));
-      saveToLS(SAVED_QUOTATIONS_KEY, remaining);
-      renderFilesList();
-
-      // 🔁 auto-save to Drive after delete
-      try {
-        if (typeof saveToDrive === 'function' && accessToken) {
-          saveToDrive();
-        }
-      } catch (e) {
-        console.warn('Auto-save to Drive after quotation delete failed:', e);
+    // Move to Recycle → User Removed
+    list.forEach(q => {
+      if (ids.includes(String(q.id))) {
+        recycleUser.push({
+          recycleId: 'recycle_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+          type: 'quotation',
+          kind: 'quotation',
+          label: q.clientName || 'Quotation',
+          clientName: q.clientName,
+          clientContact: q.clientContact,
+          quotationId: q.id,
+          quotationNo: q.quotationNo,
+          removedAt: nowIso,
+          reason: 'Deleted from Files → Quotations (user)',
+          original: q
+        });
       }
     });
-  }
+
+    saveToLS(RECYCLE_USER_KEY, recycleUser);
+
+    const remaining = list.filter(q => !ids.includes(String(q.id)));
+    saveToLS(SAVED_QUOTATIONS_KEY, remaining);
+    renderFilesList();
+
+    // 🔁 auto-save to Drive after delete
+    try {
+      if (typeof saveToDrive === 'function' && accessToken) {
+        saveToDrive();
+      }
+    } catch (e) {
+      console.warn('Auto-save to Drive after quotation delete failed:', e);
+    }
+  });
+}
+
 
 
   // ===== FILES → Invoices bulk actions =====
@@ -7809,56 +7946,59 @@ document.getElementById("removeInvoiceLayoutBtn")?.addEventListener("click", () 
   }
 
     const invoiceBulkDelete = document.getElementById('invoiceBulkDelete');
-  if (invoiceBulkDelete) {
-    invoiceBulkDelete.addEventListener('click', () => {
-      const ids = getCheckedInvoiceIds();
-      if (!ids.length) {
-        showMessage('Please select at least one invoice to delete.');
-        return;
-      }
-      if (!confirm('Delete selected invoices? This cannot be undone.')) return;
+if (invoiceBulkDelete) {
+  invoiceBulkDelete.addEventListener('click', () => {
+    const ids = getCheckedInvoiceIds();
+    if (!ids.length) {
+      showMessage('Please select at least one invoice to delete.');
+      return;
+    }
+    if (!confirm('Delete selected invoices? This cannot be undone.')) return;
 
-      const list        = loadFromLS(SAVED_INVOICES_KEY, []);
-      const recycleUser = loadFromLS(RECYCLE_USER_KEY, []);
-      const nowIso      = new Date().toISOString();
+    const list        = loadFromLS(SAVED_INVOICES_KEY, []) || [];
+    const recycleUser = loadFromLS(RECYCLE_USER_KEY, []) || [];
+    const nowIso      = new Date().toISOString();
 
-      // ⭐ Move deleted invoices into Recycle Bin → User Removed
-      list.forEach(inv => {
-        const idForInvoice = inv.invoiceId || inv.id;
-        if (ids.includes(String(idForInvoice))) {
-          recycleUser.push({
-            type: 'invoice',
-            kind: 'invoice',
-            label: inv.clientName || 'Invoice',
-            clientName: inv.clientName,
-            clientContact: inv.clientContact,
-            invoiceId: idForInvoice,
-            quotationId: inv.quotationId,
-            removedAt: nowIso,
-            reason: 'Deleted by user from Files → Invoices'
-          });
-        }
-      });
-      saveToLS(RECYCLE_USER_KEY, recycleUser);
-
-      // Now actually remove them from main storage
-      const remaining = list.filter(inv => {
-        const idForInvoice = inv.invoiceId || inv.id;
-        return !ids.includes(String(idForInvoice));
-      });
-      saveToLS(SAVED_INVOICES_KEY, remaining);
-      renderFilesList();
-
-      // 🔁 auto-save to Drive after delete
-      try {
-        if (typeof saveToDrive === 'function' && accessToken) {
-          saveToDrive();
-        }
-      } catch (e) {
-        console.warn('Auto-save to Drive after invoice delete failed:', e);
+    // Move to Recycle → User Removed
+    list.forEach(inv => {
+      const idForInvoice = inv.invoiceId || inv.id;
+      if (ids.includes(String(idForInvoice))) {
+        recycleUser.push({
+          recycleId: 'recycle_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+          type: 'invoice',
+          kind: 'invoice',
+          label: inv.clientName || 'Invoice',
+          clientName: inv.clientName,
+          clientContact: inv.clientContact,
+          invoiceId: idForInvoice,
+          invoiceNo: inv.invoiceNo,
+          removedAt: nowIso,
+          reason: 'Deleted from Files → Invoices (user)',
+          original: inv
+        });
       }
     });
-  }
+
+    saveToLS(RECYCLE_USER_KEY, recycleUser);
+
+    const remaining = list.filter(inv => {
+      const idForInvoice = inv.invoiceId || inv.id;
+      return !ids.includes(String(idForInvoice));
+    });
+    saveToLS(SAVED_INVOICES_KEY, remaining);
+    renderFilesList();
+
+    // 🔁 auto-save to Drive after delete
+    try {
+      if (typeof saveToDrive === 'function' && accessToken) {
+        saveToDrive();
+      }
+    } catch (e) {
+      console.warn('Auto-save to Drive after invoice delete failed:', e);
+    }
+  });
+}
+
 
 
 
