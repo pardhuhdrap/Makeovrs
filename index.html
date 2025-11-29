@@ -3541,7 +3541,8 @@ function getFileDate(file) {
 // -------------------------
 let RECYCLE_FILTERS_BOUND = false;
 
-function switchRecycleTab(which) {
+function switchRecycleTab(kind) {
+  console.log("switchRecycleTab() →", kind);
   const isUser = (which === 'user');
 
   document.getElementById('recycleTabUser')
@@ -3634,6 +3635,7 @@ function filterRecycleItems(kind) {
 }
 
 function renderRecycleList(kind) {
+  console.log("renderRecycleList() →", kind);
   const listId  = (kind === 'user') ? 'recycleUserList'  : 'recycleSystemList';
   const emptyId = (kind === 'user') ? 'recycleUserEmpty' : 'recycleSystemEmpty';
 
@@ -3642,6 +3644,7 @@ function renderRecycleList(kind) {
   if (!container) return;
 
   const items = filterRecycleItems(kind);
+  console.log("Recycle items for", kind, "=", items);
 
   if (!items.length) {
     container.innerHTML = '';
@@ -3669,6 +3672,7 @@ function renderRecycleList(kind) {
 }
 
 function loadRecycleUI() {
+  console.log("loadRecycleUI() fired");
   // Bind filters only once
   if (!RECYCLE_FILTERS_BOUND) {
     ['user', 'system'].forEach((kind) => {
