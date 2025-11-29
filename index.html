@@ -4227,9 +4227,31 @@ function openPaymentInfoModalRestrictedFromCalendar() {
 
     // 🧠 Use CURRENT_VIEWED_INVOICE + saved invoice to pre-fill if it exists
   const ctx = window.CURRENT_VIEWED_INVOICE || {};
-  const inv = ctx.invoice || null;
+   const ctxFlow  = window.CALENDAR_BOOKING_FLOW || null;
+  const allInvs  = loadFromLS(SAVED_INVOICES_KEY, [])
 
-  // 1) Decide billed base
+  // 🧠 Try to get existing invoice:
+  // 1) ctx.invoice (if already set)
+  // 2) By quotationId from CALENDAR_BOOKING_FLOW / ctx
+  let inv = ctx.invoice || null;
+  const quotationId =
+    (ctxFlow && ctxFlow.quotationId) ||
+    ctx.quotationId ||
+    null;
+
+  if (!inv && quotationId) {
+    inv = allInvs.find(x =>
+      x.quotationId === quotationId ||
+      x.id === quotationId
+    ) || null;
+
+    if (inv) {
+      ctx.invoice = inv;
+      window.CURRENT_VIEWED_INVOICE = ctx;
+    }
+  }
+
+  // 1️⃣ Decide billed base
   const billedRaw =
     (inv && typeof inv.final === 'number')
       ? inv.final
@@ -4239,15 +4261,7 @@ function openPaymentInfoModalRestrictedFromCalendar() {
 
   const billed = Number(billedRaw) || 0;
 
-  // 2) Read previously saved payment fields (if any)
-  const savedRevisedEnabled = inv && typeof inv.paymentRevisedEnabled === 'boolean'
-    ? inv.paymentRevisedEnabled
-    : false;
-
-  const savedRevisedAmount = inv && typeof inv.paymentRevisedAmount === 'number'
-    ? inv.paymentRevisedAmount
-    : 0;
-
+  // 2️⃣ Read previously saved payment fields (if any)
   const savedAdvance = inv && typeof inv.advancePaid === 'number'
     ? inv.advancePaid
     : 0;
@@ -4260,7 +4274,7 @@ function openPaymentInfoModalRestrictedFromCalendar() {
     ? inv.paymentPartialLog
     : '';
 
-  // 3) Apply to controls
+  // 3️⃣ Apply to controls
 
   // Billed amount
   if (billedInput) {
@@ -4269,21 +4283,17 @@ function openPaymentInfoModalRestrictedFromCalendar() {
 
   // Advance Paid
   if (advanceInput) {
-    if (savedAdvance > 0) {
-      advanceInput.value = savedAdvance.toFixed(2);
-    } else {
-      // first time from calendar → behaves like before
-      advanceInput.value = '0';
-    }
+    // If we have something saved, show it; otherwise behave like fresh
+    advanceInput.value = savedAdvance > 0
+      ? savedAdvance.toFixed(2)
+      : '0';
   }
 
   // Final Paid (sum of partial + previous)
   if (finalInput) {
-    if (savedFinalPaid > 0) {
-      finalInput.value = savedFinalPaid.toFixed(2);
-    } else {
-      finalInput.value = '0';
-    }
+    finalInput.value = savedFinalPaid > 0
+      ? savedFinalPaid.toFixed(2)
+      : '0';
   }
 
   // Pending = billed - (advance + final)
@@ -4293,7 +4303,7 @@ function openPaymentInfoModalRestrictedFromCalendar() {
     pendingInput.dataset.rawPending = String(pendingRaw);
   }
 
-  // Partial history + input
+  // Partial history + current partial input
   const partialLog   = document.getElementById('paymentPartialLog');
   const partialValue = document.getElementById('paymentPartialValue');
 
@@ -4314,8 +4324,7 @@ function openPaymentInfoModalRestrictedFromCalendar() {
     finalInput.dataset.partialSum = partialFromSaved.toFixed(2);
   }
 
-
-  // Disable revised amount & final payment
+  // 4️⃣ Disable revised amount & final payment (same as before)
   if (revisedCheck) {
     revisedCheck.checked = false;
     revisedCheck.disabled = true;
