@@ -6994,6 +6994,7 @@ async function refreshClientRequestsUI() {
       const card = document.createElement('div');
       card.className = 'border border-gray-200 rounded-lg p-2 bg-white shadow-sm';
       card.dataset.payloadJson = row.payloadJson;
+      card.dataset.rowIndex = row.rowIndex || '';
 
       card.innerHTML = `
         <div class="flex justify-between items-start">
@@ -7015,6 +7016,33 @@ async function refreshClientRequestsUI() {
       '<div class="text-[11px] text-red-500">Failed to load.</div>';
   }
 }
+
+async function markClientRequestImported(rowIndex, cardEl) {
+  try {
+    await fetch(CLIENT_REQ_API_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        _action: 'markImported',
+        rowIndex: Number(rowIndex)
+      })
+    });
+
+    // remove from UI
+    if (cardEl && cardEl.parentElement) {
+      cardEl.parentElement.removeChild(cardEl);
+    }
+
+    const listEl  = document.getElementById('clientReqList');
+    const emptyEl = document.getElementById('clientReqEmpty');
+    if (listEl && emptyEl && !listEl.children.length) {
+      emptyEl.classList.remove('hidden');
+    }
+  } catch (e) {
+    console.warn('Failed to mark client request imported', e);
+    // you might show a toast if you want
+  }
+}
+
 
 // === Convert client request → prefilled quotation ===
 function createQuotationFromClientRequestPayload(payload) {
@@ -7813,23 +7841,32 @@ function initClientRequestsFloatingUi() {
 
   // ------------- “CREATE QUOTATION” IN LIST -------------
   if (listEl) {
-    listEl.addEventListener('click', (e) => {
-      const btn = e.target.closest('.clientReqCreateBtn');
-      if (!btn) return;
+  listEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('.clientReqCreateBtn');
+    if (!btn) return;
 
-      const card = btn.closest('[data-payload-json]');
-      if (!card) return;
+    const card = btn.closest('[data-payload-json]');
+    if (!card) return;
 
-      let payload = {};
-      try {
-        payload = JSON.parse(card.dataset.payloadJson || '{}');
-      } catch {
-        payload = {};
-      }
+    let payload = {};
+    try {
+      payload = JSON.parse(card.dataset.payloadJson || '{}');
+    } catch {
+      payload = {};
+    }
 
-      createQuotationFromClientRequestPayload(payload);
-    });
-  }
+    const rowIndex = card.dataset.rowIndex || '';
+
+    // 1) open quotation
+    createQuotationFromClientRequestPayload(payload);
+
+    // 2) mark this request as imported in backend + remove from UI
+    if (rowIndex) {
+      markClientRequestImported(rowIndex, card);
+    }
+  });
+}
+
 
   // ------------- DRAGGING (MOUSE + TOUCH via POINTER EVENTS) -------------
   let drag = {
