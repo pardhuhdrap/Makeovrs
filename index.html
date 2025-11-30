@@ -6999,7 +6999,33 @@ async function refreshClientRequestsUI() {
 
     if (!data.ok) throw new Error(data.message);
 
-    const items = data.items || [];
+    // 👇 change const → let
+    let items = data.items || [];
+
+    // 🔹 NEW: filter out any requests that are already in System recycle as client-request
+    try {
+      const systemList = loadFromLS(RECYCLE_SYSTEM_KEY, []) || [];
+      const importedSet = new Set(
+        systemList
+          .filter(
+            (entry) =>
+              entry &&
+              entry.type === 'client-request' &&
+              entry.rowIndex != null
+          )
+          .map((entry) => String(entry.rowIndex))
+      );
+
+      items = items.filter(
+        (row) => !importedSet.has(String(row.rowIndex))
+      );
+    } catch (e) {
+      console.warn(
+        'Client-requests filter by System recycle failed:',
+        e
+      );
+    }
+    
     listEl.innerHTML = '';
 
     if (!items.length) {
