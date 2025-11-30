@@ -294,17 +294,61 @@ header {
 
     <!-- DASHBOARD -->
     <div id="dashboard" class="screen-container translate-x-0">
-      <div class="flex flex-wrap justify-center">
-        <div class="app-icon text-center" onclick="navigate('calendar')"><i data-lucide="calendar" class="w-8 h-8 app-color-text"></i><span class="mt-2 text-sm font-medium text-gray-700">Event Calendar</span></div>
-        <div class="app-icon" onclick="navigate('quotation')"><i data-lucide="clipboard-list" class="w-8 h-8 app-color-text"></i><span class="mt-2 text-sm font-medium text-gray-700">Quotation</span></div>
-        <div class="app-icon" onclick="navigate('invoice')"><i data-lucide="indian-rupee" class="w-8 h-8 app-color-text"></i><span class="mt-2 text-sm font-medium text-gray-700">Invoice</span></div>
-        <div class="app-icon text-center" onclick="navigate('maps')"><i data-lucide="map-pin" class="w-8 h-8 app-color-text"></i><span class="mt-2 text-sm font-medium text-gray-700">Distance Calculator</span></div>
-        <div class="app-icon" onclick="navigate('master')"><i data-lucide="database" class="w-8 h-8 app-color-text"></i><span class="mt-2 text-sm font-medium text-gray-700">Master Data</span></div>
-        <div class="app-icon" onclick="navigate('files')"><i data-lucide="folder" class="w-8 h-8 app-color-text"></i><span class="mt-2 text-sm font-medium text-gray-700">Files</span></div>
-        <div class="app-icon" onclick="navigate('revenue')"><i data-lucide="banknote" class="w-8 h-8 app-color-text"></i><span class="mt-2 text-sm font-medium text-gray-700">Revenue</span></div>
-        <div class="app-icon" onclick="navigate('recycle')"><i data-lucide="trash-2" class="w-8 h-8 app-color-text"></i><span class="mt-2 text-sm font-medium text-gray-700">Recycle Bin</span></div>
-      </div>
+  <!-- Shown when SIGNED IN -->
+  <div
+    id="dashboardSignedIn"
+    class="flex flex-wrap justify-center"
+  >
+    <div class="app-icon text-center" onclick="navigate('calendar')">
+      <i data-lucide="calendar" class="w-8 h-8 app-color-text"></i>
+      <span class="mt-2 text-sm font-medium text-gray-700">Event Calendar</span>
     </div>
+    <div class="app-icon" onclick="navigate('quotation')">
+      <i data-lucide="clipboard-list" class="w-8 h-8 app-color-text"></i>
+      <span class="mt-2 text-sm font-medium text-gray-700">Quotation</span>
+    </div>
+    <div class="app-icon" onclick="navigate('invoice')">
+      <i data-lucide="indian-rupee" class="w-8 h-8 app-color-text"></i>
+      <span class="mt-2 text-sm font-medium text-gray-700">Invoice</span>
+    </div>
+    <div class="app-icon text-center" onclick="navigate('maps')">
+      <i data-lucide="map-pin" class="w-8 h-8 app-color-text"></i>
+      <span class="mt-2 text-sm font-medium text-gray-700">Distance Calculator</span>
+    </div>
+    <div class="app-icon" onclick="navigate('master')">
+      <i data-lucide="database" class="w-8 h-8 app-color-text"></i>
+      <span class="mt-2 text-sm font-medium text-gray-700">Master Data</span>
+    </div>
+    <div class="app-icon" onclick="navigate('files')">
+      <i data-lucide="folder" class="w-8 h-8 app-color-text"></i>
+      <span class="mt-2 text-sm font-medium text-gray-700">Files</span>
+    </div>
+    <div class="app-icon" onclick="navigate('revenue')">
+      <i data-lucide="banknote" class="w-8 h-8 app-color-text"></i>
+      <span class="mt-2 text-sm font-medium text-gray-700">Revenue</span>
+    </div>
+    <div class="app-icon" onclick="navigate('recycle')">
+      <i data-lucide="trash-2" class="w-8 h-8 app-color-text"></i>
+      <span class="mt-2 text-sm font-medium text-gray-700">Recycle Bin</span>
+    </div>
+  </div>
+
+  <!-- Shown when NOT SIGNED IN -->
+  <div
+    id="dashboardSignedOut"
+    class="hidden h-full flex items-center justify-center"
+  >
+    <div class="text-center px-4">
+      <div class="text-lg font-semibold text-gray-800 mb-2">
+        Sign in to view the dashboard
+      </div>
+      <p class="text-xs text-gray-500">
+        Please sign in with Google to view the app dashboard and continue operations.
+      </p>
+    </div>
+  </div>
+</div>
+
 
     <!-- SETTINGS (kept compact but functional) -->
     <div id="settings" class="screen-container translate-x-full">
@@ -1516,48 +1560,12 @@ function navigate(id, opts = {}) {
   const pushHistory = (opts.pushHistory !== false);
   const skipInit    = (opts.skipInit === true);
 
-   // 🔒 Guard: block protected screens when not signed in
-  try {
-    const signedIn = localStorage.getItem('gdrive_signed_in') === '1';
-    const protectedScreens = [
-      'dashboard',
-      'master',
-      'quotation',
-      'calendar',
-      'invoice',
-      'files',
-      'recycle',
-      'maps'
-    ];
-
-    if (!signedIn && protectedScreens.includes(id)) {
-      if (id !== 'dashboard') {
-        // show friendly message just once when they try to go elsewhere
-        if (typeof showMessage === 'function') {
-          showMessage(
-            'Please sign in with Google Drive first.\n\n' +
-            'After sign-in, Dashboard and all features will be unlocked.',
-            'Sign-in required'
-          );
-        } else {
-          alert('Please sign in with Google Drive first.');
-        }
-      }
-
-      // Force navigation to Settings instead
-      id = 'dashboard';
+ // NEW: adjust dashboard content based on sign-in state
+  if (id === 'dashboard') {
+    try { updateDashboardForSignIn(); } catch (e) {
+      console.warn('updateDashboardForSignIn failed', e);
     }
-  } catch (e) {
-    console.warn('Sign-in guard failed:', e);
   }
-
-
-  // Show only the requested screen
-  screens.forEach(s => {
-    const el = document.getElementById(s);
-    if (!el) return;
-    el.style.transform = (s === id) ? 'translateX(0)' : 'translateX(100%)';
-  });
 
   // History handling for back button
   if (pushHistory && currentScreen !== id) {
@@ -1594,6 +1602,29 @@ function navigate(id, opts = {}) {
 
   createLucide();
 }
+
+function updateDashboardForSignIn() {
+  let signedIn = false;
+  try {
+    signedIn = localStorage.getItem('gdrive_signed_in') === '1';
+  } catch (e) {
+    console.warn('Sign-in read failed:', e);
+  }
+
+  const signedInEl  = document.getElementById('dashboardSignedIn');
+  const signedOutEl = document.getElementById('dashboardSignedOut');
+
+  if (!signedInEl || !signedOutEl) return;
+
+  if (signedIn) {
+    signedInEl.classList.remove('hidden');
+    signedOutEl.classList.add('hidden');
+  } else {
+    signedInEl.classList.add('hidden');
+    signedOutEl.classList.remove('hidden');
+  }
+}
+
 
 function formatINR(num) {
   if (num === null || num === undefined || num === '') return '';
@@ -9243,6 +9274,8 @@ async function onSignedIn(){
       // remember we are signed in
       try { localStorage.setItem('gdrive_signed_in', '1'); } catch(e) {}
 
+      try { updateDashboardForSignIn(); } catch (e) {}
+
       // 🔁 update header avatar based on sign-in + app logo
       updateProfileIcon();
 
@@ -9292,6 +9325,7 @@ function signOutFromGoogle(){
     document.getElementById('btnLoadDrive').style.display = 'none';
     document.getElementById('gdrive-status').innerText = '';
     localStorage.removeItem('gdrive_signed_in');
+    try { updateDashboardForSignIn(); } catch (e) {}
     const userSettingsBtn = document.getElementById('btnUserProfileSettings');
     if (userSettingsBtn) userSettingsBtn.style.display = 'none';
 
