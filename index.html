@@ -2058,56 +2058,80 @@ function buildCalendarEventIndex(){
 
 // === DASHBOARD: Upcoming Events Notepad ===
 function updateDashboardUpcomingEvents() {
-  const box = document.getElementById("dashboardUpcomingList");
+  const box = document.getElementById('dashboardUpcomingList');
   if (!box) return;
 
   let allEvents = [];
 
   try {
-    const cal = JSON.parse(localStorage.getItem("calendar_events") || "[]");
-    allEvents = Array.isArray(cal) ? cal : [];
+    // 🔹 Build the same event list that calendar uses
+    const idx = buildCalendarEventIndex(); // { dateISO: [ events... ] }
+
+    Object.keys(idx).forEach((dateISO) => {
+      const arr = idx[dateISO] || [];
+      arr.forEach((ev) => {
+        // ensure date field exists on each event
+        allEvents.push({
+          ...ev,
+          date: dateISO
+        });
+      });
+    });
   } catch (e) {
-    console.warn("Calendar load failed", e);
+    console.warn('Dashboard upcoming: index build failed', e);
   }
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const upcoming = allEvents
-    .filter(ev => ev.booked)                      // only booked events
-    .map(ev => {
+    .filter((ev) => ev.booked) // only booked events
+    .map((ev) => {
       const d = new Date(ev.date);
       d.setHours(0, 0, 0, 0);
       return { ...ev, dateObj: d };
     })
-    .filter(ev => ev.dateObj > today)             // exclude today
-    .filter(ev => {
+    .filter((ev) => ev.dateObj > today) // exclude today
+    .filter((ev) => {
       // within next 4 days (tomorrow + 3 more)
-      const diff = Math.floor((ev.dateObj - today) / (1000 * 60 * 60 * 24));
+      const diff = Math.floor(
+        (ev.dateObj - today) / (1000 * 60 * 60 * 24)
+      );
       return diff >= 1 && diff <= 4;
     })
-    .sort((a, b) => a.dateObj - b.dateObj);       // earliest first
+    .sort((a, b) => a.dateObj - b.dateObj); // earliest first
 
   if (!upcoming.length) {
-    box.innerHTML = `<div class="text-xs text-gray-400 italic">No upcoming events in next 4 days.</div>`;
+    box.innerHTML =
+      '<div class="text-xs text-gray-400 italic">No upcoming events in next 4 days.</div>';
     return;
   }
 
-  // limit items to show
   const finalList = upcoming.slice(0, 4);
 
   box.innerHTML = finalList
-    .map(ev => {
+    .map((ev) => {
+      const dateStr = ev.dateObj.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      });
+
       return `
       <div class="border border-gray-200 bg-white rounded p-2 shadow-xs">
         <div class="font-semibold text-gray-800">${ev.clientName || '--'}</div>
-        <div class="text-xs text-gray-600">${ev.date}</div>
-        ${ev.location ? `<div class="text-xs text-gray-500">${ev.location}</div>` : ""}
+        <div class="text-xs text-gray-600">${dateStr}</div>
+        ${
+          ev.location
+            ? `<div class="text-xs text-gray-500">${ev.location}</div>`
+            : ''
+        }
       </div>
       `;
     })
-    .join("");
+    .join('');
 }
+
 
 
 /* Persist eventId for any events missing one in saved quotations (migration)
@@ -2135,7 +2159,7 @@ function setQuotationBookings(quotationId, booked=true){
   saveToLS(BOOKED_EVENTS_KEY, bookings);
 
   try { updateDashboardUpcomingEvents(); } catch(e) {}
-  
+
   // NEW: auto-save this change to Drive
   scheduleAutoSave('calendar quotation booking change');
 }
