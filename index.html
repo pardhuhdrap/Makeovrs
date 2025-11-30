@@ -146,7 +146,8 @@ header {
   /* === Client Requests floating button + panel === */
   .client-req-fab {
     position: absolute;
-    bottom: 16px;
+    top: 38pc;
+    bottom: auto;
     right: 16px;
     width: 52px;
     height: 52px;
@@ -167,8 +168,9 @@ header {
 
   .client-req-panel {
     position: absolute;
-    bottom: 80px;
+    top: 80px;
     right: 16px;
+    bottom: auto;
     width: 320px;
     max-width: calc(100% - 24px);
     max-height: 70vh;
@@ -3843,11 +3845,20 @@ function filterRecycleItems(kind) {
   const nameFilter = document.getElementById(nameId)?.value || '';
   const dateFilter = document.getElementById(dateId)?.value || '';
 
-  return items.filter((it) =>
+  let filtered = items.filter((it) =>
     recycleMatchesType(it, typeFilter) &&
     recycleMatchesName(it, nameFilter) &&
     recycleMatchesDate(it, dateFilter)
   );
+
+  // 2) Sort by removedAt (newest first). Fallback to date / createdAt.
+  filtered.sort((a, b) => {
+    const da = new Date(a.removedAt || a.date || a.createdAt || 0).getTime();
+    const db = new Date(b.removedAt || b.date || b.createdAt || 0).getTime();
+    return db - da; // descending → latest first
+  });
+
+  return filtered;
 }
 
 function renderRecycleList(kind) {
@@ -4433,7 +4444,7 @@ function renderFilesList() {
           </div>
           <div class="mt-1 text-[11px]">
             <span class="inline-block px-2 py-0.5 rounded-full text-[11px] ${
-              statusKey === 'completed'
+              statusKey === 'completed' || statusKey === 'paid'
                 ? 'bg-green-100 text-green-700'
                 : statusKey === 'partial'
                 ? 'bg-yellow-100 text-yellow-700'
