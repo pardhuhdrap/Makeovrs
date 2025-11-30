@@ -7378,10 +7378,13 @@ function openClientRequestPreview(payload, rowIndex) {
 
   showMessage(html, 'Client Request');
 
+  ['messageShareBtn','messagePaidBtn','messageEditBtn']
+    .forEach(id => document.getElementById(id)?.classList.add('hidden'));
+
   // map buttons
   const green   = document.getElementById('messageGenerateInvoiceBtn'); // Create quotation
   const red     = document.getElementById('messageDownloadBtn');        // Delete
-  const close   = document.getElementById('messageCloseBtn');           // Close
+  const black   = document.getElementById('messageCloseBtn');           // Close
 
   // hide everything else
   ['messageShareBtn','messagePaidBtn','messageEditBtn']
@@ -7389,7 +7392,7 @@ function openClientRequestPreview(payload, rowIndex) {
 
   // 1️⃣ CREATE QUOTATION (GREEN)
   green.classList.remove('hidden');
-  green.textContent = 'Create quotation';
+  green.textContent = 'Create Quotation';
   green.onclick = () => {
     window.CURRENT_CLIENT_REQ_CTX = { rowIndex, payload };
     createQuotationFromClientRequestPayload(payload);
@@ -7407,9 +7410,9 @@ function openClientRequestPreview(payload, rowIndex) {
     closeMessage();
   };
 
-  // 3️⃣ CLOSE (MAROON)
-  close.classList.remove('hidden');
-  close.textContent = 'Close';
+  // 3️⃣ CLOSE (Black)
+  black.classList.remove('hidden');
+  black.textContent = 'Close';
 }
 
 
