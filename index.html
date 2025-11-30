@@ -1596,6 +1596,7 @@ const APP_NAME_KEY='app_name', APP_COLOR_KEY='app_color', MASTER_EVENT_NAMES_KEY
 
 const RECYCLE_USER_KEY   = 'recycle_user_removed';
 const RECYCLE_SYSTEM_KEY = 'recycle_system_removed';
+const CLIENT_REQUEST_RETENTION_DAYS = 30;
 
 let CURRENT_EDIT_QUOTATION_ID = null; 
 let CURRENT_EDIT_INVOICE_ID   = null;
@@ -7018,6 +7019,18 @@ async function refreshClientRequestsUI() {
 }
 
 async function markClientRequestImported(rowIndex, cardEl) {
+  // 1) Read payload from card (so we can store it in System removed)
+  let payload = null;
+  if (cardEl && cardEl.dataset && cardEl.dataset.payloadJson) {
+    try {
+      payload = JSON.parse(cardEl.dataset.payloadJson || '{}');
+    } catch (e) {
+      console.warn('Failed to parse client request payload from card', e);
+      payload = null;
+    }
+  }
+
+  // 2) Ask Apps Script to mark this as imported (status = imported)
   try {
     await fetch(CLIENT_REQ_API_URL, {
       method: 'POST',
@@ -7026,20 +7039,74 @@ async function markClientRequestImported(rowIndex, cardEl) {
         rowIndex: Number(rowIndex)
       })
     });
+  } catch (e) {
+    console.warn('Failed to mark client request imported in central sheet', e);
+    // we still continue to move it into System removed locally
+  }
 
-    // remove from UI
+  // 3) Push a System-removed entry in local recycle bin
+  try {
+    const rb = loadFromLS(RECYCLE_BIN_KEY, {
+      userRemoved: [],
+      systemRemoved: []
+    });
+
+    const nowIso = new Date().toISOString();
+
+    rb.systemRemoved.push({
+      id: 'cr_' + Date.now(),          // unique id
+      kind: 'client-request',          // 👈 type/tag used in filters (you already have this)
+      removedBy: 'system',             // system removed
+      removedAt: nowIso,               // for time-based cleanup
+      notes: 'Client request imported to quotation',
+      payload: payload || {}
+    });
+
+    saveToLS(RECYCLE_BIN_KEY, rb);
+  } catch (e) {
+    console.warn('Failed to store client request into system-removed bin', e);
+  }
+
+  // 4) Remove card from UI
+  try {
     if (cardEl && cardEl.parentElement) {
       cardEl.parentElement.removeChild(cardEl);
     }
-
     const listEl  = document.getElementById('clientReqList');
     const emptyEl = document.getElementById('clientReqEmpty');
     if (listEl && emptyEl && !listEl.children.length) {
       emptyEl.classList.remove('hidden');
     }
   } catch (e) {
-    console.warn('Failed to mark client request imported', e);
-    // you might show a toast if you want
+    console.warn('Failed to update client request UI after import', e);
+  }
+}
+
+function cleanupOldClientRequestSystemRemoved() {
+  try {
+    const rb = loadFromLS(RECYCLE_BIN_KEY, {
+      userRemoved: [],
+      systemRemoved: []
+    });
+
+    const cutoffMs =
+      Date.now() - CLIENT_REQUEST_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+
+    rb.systemRemoved = rb.systemRemoved.filter(item => {
+      if (!item) return false;
+
+      // Only apply 30-day cleanup to client-request entries
+      if (item.kind !== 'client-request') return true;
+
+      const t = item.removedAt ? Date.parse(item.removedAt) : NaN;
+      if (isNaN(t)) return true; // if no valid date, keep it
+
+      return t >= cutoffMs; // keep only if NOT older than cutoff
+    });
+
+    saveToLS(RECYCLE_BIN_KEY, rb);
+  } catch (e) {
+    console.warn('Cleanup of old client-request system-removed items failed', e);
   }
 }
 
@@ -8647,6 +8714,9 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
     autoSaveDrive('invoice saved from invoice screen');
   }
 });
+
+  // 🔹 Auto-clean client requests older than 30 days from System removed
+cleanupOldClientRequestSystemRemoved();
 
   // init
   renderFilesList();
