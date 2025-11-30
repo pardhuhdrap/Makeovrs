@@ -7043,9 +7043,10 @@ async function markClientRequestImported(ctx) {
 
   const payload = ctx.payload || null;
 
-  // 1) Tell central Sheet this row is imported
+  // 1) Best-effort: notify central Sheet that this row is imported.
+  //    If CORS / network fails, we just log and continue.
   try {
-    fetch(CLIENT_REQ_API_URL, {
+    await fetch(CLIENT_REQ_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -7054,39 +7055,81 @@ async function markClientRequestImported(ctx) {
       })
     });
   } catch (e) {
-    console.warn('Failed to mark client request imported in sheet', e);
+    console.warn(
+      'Could not notify Google Sheet that client request is imported (likely CORS / offline).',
+      e
+    );
   }
 
-  // 2) Move into System-removed recycle bin (local)
+  // 2) Move into System Recycle Bin (local only)
   try {
     const systemList = loadFromLS(RECYCLE_SYSTEM_KEY, []) || [];
     const nowIso = new Date().toISOString();
-    const baseId = Date.now();
 
     systemList.push({
-      id:        'cr_' + baseId,
-      recycleId: 'recycle_' + baseId,
-      type:      'client-request',
-      kind:      'client-request',
+      recycleId: uid('recycle'),
+      type: 'client-request',
+      kind: 'client-request',
+      label:
+        (payload && payload.clientName) ||
+        'Client request',
+      clientName: payload && payload.clientName,
+      clientContact: payload && payload.clientContact,
       removedBy: 'system',
       removedAt: nowIso,
-      reason:    'Client request imported to quotation',
-
-      // helpful for search / display
-      label:        (payload && payload.clientName) || 'Client request',
-      clientName:   (payload && payload.clientName)   || '',
-      clientContact:(payload && payload.clientContact)|| '',
-      createdAt:    (payload && (payload.createdAt || payload.timestamp)) || nowIso,
-
-      // raw data so we can inspect later if needed
+      reason: 'Client request imported to quotation',
       payload: payload || {}
     });
 
     saveToLS(RECYCLE_SYSTEM_KEY, systemList);
   } catch (e) {
-    console.warn('Failed to store client request into system-removed bin', e);
+    console.warn('Failed to store client request into System recycle bin', e);
+  }
+
+  // 3) Refresh Recycle & floating client-requests UI (best-effort)
+  try {
+    if (typeof renderRecycleList === 'function') {
+      renderRecycleList('system');
+    }
+  } catch (e) {
+    console.warn('Failed to refresh system recycle list', e);
+  }
+
+  try {
+    if (typeof refreshClientRequestsUI === 'function') {
+      refreshClientRequestsUI();
+    }
+  } catch (e) {
+    console.warn('Failed to refresh client-requests UI', e);
   }
 }
+
+function cleanupOldClientRequestSystemRemoved() {
+  try {
+    const systemList = loadFromLS(RECYCLE_SYSTEM_KEY, []) || [];
+    const cutoffMs =
+      Date.now() - CLIENT_REQUEST_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+
+    const filtered = systemList.filter(item => {
+      if (!item) return false;
+
+      // Only apply N-day cleanup to client-request entries
+      if (item.kind !== 'client-request') return true;
+
+      const t = item.removedAt ? Date.parse(item.removedAt) : NaN;
+      if (isNaN(t)) return true; // if no valid date, keep it
+
+      return t >= cutoffMs; // keep only if NOT older than cutoff
+    });
+
+    if (filtered.length !== systemList.length) {
+      saveToLS(RECYCLE_SYSTEM_KEY, filtered);
+    }
+  } catch (e) {
+    console.warn('Cleanup of old client-request system items failed', e);
+  }
+}
+
 
 function cleanupOldClientRequestSystemRemoved() {
   try {
