@@ -1303,23 +1303,42 @@ header {
         </div>
       </div>
     </div>
-    <div class="mt-3">
-      <label class="block text-sm font-medium text-gray-700 mb-1">
-        Miscellaneous
-      </label>
-      <input
-        id="paymentMiscAmount"
-        type="number"
-        step="100"
-        class="w-full border rounded p-2 bg-white"
-        placeholder="0.00"
-      />
-      <p class="text-[11px] text-gray-500 mt-1">
-        Extra costs like fuel, tolls, misc payments. This won’t change Pending;
-        it is only used in revenue calculations.
-      </p>
-    </div>
+    <!-- Row: Misc + Profit -->
+<div class="mt-3 grid grid-cols-2 gap-3">
 
+  <!-- Miscellaneous -->
+  <div>
+    <label class="block text-sm font-medium text-gray-700 mb-1">
+      Miscellaneous
+    </label>
+    <input
+      id="paymentMiscAmount"
+      type="number"
+      step="100"
+      class="w-full border rounded p-2 bg-white"
+      placeholder="0"
+      oninput="recalcProfit()"
+    />
+    <p class="text-[11px] text-gray-500 mt-1">
+      Extra costs like fuel, tolls, misc payments. This won’t change Pending;
+      it is only used in revenue calculations.
+    </p>
+  </div>
+
+  <!-- Profit -->
+  <div>
+    <label class="block text-sm font-medium text-gray-700 mb-1">
+      Profit
+    </label>
+    <input
+      id="paymentProfit"
+      type="number"
+      class="w-full border rounded p-2 bg-gray-100"
+       readonly
+    />
+  </div>
+
+</div>
 
     <!-- BOTTOM BUTTONS (assuming you already changed Partial to Save) -->
     <div class="flex gap-2 justify-end mt-4">
@@ -5677,6 +5696,8 @@ function openPaymentInfoModalRestrictedFromCalendar() {
   // Let existing logic compute pending + enable Partial as usual
   recalcPaymentPending();
 
+  recalcProfit();
+
   // Hard-disable the "Paid" (final) button
   if (paidBtn) {
     paidBtn.disabled = true;
@@ -5744,6 +5765,14 @@ function toggleRevisedAmount() {
     // input.value = '';
   }
   recalcPaymentPending();
+}
+
+function recalcProfit() {
+  const misc  = parseFloat(document.getElementById('paymentMiscAmount').value) || 0;
+  const finalPaid = parseFloat(document.getElementById('paymentFinalPaid').value) || 0;
+
+  const profit = finalPaid - misc;
+  document.getElementById('paymentProfit').value = profit;
 }
 
 // Core math for Pending + button enabling
