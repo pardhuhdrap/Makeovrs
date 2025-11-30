@@ -6060,8 +6060,10 @@ function handlePartialAmountApply() {
 
   const raw = (partialInput.value || '').trim();
   let amount = parseFloat(raw);
-  if (!raw || isNaN(amount) || amount <= 0) {
-    alert('Please enter a valid partial amount.');
+
+// allow both +ve and -ve, just block 0 / invalid
+  if (!raw || isNaN(amount) || amount === 0) {
+    alert('Please enter a non-zero partial amount. Use -value to correct a mistake.');
     return;
   }
 
