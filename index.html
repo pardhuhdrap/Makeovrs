@@ -1317,6 +1317,7 @@ header {
       step="100"
       class="w-full border rounded p-2 bg-white"
       placeholder="0"
+      oninput="recalcProfit()"
     />
     <p class="text-[11px] text-gray-500 mt-1">
       Extra costs like fuel, tolls, misc payments. This won’t change Pending;
@@ -1333,7 +1334,6 @@ header {
       id="paymentProfit"
       type="number"
       class="w-full border rounded p-2 bg-gray-100"
-      oninput="recalcProfit()"
        readonly
     />
   </div>
@@ -5715,6 +5715,10 @@ function openPaymentInfoModalRestrictedFromCalendar() {
    if (miscInput) {
     miscInput.value = savedMisc > 0 ? savedMisc.toFixed(2) : '';
   }
+
+  if (typeof recalcProfit === 'function') {
+  recalcProfit();
+}
 
   modal.style.display = 'flex';
 }
