@@ -7962,8 +7962,8 @@ function validateEventPanel(panel){
 
   // --- Add-on consistency checks (Option C) ---
   const addonDetailsInput =
-    panel.querySelector('.event-addon-manual') ||
-    panel.querySelector('.event-addon-display');
+    panel.querySelector('.event-addon-display') ||
+    panel.querySelector('.event-addon-manual');
 
   const addonDetails = (addonDetailsInput?.value || addonDetailsInput?.textContent || "").trim();
 
