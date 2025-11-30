@@ -187,6 +187,15 @@ header {
     display: none;
   }
 
+  #clientRequestsFab {
+  position: absolute;
+}
+#clientReqBadge {
+  min-width: 18px;
+  text-align: center;
+  pointer-events: none;
+}
+
 
 </style>
 </head>
@@ -1383,6 +1392,9 @@ header {
       title="Client Requests"
     >
       <i data-lucide="mail" class="w-5 h-5"></i>
+       <span id="clientReqBadge"
+        class="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-full hidden">
+  </span>
     </div>
 
     <!-- === Client Requests popup panel === -->
@@ -7138,6 +7150,10 @@ async function refreshClientRequestsUI() {
 
     if (!items.length) {
       emptyEl.classList.remove('hidden');
+
+        // 🔴 badge update (0 items)
+      updateClientReqBadge(0);
+
       return;
     }
 
@@ -7169,9 +7185,13 @@ async function refreshClientRequestsUI() {
       listEl.appendChild(card);
     });
 
+     const count = items.length; // number of client requests
+    updateClientReqBadge(count);
+
   } catch (e) {
     listEl.innerHTML =
       '<div class="text-[11px] text-red-500">Failed to load.</div>';
+       updateClientReqBadge(0);
   }
 }
 
@@ -7528,6 +7548,17 @@ function initClientRequestsFloatingUi() {
 
 document.addEventListener('DOMContentLoaded', initClientRequestsFloatingUi);
 
+function updateClientReqBadge(count) {
+  const badge = document.getElementById("clientReqBadge");
+  if (!badge) return;
+
+  if (count > 0) {
+    badge.textContent = count;
+    badge.classList.remove("hidden");
+  } else {
+    badge.classList.add("hidden");
+  }
+}
 
 function updateEventPanelSummary(panelId){
   const panel = document.getElementById(panelId); if(!panel) return;
