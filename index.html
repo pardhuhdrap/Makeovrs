@@ -1419,7 +1419,7 @@ header {
 // === Client Requests central API ===
 const CLIENT_REQ_API_URL =
   'https://script.google.com/macros/s/AKfycbyF-IyhFuTopHGEWHGivYkWBhhV_pd5YcCKzSM5tNxrEbrmfatXIlO7GUViOqrihFc_/exec';
-
+let CURRENT_CLIENT_REQ_CTX = null;
 // Who owns these requests? (the signed-in user)
 function getClientReqOwnerId() {
   // TEMP: use the same dummy ownerId as client-form.html
@@ -2887,7 +2887,7 @@ try {
         delete bookings[ev.eventId];
       }
     });
-    saveToLS(BOOKED_EVENTS_KEY, bookings);
+        saveToLS(BOOKED_EVENTS_KEY, bookings);
 
     CURRENT_EDIT_QUOTATION_ID = null;
 
@@ -2896,6 +2896,22 @@ try {
 
     // refresh calendar dots
     renderCalendar();
+
+    // ⭐ NEW: If this quotation came from a client request,
+    //         mark that request as imported & move it to System removed.
+    if (
+      typeof CURRENT_CLIENT_REQ_CTX !== 'undefined' &&
+      CURRENT_CLIENT_REQ_CTX &&
+      CURRENT_CLIENT_REQ_CTX.rowIndex &&
+      typeof markClientRequestImported === 'function'
+    ) {
+      try {
+        markClientRequestImported(CURRENT_CLIENT_REQ_CTX);
+      } catch (e) {
+        console.warn('Failed to mark client request as imported:', e);
+      }
+      CURRENT_CLIENT_REQ_CTX = null;
+    }
 
     // 🔁 Auto-save to Drive (if signed in)
     if (typeof autoSaveDrive === 'function') {
@@ -2912,6 +2928,7 @@ try {
     showMessage('Failed to save quotation. Please try again.', 'Error');
   }
 }
+
 
 // =======================
 // REVENUE HELPERS & UI
@@ -7018,33 +7035,28 @@ async function refreshClientRequestsUI() {
   }
 }
 
-async function markClientRequestImported(rowIndex, cardEl) {
-  // 1) Read payload from card (so we can store it in System removed)
-  let payload = null;
-  if (cardEl && cardEl.dataset && cardEl.dataset.payloadJson) {
-    try {
-      payload = JSON.parse(cardEl.dataset.payloadJson || '{}');
-    } catch (e) {
-      console.warn('Failed to parse client request payload from card', e);
-      payload = null;
-    }
-  }
+async function markClientRequestImported(ctx) {
+  if (!ctx || !ctx.rowIndex) return;
 
-  // 2) Ask Apps Script to mark this as imported (status = imported)
+  const rowIndex = Number(ctx.rowIndex || 0);
+  if (!rowIndex) return;
+
+  const payload = ctx.payload || null;
+
+  // 1) Tell central Sheet this row is imported
   try {
-    await fetch(CLIENT_REQ_API_URL, {
+    fetch(CLIENT_REQ_API_URL, {
       method: 'POST',
       body: JSON.stringify({
         _action: 'markImported',
-        rowIndex: Number(rowIndex)
+        rowIndex
       })
     });
   } catch (e) {
-    console.warn('Failed to mark client request imported in central sheet', e);
-    // we still continue to move it into System removed locally
+    console.warn('Failed to mark client request imported in sheet', e);
   }
 
-  // 3) Push a System-removed entry in local recycle bin
+  // 2) Move into System removed recycle bin
   try {
     const rb = loadFromLS(RECYCLE_BIN_KEY, {
       userRemoved: [],
@@ -7054,31 +7066,19 @@ async function markClientRequestImported(rowIndex, cardEl) {
     const nowIso = new Date().toISOString();
 
     rb.systemRemoved.push({
-      id: 'cr_' + Date.now(),          // unique id
-      kind: 'client-request',          // 👈 type/tag used in filters (you already have this)
-      removedBy: 'system',             // system removed
-      removedAt: nowIso,               // for time-based cleanup
-      notes: 'Client request imported to quotation',
-      payload: payload || {}
+  id: 'cr_' + Date.now(),          // (your own local id – ok to keep)
+  recycleId: 'recycle_' + Date.now(), // optional, if you want consistent naming
+  type: 'client-request',          // 👈 ADD THIS
+  kind: 'client-request',          // 👈 KEEP THIS
+  removedBy: 'system',
+  removedAt: nowIso,
+  notes: 'Client request imported to quotation',
+  payload: payload || {}
     });
 
     saveToLS(RECYCLE_BIN_KEY, rb);
   } catch (e) {
     console.warn('Failed to store client request into system-removed bin', e);
-  }
-
-  // 4) Remove card from UI
-  try {
-    if (cardEl && cardEl.parentElement) {
-      cardEl.parentElement.removeChild(cardEl);
-    }
-    const listEl  = document.getElementById('clientReqList');
-    const emptyEl = document.getElementById('clientReqEmpty');
-    if (listEl && emptyEl && !listEl.children.length) {
-      emptyEl.classList.remove('hidden');
-    }
-  } catch (e) {
-    console.warn('Failed to update client request UI after import', e);
   }
 }
 
@@ -7924,13 +7924,22 @@ function initClientRequestsFloatingUi() {
 
     const rowIndex = card.dataset.rowIndex || '';
 
-    // 1) open quotation
+    if (!rowIndex) {
+      alert('Missing row index for this client request.');
+      return;
+    }
+
+    // ⭐ NEW: Just remember which request we’re using.
+    CURRENT_CLIENT_REQ_CTX = {
+      rowIndex,
+      payload
+    };
+
+    // Open quotation pre-filled from this client request
     createQuotationFromClientRequestPayload(payload);
 
-    // 2) mark this request as imported in backend + remove from UI
-    if (rowIndex) {
-      markClientRequestImported(rowIndex, card);
-    }
+    // Close the floating panel (optional)
+    panel.classList.add('hidden');
   });
 }
 
