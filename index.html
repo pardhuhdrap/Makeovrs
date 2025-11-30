@@ -7186,11 +7186,6 @@ async function refreshClientRequestsUI() {
             >
               View
             </button>
-            <button
-              class="clientReqCreateBtn text-[11px] px-2 py-1 rounded-full border app-color-border app-color-text"
-            >
-              Create quotation
-            </button>
           </div>
         </div>
       `;
@@ -7357,82 +7352,66 @@ function openClientRequestPreview(payload, rowIndex) {
   payload = payload || {};
   const events = Array.isArray(payload.events) ? payload.events : [];
 
-  const eventsHtml =
-    events.length
-      ? events
-          .map((ev, idx) => {
-            return `
-              <div class="border rounded-md p-2 mb-2">
-                <div class="text-[12px] font-semibold">
-                  Event ${idx + 1}: ${ev.name || ''}
-                </div>
-                <div class="text-[11px] text-gray-600 space-y-0.5 mt-1">
-                  ${ev.date ? `<div><span class="font-medium">Date:</span> ${ev.date}</div>` : ''}
-                  ${ev.location ? `<div><span class="font-medium">Location:</span> ${ev.location}</div>` : ''}
-                  ${ev.packageIdea ? `<div><span class="font-medium">Package:</span> ${ev.packageIdea}</div>` : ''}
-                  ${ev.addons ? `<div><span class="font-medium">Add-ons:</span> ${ev.addons}</div>` : ''}
-                  ${ev.notes ? `<div><span class="font-medium">Notes:</span> ${ev.notes}</div>` : ''}
-                </div>
-              </div>
-            `;
-          })
-          .join('')
-      : '<div class="text-[11px] text-gray-400">No event details in this request.</div>';
-
   const html = `
-    <div class="space-y-3 text-[13px]">
+    <div class="space-y-4 text-[14px]">
       <div>
-        <div class="font-semibold text-gray-800">${payload.clientName || '--'}</div>
-        ${payload.clientContact
-          ? `<div class="text-[12px] text-gray-600">${payload.clientContact}</div>`
-          : ''
-        }
+        <div class="font-semibold">${payload.clientName || '--'}</div>
+        ${payload.clientContact ? `<div class="text-gray-600 text-[12px]">${payload.clientContact}</div>` : ''}
       </div>
-      ${eventsHtml}
+
+      <div class="space-y-2">
+        ${events.length ? events.map((ev, idx) => `
+          <div class="border rounded p-2">
+            <div class="font-semibold text-[12px]">Event ${idx + 1}: ${ev.name || '-'}</div>
+            <div class="text-[11px]">
+              ${ev.date ? `<div>Date: ${ev.date}</div>` : ''}
+              ${ev.packageIdea ? `<div>Package: ${ev.packageIdea}</div>` : ''}
+              ${ev.location ? `<div>Location: ${ev.location}</div>` : ''}
+              ${ev.addons ? `<div>Add-ons: ${ev.addons}</div>` : ''}
+              ${ev.notes ? `<div>Notes: ${ev.notes}</div>` : ''}
+            </div>
+          </div>
+        `).join('') : '<div class="text-[11px] text-gray-400">No event details found.</div>'}
+      </div>
     </div>
   `;
 
-  // Use existing generic modal
   showMessage(html, 'Client Request');
 
-  const downloadBtn = document.getElementById('messageDownloadBtn');   // we use as "Decline"
-  const editBtn     = document.getElementById('messageEditBtn');       // we use as "Accept & create quotation"
-  const paidBtn     = document.getElementById('messagePaidBtn');       // we use as "Close"
+  // map buttons
+  const green   = document.getElementById('messageGenerateInvoiceBtn'); // Create quotation
+  const red     = document.getElementById('messageDownloadBtn');        // Delete
+  const close   = document.getElementById('messageCloseBtn');           // Close
 
-  const ctx = { rowIndex, payload };
+  // hide everything else
+  ['messageShareBtn','messagePaidBtn','messageEditBtn']
+    .forEach(id => document.getElementById(id)?.classList.add('hidden'));
 
-  // Decline → move to User recycle
-  if (downloadBtn) {
-    downloadBtn.textContent = 'Decline & move to Recycle';
-    downloadBtn.classList.remove('hidden');
-    downloadBtn.onclick = async () => {
-      await markClientRequestDeclined(ctx);
-      closeMessage();
-    };
-  }
+  // 1️⃣ CREATE QUOTATION (GREEN)
+  green.classList.remove('hidden');
+  green.textContent = 'Create quotation';
+  green.onclick = () => {
+    window.CURRENT_CLIENT_REQ_CTX = { rowIndex, payload };
+    createQuotationFromClientRequestPayload(payload);
+    closeMessage();
 
-  // Accept → same behaviour as Create quotation, but from inside popup
-  if (editBtn) {
-    editBtn.textContent = 'Accept & create quotation';
-    editBtn.classList.remove('hidden');
-    editBtn.onclick = () => {
-      CURRENT_CLIENT_REQ_CTX = ctx;
-      createQuotationFromClientRequestPayload(payload);
-      closeMessage();
-      const panel = document.getElementById('clientRequestsPanel');
-      if (panel) panel.classList.add('hidden');
-    };
-  }
+    const panel = document.getElementById('clientRequestsPanel');
+    if (panel) panel.classList.add('hidden');
+  };
 
-  // Close → just close popup
-  if (paidBtn) {
-    paidBtn.textContent = 'Close';
-    paidBtn.classList.remove('hidden');
-    paidBtn.onclick = () => {
-      closeMessage();
-    };
-  }
+  // 2️⃣ DELETE (RED → move to user recycle)
+  red.classList.remove('hidden');
+  red.textContent = 'Delete';
+  red.onclick = async () => {
+    await markClientRequestDeclined({ rowIndex, payload });
+    closeMessage();
+  };
+
+  // 3️⃣ CLOSE (MAROON)
+  close.classList.remove('hidden');
+  close.textContent = 'Close';
 }
+
 
 
 function cleanupOldClientRequestSystemRemoved() {
@@ -7632,21 +7611,12 @@ function initClientRequestsFloatingUi() {
         return;
       }
 
-      // Create quotation directly (old behaviour)
-      if (e.target.closest('.clientReqCreateBtn')) {
-        // ⭐ Just remember which request we’re using.
-        CURRENT_CLIENT_REQ_CTX = {
-          rowIndex,
-          payload
-        };
-
         // Open quotation pre-filled from this client request
         createQuotationFromClientRequestPayload(payload);
 
         // Close the floating panel (optional)
         panel.classList.add('hidden');
         return;
-      }
     });
   }
 
