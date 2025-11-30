@@ -2061,76 +2061,69 @@ function updateDashboardUpcomingEvents() {
   const box = document.getElementById('dashboardUpcomingList');
   if (!box) return;
 
-  let allEvents = [];
-
-  try {
-    // 🔹 Build the same event list that calendar uses
-    const idx = buildCalendarEventIndex(); // { dateISO: [ events... ] }
-
-    Object.keys(idx).forEach((dateISO) => {
-      const arr = idx[dateISO] || [];
-      arr.forEach((ev) => {
-        // ensure date field exists on each event
-        allEvents.push({
-          ...ev,
-          date: dateISO
-        });
-      });
-    });
-  } catch (e) {
-    console.warn('Dashboard upcoming: index build failed', e);
-  }
+  // Build from quotations + bookings
+  const index = buildCalendarEventIndex();
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const upcoming = allEvents
-    .filter((ev) => ev.booked) // only booked events
-    .map((ev) => {
+  let upcoming = [];
+
+  // Flatten events from the index
+  Object.keys(index).forEach(dateISO => {
+    const events = index[dateISO] || [];
+    events.forEach(ev => {
+      if (!ev.booked) return; // only booked events
+
       const d = new Date(ev.date);
+      if (isNaN(d.getTime())) return;
       d.setHours(0, 0, 0, 0);
-      return { ...ev, dateObj: d };
-    })
-    .filter((ev) => ev.dateObj > today) // exclude today
-    .filter((ev) => {
-      // within next 4 days (tomorrow + 3 more)
-      const diff = Math.floor(
+
+      upcoming.push({
+        ...ev,
+        dateObj: d
+      });
+    });
+  });
+
+  // Filter: tomorrow + next 3 days (4 days total), exclude today
+  upcoming = upcoming
+    .filter(ev => {
+      const diffDays = Math.floor(
         (ev.dateObj - today) / (1000 * 60 * 60 * 24)
       );
-      return diff >= 1 && diff <= 4;
+      return diffDays >= 1 && diffDays <= 4;
     })
-    .sort((a, b) => a.dateObj - b.dateObj); // earliest first
+    .sort((a, b) => a.dateObj - b.dateObj);
 
   if (!upcoming.length) {
     box.innerHTML =
-      '<div class="text-xs text-gray-400 italic">No upcoming events in next 4 days.</div>';
+      `<div class="text-xs text-gray-400 italic">No upcoming events in next 4 days.</div>`;
     return;
   }
 
   const finalList = upcoming.slice(0, 4);
 
   box.innerHTML = finalList
-    .map((ev) => {
-      const dateStr = ev.dateObj.toLocaleDateString('en-IN', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric'
-      });
+    .map(ev => {
+      const dateStr =
+        ev.date || ev.dateObj.toISOString().slice(0, 10); // YYYY-MM-DD
+      const eventLabel = ev.eventName ? ` • ${ev.eventName}` : '';
+      const locLine = ev.location
+        ? `<div class="text-xs text-gray-500">${ev.location}</div>`
+        : '';
 
       return `
-      <div class="border border-gray-200 bg-white rounded p-2 shadow-xs">
-        <div class="font-semibold text-gray-800">${ev.clientName || '--'}</div>
-        <div class="text-xs text-gray-600">${dateStr}</div>
-        ${
-          ev.location
-            ? `<div class="text-xs text-gray-500">${ev.location}</div>`
-            : ''
-        }
-      </div>
+        <div class="border border-gray-200 bg-white rounded p-2 shadow-xs">
+          <div class="font-semibold text-gray-800">${ev.clientName || '--'}</div>
+          <div class="text-xs text-gray-600">${dateStr}${eventLabel}</div>
+          ${locLine}
+        </div>
       `;
     })
     .join('');
 }
+
 
 
 
