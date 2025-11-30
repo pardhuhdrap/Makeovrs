@@ -2102,26 +2102,60 @@ function updateDashboardUpcomingEvents() {
     return;
   }
 
-  const finalList = upcoming.slice(0, 4);
+  const finalList = upcoming.slice(0, 3);
 
-  box.innerHTML = finalList
-    .map(ev => {
-      const dateStr =
-        ev.date || ev.dateObj.toISOString().slice(0, 10); // YYYY-MM-DD
-      const eventLabel = ev.eventName ? ` • ${ev.eventName}` : '';
-      const locLine = ev.location
-        ? `<div class="text-xs text-gray-500">${ev.location}</div>`
-        : '';
+  // --- GROUP by date ---
+const grouped = {};
+upcoming.forEach(ev => {
+  const key = ev.dateObj.toISOString().slice(0, 10); // YYYY-MM-DD
+  if (!grouped[key]) grouped[key] = [];
+  grouped[key].push(ev);
+});
 
-      return `
-        <div class="border border-gray-200 bg-white rounded p-2 shadow-xs">
-          <div class="font-semibold text-gray-800">${ev.clientName || '--'}</div>
-          <div class="text-xs text-gray-600">${dateStr}${eventLabel}</div>
-          ${locLine}
-        </div>
-      `;
-    })
-    .join('');
+// --- Sort dates ASC ---
+const sortedDates = Object.keys(grouped).sort();
+
+// --- Limit to exactly 2 columns (2 upcoming days) ---
+const datesToShow = sortedDates.slice(0, 2);
+
+// --- Build HTML ---
+let html = `
+  <div class="grid grid-cols-2 gap-3">
+`;
+
+datesToShow.forEach(dateKey => {
+  const dateObj = new Date(dateKey);
+  const dateStr = dateObj.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+
+  const events = grouped[dateKey];
+
+  html += `
+    <div class="bg-white border border-gray-200 rounded p-2 shadow-sm">
+      <div class="font-semibold text-gray-800 mb-2">${dateStr}</div>
+      <div class="space-y-1 text-xs">
+        ${events
+          .map((ev, i) => {
+            const loc = ev.location ? `<div class="text-[10px] text-gray-500 ml-4">${ev.location}</div>` : "";
+            return `
+              <div>
+                <div class="text-gray-700">${i + 1}. ${ev.clientName || '--'}</div>
+                ${loc}
+              </div>
+            `;
+          })
+          .join('')}
+      </div>
+    </div>
+  `;
+});
+
+html += `</div>`;
+
+box.innerHTML = html;
 }
 
 
