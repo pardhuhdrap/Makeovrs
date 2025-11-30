@@ -7036,33 +7036,34 @@ async function refreshClientRequestsUI() {
 }
 
 // === Mark a client request as imported & move it to System recycle ===
+// === Mark a client request as imported & move it to System recycle ===
 async function markClientRequestImported(ctx) {
-  if (!ctx || !ctx.rowIndex) return;
-
-  const rowIndex = Number(ctx.rowIndex || 0);
-  if (!rowIndex) return;
-
-  const payload = ctx.payload || null;
-
-  // 1) Best-effort: notify central Sheet that this row is imported.
-  //    No custom headers → avoids CORS preflight issues.
   try {
-    await fetch(CLIENT_REQ_API_URL, {
-      method: 'POST',
-      body: JSON.stringify({
-        _action: 'markImported',
-        rowIndex
-      })
-    });
-  } catch (e) {
-    console.warn(
-      'Could not notify Google Sheet that client request is imported (likely CORS / offline).',
-      e
-    );
-  }
+    if (!ctx || !ctx.rowIndex) return;
 
-  // 2) Move into System Recycle Bin (local only)
-  try {
+    const rowIndex = Number(ctx.rowIndex);
+    if (!rowIndex) return;
+
+    const payload = ctx.payload || null;
+
+    // 1) Best-effort: tell central Sheet this row is imported.
+    //    No custom headers → no CORS preflight issues.
+    try {
+      await fetch(CLIENT_REQ_API_URL, {
+        method: 'POST',
+        body: JSON.stringify({
+          _action: 'markImported',
+          rowIndex
+        })
+      });
+    } catch (e) {
+      console.warn(
+        'Could not notify Google Sheet that client request is imported (likely CORS / offline).',
+        e
+      );
+    }
+
+    // 2) Store into System recycle bin (local only)
     const systemList = loadFromLS(RECYCLE_SYSTEM_KEY, []) || [];
     const nowIso = new Date().toISOString();
 
@@ -7080,25 +7081,25 @@ async function markClientRequestImported(ctx) {
     });
 
     saveToLS(RECYCLE_SYSTEM_KEY, systemList);
-  } catch (e) {
-    console.warn('Failed to store client request into System recycle bin', e);
-  }
 
-  // 3) Refresh Recycle & floating client-requests UI (best-effort)
-  try {
-    if (typeof renderRecycleList === 'function') {
-      renderRecycleList('system');
+    // 3) Refresh Recycle & floating client-requests UI (best-effort)
+    try {
+      if (typeof renderRecycleList === 'function') {
+        renderRecycleList('system');
+      }
+    } catch (e) {
+      console.warn('Failed to refresh system recycle list', e);
     }
-  } catch (e) {
-    console.warn('Failed to refresh system recycle list', e);
-  }
 
-  try {
-    if (typeof refreshClientRequestsUI === 'function') {
-      refreshClientRequestsUI();
+    try {
+      if (typeof refreshClientRequestsUI === 'function') {
+        refreshClientRequestsUI();
+      }
+    } catch (e) {
+      console.warn('Failed to refresh client-requests UI', e);
     }
-  } catch (e) {
-    console.warn('Failed to refresh client-requests UI', e);
+  } catch (err) {
+    console.warn('markClientRequestImported failed:', err);
   }
 }
 
@@ -7116,18 +7117,22 @@ function cleanupOldClientRequestSystemRemoved() {
       if (item.kind !== 'client-request') return true;
 
       const t = item.removedAt ? Date.parse(item.removedAt) : NaN;
-      if (isNaN(t)) return true;   // if no valid date, keep it
+      if (isNaN(t)) return true; // if no valid date, keep it
 
-      return t >= cutoffMs;        // keep only if NOT older than cutoff
+      return t >= cutoffMs; // keep only if NOT older than cutoff
     });
 
     if (filtered.length !== systemList.length) {
       saveToLS(RECYCLE_SYSTEM_KEY, filtered);
     }
   } catch (e) {
-    console.warn('Cleanup of old client-request system-removed items failed', e);
+    console.warn(
+      'Cleanup of old client-request system items failed',
+      e
+    );
   }
 }
+
 
 // === Convert client request → prefilled quotation ===
 function createQuotationFromClientRequestPayload(payload) {
