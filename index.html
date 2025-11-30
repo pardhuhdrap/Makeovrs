@@ -7035,6 +7035,7 @@ async function refreshClientRequestsUI() {
   }
 }
 
+// === Mark a client request as imported & move it to System recycle ===
 async function markClientRequestImported(ctx) {
   if (!ctx || !ctx.rowIndex) return;
 
@@ -7044,9 +7045,9 @@ async function markClientRequestImported(ctx) {
   const payload = ctx.payload || null;
 
   // 1) Best-effort: notify central Sheet that this row is imported.
-  //    If CORS / network fails, we just log and continue.
+  //    No custom headers → avoids CORS preflight issues.
   try {
-        await fetch(CLIENT_REQ_API_URL, {
+    await fetch(CLIENT_REQ_API_URL, {
       method: 'POST',
       body: JSON.stringify({
         _action: 'markImported',
@@ -7069,9 +7070,7 @@ async function markClientRequestImported(ctx) {
       recycleId: uid('recycle'),
       type: 'client-request',
       kind: 'client-request',
-      label:
-        (payload && payload.clientName) ||
-        'Client request',
+      label: (payload && payload.clientName) || 'Client request',
       clientName: payload && payload.clientName,
       clientContact: payload && payload.clientContact,
       removedBy: 'system',
@@ -7103,6 +7102,7 @@ async function markClientRequestImported(ctx) {
   }
 }
 
+// === Auto-clean client-request entries from System removed after N days ===
 function cleanupOldClientRequestSystemRemoved() {
   try {
     const systemList = loadFromLS(RECYCLE_SYSTEM_KEY, []) || [];
@@ -7112,23 +7112,22 @@ function cleanupOldClientRequestSystemRemoved() {
     const filtered = systemList.filter(item => {
       if (!item) return false;
 
-      // Only apply N-day cleanup to client-request entries
+      // Only apply cleanup to client-request entries
       if (item.kind !== 'client-request') return true;
 
       const t = item.removedAt ? Date.parse(item.removedAt) : NaN;
-      if (isNaN(t)) return true; // if no valid date, keep it
+      if (isNaN(t)) return true;   // if no valid date, keep it
 
-      return t >= cutoffMs; // keep only if NOT older than cutoff
+      return t >= cutoffMs;        // keep only if NOT older than cutoff
     });
 
     if (filtered.length !== systemList.length) {
       saveToLS(RECYCLE_SYSTEM_KEY, filtered);
     }
   } catch (e) {
-    console.warn('Cleanup of old client-request system items failed', e);
+    console.warn('Cleanup of old client-request system-removed items failed', e);
   }
 }
-
 
 // === Convert client request → prefilled quotation ===
 function createQuotationFromClientRequestPayload(payload) {
@@ -7156,6 +7155,235 @@ function createQuotationFromClientRequestPayload(payload) {
   navigate('quotation');
 }
 
+// call this from navigation logic when maps screen is shown (maps initialization will be done by navigate('maps') handler)
+function confirmMapPrice() {
+  // ✅ do NOT push history, and do NOT re-run init logic on return screen
+  const navOpts = { pushHistory: false, skipInit: true };
+
+  const raw = localStorage.getItem('map_return_screen');
+  if (!raw) {
+    document.getElementById('map-confirm-row')?.classList.add('hidden');
+    // fallback: old behaviour → go to quotation
+    navigate('quotation', navOpts);
+    return;
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+
+    if (parsed && parsed.panelId) {
+      const panelId = parsed.panelId;
+      const targetScreen =
+        parsed.screen === 'invoice' ? 'invoice' : 'quotation';
+
+      const panelTransport = document.querySelector(
+        `#${panelId} .event-transportPrice`
+      );
+      const panelLoc = document.querySelector(
+        `#${panelId} .event-eventLocationManual`
+      );
+
+      // ---- transport price ----
+      if (panelTransport && typeof tempTransportPrice === 'object') {
+        const price =
+          typeof tempTransportPrice.price === 'number'
+            ? tempTransportPrice.price
+            : 0;
+        panelTransport.value = price;
+      }
+
+      // ---- destination / location ----
+      if (panelLoc && typeof tempTransportPrice === 'object') {
+        const routeDesc = tempTransportPrice.description || '';
+
+        if (routeDesc) {
+          try {
+            const toIndex = routeDesc.indexOf(' to ');
+            const dashIndex = routeDesc.indexOf(' - ');
+            if (toIndex >= 0 && dashIndex > toIndex) {
+              const dest = routeDesc.substring(toIndex + 4, dashIndex).trim();
+              panelLoc.value = dest || routeDesc;
+            } else {
+              panelLoc.value = routeDesc;
+            }
+            panelLoc.classList.remove('field-error-orange', 'field-error-red');
+          } catch (e) {
+            console.warn('Route parsing failed', e);
+          }
+        }
+      }
+
+      // clean up + refresh summaries
+      localStorage.removeItem('map_return_screen');
+      document.getElementById('map-confirm-row')?.classList.add('hidden');
+
+      if (typeof updateSummaryUI === 'function') updateSummaryUI();
+      if (typeof updateInvoiceSummaryUI === 'function')
+        updateInvoiceSummaryUI();
+
+      // 👈 Go back to the same screen we came from
+      navigate(targetScreen, navOpts);
+      return;
+    }
+  } catch (e) {
+    console.warn('confirmMapPrice parse error', e);
+  }
+
+  // fallback
+  localStorage.removeItem('map_return_screen');
+  document.getElementById('map-confirm-row')?.classList.add('hidden');
+  navigate('quotation', navOpts);
+}
+
+function initClientRequestsFloatingUi() {
+  const app    = document.getElementById('app');
+  const fab    = document.getElementById('clientRequestsFab');
+  const panel  = document.getElementById('clientRequestsPanel');
+  const close  = document.getElementById('clientReqCloseBtn');
+  const refreshBtn = document.getElementById('clientReqRefreshBtn');
+  const listEl = document.getElementById('clientReqList');
+
+  if (!app || !fab || !panel) return;
+
+  // ------------- OPEN / CLOSE PANEL ON TAP -------------
+  let clickAllowedAfterDrag = true;
+
+  fab.addEventListener('click', () => {
+    // if we just dragged, ignore this click
+    if (!clickAllowedAfterDrag) {
+      clickAllowedAfterDrag = true;
+      return;
+    }
+    panel.classList.toggle('hidden');
+    if (!panel.classList.contains('hidden')) {
+      refreshClientRequestsUI();
+    }
+  });
+
+  if (close) {
+    close.addEventListener('click', () => {
+      panel.classList.add('hidden');
+    });
+  }
+
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      refreshClientRequestsUI();
+    });
+  }
+
+  // ------------- “CREATE QUOTATION” IN LIST -------------
+  if (listEl) {
+  listEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('.clientReqCreateBtn');
+    if (!btn) return;
+
+    const card = btn.closest('[data-payload-json]');
+    if (!card) return;
+
+    let payload = {};
+    try {
+      payload = JSON.parse(card.dataset.payloadJson || '{}');
+    } catch {
+      payload = {};
+    }
+
+    const rowIndex = card.dataset.rowIndex || '';
+
+    if (!rowIndex) {
+      alert('Missing row index for this client request.');
+      return;
+    }
+
+    // ⭐ NEW: Just remember which request we’re using.
+    CURRENT_CLIENT_REQ_CTX = {
+      rowIndex,
+      payload
+    };
+
+    // Open quotation pre-filled from this client request
+    createQuotationFromClientRequestPayload(payload);
+
+    // Close the floating panel (optional)
+    panel.classList.add('hidden');
+  });
+}
+
+
+  // ------------- DRAGGING (MOUSE + TOUCH via POINTER EVENTS) -------------
+  let drag = {
+    active: false,
+    startX: 0,
+    startY: 0,
+    origX:  0,
+    origY:  0,
+    moved:  false
+  };
+
+  fab.style.touchAction = 'none'; // helps on mobile
+
+  fab.addEventListener('pointerdown', (e) => {
+    drag.active = true;
+    drag.moved  = false;
+    clickAllowedAfterDrag = true;
+
+    const appRect = app.getBoundingClientRect();
+    const fabRect = fab.getBoundingClientRect();
+
+    drag.origX = fabRect.left - appRect.left;
+    drag.origY = fabRect.top  - appRect.top;
+    drag.startX = e.clientX;
+    drag.startY = e.clientY;
+
+    fab.setPointerCapture(e.pointerId);
+    fab.classList.add('dragging');
+  });
+
+  fab.addEventListener('pointermove', (e) => {
+    if (!drag.active) return;
+
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+
+    // treat as drag if moved a bit
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+      drag.moved = true;
+      clickAllowedAfterDrag = false;
+    }
+
+    const appRect = app.getBoundingClientRect();
+    let x = drag.origX + dx;
+    let y = drag.origY + dy;
+
+    const maxX = appRect.width  - fab.offsetWidth  - 4;
+    const maxY = appRect.height - fab.offsetHeight - 4;
+
+    x = Math.max(4, Math.min(maxX, x));
+    y = Math.max(4, Math.min(maxY, y));
+
+    fab.style.left   = x + 'px';
+    fab.style.top    = y + 'px';
+    fab.style.right  = 'auto';
+    fab.style.bottom = 'auto';
+  });
+
+  function endDrag(e) {
+    if (!drag.active) return;
+    drag.active = false;
+    fab.classList.remove('dragging');
+    try {
+      if (e && e.pointerId != null) {
+        fab.releasePointerCapture(e.pointerId);
+      }
+    } catch (_) {}
+  }
+
+  fab.addEventListener('pointerup', endDrag);
+  fab.addEventListener('pointercancel', endDrag);
+}
+
+
+document.addEventListener('DOMContentLoaded', initClientRequestsFloatingUi);
 
 
 function updateEventPanelSummary(panelId){
@@ -7805,238 +8033,6 @@ function ensureMapsInitOnFirstShow(){
   }
   __mapsInitialized = true;
 }
-// call this from navigation logic when maps screen is shown (maps initialization will be done by navigate('maps') handler)
-
-
-function confirmMapPrice() {
-  // ✅ do NOT push history, and do NOT re-run init logic on return screen
-  const navOpts = { pushHistory: false, skipInit: true };
-
-  const raw = localStorage.getItem('map_return_screen');
-  if (!raw) {
-    document.getElementById('map-confirm-row')?.classList.add('hidden');
-    // fallback: old behaviour → go to quotation
-    navigate('quotation', navOpts);
-    return;
-  }
-
-  try {
-    const parsed = JSON.parse(raw);
-
-    if (parsed && parsed.panelId) {
-      const panelId = parsed.panelId;
-      const targetScreen =
-        parsed.screen === 'invoice' ? 'invoice' : 'quotation';
-
-      const panelTransport = document.querySelector(
-        `#${panelId} .event-transportPrice`
-      );
-      const panelLoc = document.querySelector(
-        `#${panelId} .event-eventLocationManual`
-      );
-
-      // ---- transport price ----
-      if (panelTransport && typeof tempTransportPrice === 'object') {
-        const price =
-          typeof tempTransportPrice.price === 'number'
-            ? tempTransportPrice.price
-            : 0;
-        panelTransport.value = price;
-      }
-
-      // ---- destination / location ----
-      if (panelLoc && typeof tempTransportPrice === 'object') {
-        const routeDesc = tempTransportPrice.description || '';
-
-        if (routeDesc) {
-          try {
-            const toIndex = routeDesc.indexOf(' to ');
-            const dashIndex = routeDesc.indexOf(' - ');
-            if (toIndex >= 0 && dashIndex > toIndex) {
-              const dest = routeDesc.substring(toIndex + 4, dashIndex).trim();
-              panelLoc.value = dest || routeDesc;
-            } else {
-              panelLoc.value = routeDesc;
-            }
-            panelLoc.classList.remove('field-error-orange', 'field-error-red');
-          } catch (e) {
-            console.warn('Route parsing failed', e);
-          }
-        }
-      }
-
-      // clean up + refresh summaries
-      localStorage.removeItem('map_return_screen');
-      document.getElementById('map-confirm-row')?.classList.add('hidden');
-
-      if (typeof updateSummaryUI === 'function') updateSummaryUI();
-      if (typeof updateInvoiceSummaryUI === 'function')
-        updateInvoiceSummaryUI();
-
-      // 👈 Go back to the same screen we came from
-      navigate(targetScreen, navOpts);
-      return;
-    }
-  } catch (e) {
-    console.warn('confirmMapPrice parse error', e);
-  }
-
-  // fallback
-  localStorage.removeItem('map_return_screen');
-  document.getElementById('map-confirm-row')?.classList.add('hidden');
-  navigate('quotation', navOpts);
-}
-
-
-function initClientRequestsFloatingUi() {
-  const app    = document.getElementById('app');
-  const fab    = document.getElementById('clientRequestsFab');
-  const panel  = document.getElementById('clientRequestsPanel');
-  const close  = document.getElementById('clientReqCloseBtn');
-  const refreshBtn = document.getElementById('clientReqRefreshBtn');
-  const listEl = document.getElementById('clientReqList');
-
-  if (!app || !fab || !panel) return;
-
-  // ------------- OPEN / CLOSE PANEL ON TAP -------------
-  let clickAllowedAfterDrag = true;
-
-  fab.addEventListener('click', () => {
-    // if we just dragged, ignore this click
-    if (!clickAllowedAfterDrag) {
-      clickAllowedAfterDrag = true;
-      return;
-    }
-    panel.classList.toggle('hidden');
-    if (!panel.classList.contains('hidden')) {
-      refreshClientRequestsUI();
-    }
-  });
-
-  if (close) {
-    close.addEventListener('click', () => {
-      panel.classList.add('hidden');
-    });
-  }
-
-  if (refreshBtn) {
-    refreshBtn.addEventListener('click', () => {
-      refreshClientRequestsUI();
-    });
-  }
-
-  // ------------- “CREATE QUOTATION” IN LIST -------------
-  if (listEl) {
-  listEl.addEventListener('click', (e) => {
-    const btn = e.target.closest('.clientReqCreateBtn');
-    if (!btn) return;
-
-    const card = btn.closest('[data-payload-json]');
-    if (!card) return;
-
-    let payload = {};
-    try {
-      payload = JSON.parse(card.dataset.payloadJson || '{}');
-    } catch {
-      payload = {};
-    }
-
-    const rowIndex = card.dataset.rowIndex || '';
-
-    if (!rowIndex) {
-      alert('Missing row index for this client request.');
-      return;
-    }
-
-    // ⭐ NEW: Just remember which request we’re using.
-    CURRENT_CLIENT_REQ_CTX = {
-      rowIndex,
-      payload
-    };
-
-    // Open quotation pre-filled from this client request
-    createQuotationFromClientRequestPayload(payload);
-
-    // Close the floating panel (optional)
-    panel.classList.add('hidden');
-  });
-}
-
-
-  // ------------- DRAGGING (MOUSE + TOUCH via POINTER EVENTS) -------------
-  let drag = {
-    active: false,
-    startX: 0,
-    startY: 0,
-    origX:  0,
-    origY:  0,
-    moved:  false
-  };
-
-  fab.style.touchAction = 'none'; // helps on mobile
-
-  fab.addEventListener('pointerdown', (e) => {
-    drag.active = true;
-    drag.moved  = false;
-    clickAllowedAfterDrag = true;
-
-    const appRect = app.getBoundingClientRect();
-    const fabRect = fab.getBoundingClientRect();
-
-    drag.origX = fabRect.left - appRect.left;
-    drag.origY = fabRect.top  - appRect.top;
-    drag.startX = e.clientX;
-    drag.startY = e.clientY;
-
-    fab.setPointerCapture(e.pointerId);
-    fab.classList.add('dragging');
-  });
-
-  fab.addEventListener('pointermove', (e) => {
-    if (!drag.active) return;
-
-    const dx = e.clientX - drag.startX;
-    const dy = e.clientY - drag.startY;
-
-    // treat as drag if moved a bit
-    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
-      drag.moved = true;
-      clickAllowedAfterDrag = false;
-    }
-
-    const appRect = app.getBoundingClientRect();
-    let x = drag.origX + dx;
-    let y = drag.origY + dy;
-
-    const maxX = appRect.width  - fab.offsetWidth  - 4;
-    const maxY = appRect.height - fab.offsetHeight - 4;
-
-    x = Math.max(4, Math.min(maxX, x));
-    y = Math.max(4, Math.min(maxY, y));
-
-    fab.style.left   = x + 'px';
-    fab.style.top    = y + 'px';
-    fab.style.right  = 'auto';
-    fab.style.bottom = 'auto';
-  });
-
-  function endDrag(e) {
-    if (!drag.active) return;
-    drag.active = false;
-    fab.classList.remove('dragging');
-    try {
-      if (e && e.pointerId != null) {
-        fab.releasePointerCapture(e.pointerId);
-      }
-    } catch (_) {}
-  }
-
-  fab.addEventListener('pointerup', endDrag);
-  fab.addEventListener('pointercancel', endDrag);
-}
-
-
-document.addEventListener('DOMContentLoaded', initClientRequestsFloatingUi);
 
 /* -------------------------
    Initialization wiring
