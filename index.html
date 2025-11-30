@@ -299,7 +299,19 @@ header {
     id="dashboardSignedIn"
     class="flex flex-wrap justify-center"
   >
-    <div class="app-icon text-center" onclick="navigate('calendar')">
+      <!-- === UPCOMING EVENTS NOTEPAD === -->
+<div id="dashboardUpcoming" class="w-full px-4 py-3">
+  <div class="border border-yellow-400 bg-yellow-50 rounded-lg p-3 shadow-sm">
+    <div class="text-md font-semibold text-yellow-800 mb-2">Upcoming Events</div>
+
+    <div id="dashboardUpcomingList" class="space-y-2 text-sm text-gray-700">
+      <!-- Auto-filled by JS -->
+      <div class="text-gray-400 text-xs italic">Loading upcoming events...</div>
+    </div>
+  </div>
+</div>
+  
+  <div class="app-icon text-center" onclick="navigate('calendar')">
       <i data-lucide="calendar" class="w-8 h-8 app-color-text"></i>
       <span class="mt-2 text-sm font-medium text-gray-700">Event Calendar</span>
     </div>
@@ -2044,6 +2056,60 @@ function buildCalendarEventIndex(){
   return result;
 }
 
+// === DASHBOARD: Upcoming Events Notepad ===
+function updateDashboardUpcomingEvents() {
+  const box = document.getElementById("dashboardUpcomingList");
+  if (!box) return;
+
+  let allEvents = [];
+
+  try {
+    const cal = JSON.parse(localStorage.getItem("calendar_events") || "[]");
+    allEvents = Array.isArray(cal) ? cal : [];
+  } catch (e) {
+    console.warn("Calendar load failed", e);
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const upcoming = allEvents
+    .filter(ev => ev.booked)                      // only booked events
+    .map(ev => {
+      const d = new Date(ev.date);
+      d.setHours(0, 0, 0, 0);
+      return { ...ev, dateObj: d };
+    })
+    .filter(ev => ev.dateObj > today)             // exclude today
+    .filter(ev => {
+      // within next 4 days (tomorrow + 3 more)
+      const diff = Math.floor((ev.dateObj - today) / (1000 * 60 * 60 * 24));
+      return diff >= 1 && diff <= 4;
+    })
+    .sort((a, b) => a.dateObj - b.dateObj);       // earliest first
+
+  if (!upcoming.length) {
+    box.innerHTML = `<div class="text-xs text-gray-400 italic">No upcoming events in next 4 days.</div>`;
+    return;
+  }
+
+  // limit items to show
+  const finalList = upcoming.slice(0, 4);
+
+  box.innerHTML = finalList
+    .map(ev => {
+      return `
+      <div class="border border-gray-200 bg-white rounded p-2 shadow-xs">
+        <div class="font-semibold text-gray-800">${ev.clientName || '--'}</div>
+        <div class="text-xs text-gray-600">${ev.date}</div>
+        ${ev.location ? `<div class="text-xs text-gray-500">${ev.location}</div>` : ""}
+      </div>
+      `;
+    })
+    .join("");
+}
+
+
 /* Persist eventId for any events missing one in saved quotations (migration)
    This writes back to storage so future load is consistent. */
 function persistMissingEventIds(){
@@ -2068,6 +2134,8 @@ function setQuotationBookings(quotationId, booked=true){
   (q.events || []).forEach(ev=>{ if(ev.eventId){ if(booked) bookings[ev.eventId] = true; else delete bookings[ev.eventId]; }});
   saveToLS(BOOKED_EVENTS_KEY, bookings);
 
+  try { updateDashboardUpcomingEvents(); } catch(e) {}
+  
   // NEW: auto-save this change to Drive
   scheduleAutoSave('calendar quotation booking change');
 }
@@ -9324,6 +9392,7 @@ async function onSignedIn(){
         if (typeof renderCalendar === 'function') renderCalendar();
         if (typeof updateSummaryUI === 'function') updateSummaryUI();
         if (typeof updateInvoiceSummaryUI === 'function') updateInvoiceSummaryUI();
+        try { updateDashboardUpcomingEvents(); } catch(e) {}
 
         document.getElementById('gdrive-status').innerText = 'Loaded saved data';
       } catch (e) {
