@@ -1567,6 +1567,13 @@ function navigate(id, opts = {}) {
     }
   }
 
+   // ✅ Show only the requested screen (this was missing)
+  screens.forEach(s => {
+    const el = document.getElementById(s);
+    if (!el) return;
+    el.style.transform = (s === id) ? 'translateX(0)' : 'translateX(100%)';
+  });
+
   // History handling for back button
   if (pushHistory && currentScreen !== id) {
     navHistory.push(currentScreen);
