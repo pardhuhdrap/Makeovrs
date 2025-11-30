@@ -3941,20 +3941,76 @@ function openRecycleView(recycleId, kind) {
 function restoreRecycleItem(recycleId, kind) {
   const { key, list, idx } = findRecycleEntry(kind, recycleId);
   if (idx === -1) {
-    showMessage('Could not find this recycle entry. It may have been restored already.', 'Restore');
+    showMessage(
+      'Could not find this recycle entry. It may have been restored already.',
+      'Restore'
+    );
     return;
   }
 
-  const entry    = list[idx];
-  const original = entry.original;
-  if (!original) {
-    showMessage('Cannot restore: original data is missing for this item.', 'Restore');
-    return;
-  }
-
+  const entry   = list[idx];
   const typeRaw = String(entry.type || entry.kind || '').toLowerCase();
 
   try {
+    // ✅ NEW: handle client-request restore
+    if (typeRaw.includes('client-request')) {
+      const rowIndex = Number(entry.rowIndex || 0);
+      const payload  = entry.payload || null;
+
+      if (!rowIndex || !payload) {
+        showMessage(
+          'Cannot restore this client request – missing row index or payload.',
+          'Restore'
+        );
+        return;
+      }
+
+      // 1) Tell Google Sheet to set status back to "pending"
+      //    (implemented in Apps Script as _action: "restorePending")
+      try {
+        fetch(CLIENT_REQ_API_URL, {
+          method: 'POST',
+          // no custom headers → keep it a "simple" POST (avoids CORS preflight)
+          body: JSON.stringify({
+            _action: 'restorePending',
+            rowIndex
+          })
+        });
+      } catch (e) {
+        console.warn('Failed to restore client request status in sheet', e);
+        // we still continue with local restore
+      }
+
+      // 2) Remove from recycle store
+      list.splice(idx, 1);
+      saveToLS(key, list);
+
+      // 3) Refresh recycle lists & floating client-requests UI (best-effort)
+      try { renderRecycleList('user'); }   catch (e) { console.warn(e); }
+      try { renderRecycleList('system'); } catch (e) { console.warn(e); }
+      try {
+        if (typeof refreshClientRequestsUI === 'function') {
+          refreshClientRequestsUI();
+        }
+      } catch (e) {
+        console.warn('Failed to refresh client-requests UI after restore', e);
+      }
+
+      showMessage('Client request restored back to pending list.', 'Restore');
+      return;
+    }
+
+    // ---------- Existing restore for invoices / quotations ----------
+
+    const original = entry.original;
+    if (!original) {
+      showMessage(
+        'Cannot restore: original data is missing for this item.',
+        'Restore'
+      );
+      return;
+    }
+
     if (typeRaw.includes('invoice')) {
       const invoices = loadFromLS(SAVED_INVOICES_KEY, []) || [];
       const newId    = original.invoiceId || original.id;
@@ -3963,8 +4019,10 @@ function restoreRecycleItem(recycleId, kind) {
       const duplicate = invoices.some(inv => {
         const existId = inv.invoiceId || inv.id;
         const existNo = (inv.invoiceNo || '').trim().toLowerCase();
-        return (newId && existId && String(existId) === String(newId)) ||
-               (newNo && existNo && existNo === newNo);
+        return (
+          (newId && existId && String(existId) === String(newId)) ||
+          (newNo && existNo && existNo === newNo)
+        );
       });
 
       if (duplicate) {
@@ -3990,7 +4048,10 @@ function restoreRecycleItem(recycleId, kind) {
         saveToLS(SAVED_QUOTATIONS_KEY, quotations);
       }
     } else {
-      showMessage('Restore is currently supported only for quotations and invoices.', 'Restore');
+      showMessage(
+        'Restore is currently supported only for quotations, invoices and client requests.',
+        'Restore'
+      );
       return;
     }
 
@@ -4015,6 +4076,7 @@ function restoreRecycleItem(recycleId, kind) {
     showMessage('Restore failed. See console for details.', 'Error');
   }
 }
+
 
 
 function loadRecycleUI() {
@@ -7025,7 +7087,7 @@ async function refreshClientRequestsUI() {
         e
       );
     }
-    
+
     listEl.innerHTML = '';
 
     if (!items.length) {
