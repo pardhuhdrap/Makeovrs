@@ -2897,6 +2897,28 @@ try {
     // refresh calendar dots
     renderCalendar();
 
+    // ⭐ If this quotation came from a client request,
+//   mark that request as imported & move it to System removed.
+console.log('DEBUG: CURRENT_CLIENT_REQ_CTX at save =', window.CURRENT_CLIENT_REQ_CTX);
+
+if (
+  typeof CURRENT_CLIENT_REQ_CTX !== 'undefined' &&
+  CURRENT_CLIENT_REQ_CTX &&
+  CURRENT_CLIENT_REQ_CTX.rowIndex &&
+  typeof markClientRequestImported === 'function'
+) {
+  try {
+    console.log('DEBUG: calling markClientRequestImported with', CURRENT_CLIENT_REQ_CTX);
+    markClientRequestImported(CURRENT_CLIENT_REQ_CTX);
+  } catch (e) {
+    console.warn('Failed to mark client request as imported:', e);
+  }
+  CURRENT_CLIENT_REQ_CTX = null;
+} else {
+  console.log('DEBUG: NOT calling markClientRequestImported – condition failed');
+}
+
+
     // 🔁 Auto-save to Drive (if signed in)
     if (typeof autoSaveDrive === 'function') {
       autoSaveDrive('quotation saved');
@@ -7055,6 +7077,7 @@ async function markClientRequestImported(ctx) {
       recycleId: uid('recycle'),
       type: 'client-request',
       kind: 'client-request',
+      rowIndex: String(rowIndex),
       label: (payload && payload.clientName) || 'Client request',
       clientName: payload && payload.clientName,
       clientContact: payload && payload.clientContact,
@@ -7259,8 +7282,8 @@ function initClientRequestsFloatingUi() {
   }
 
   // ------------- “CREATE QUOTATION” IN LIST -------------
-if (listEl) {
-  listEl.addEventListener('click', async (e) => {
+  if (listEl) {
+  listEl.addEventListener('click', (e) => {
     const btn = e.target.closest('.clientReqCreateBtn');
     if (!btn) return;
 
@@ -7281,28 +7304,19 @@ if (listEl) {
       return;
     }
 
-    // Remember which request we’re using (still useful if needed elsewhere)
-    CURRENT_CLIENT_REQ_CTX = { rowIndex, payload };
-    console.log('DEBUG: set CURRENT_CLIENT_REQ_CTX from floating panel =', CURRENT_CLIENT_REQ_CTX);
-
-    // ✅ Immediately mark this client request as imported
-    if (typeof markClientRequestImported === 'function') {
-      try {
-        console.log('DEBUG: calling markClientRequestImported FROM FLOAT PANEL with', CURRENT_CLIENT_REQ_CTX);
-        await markClientRequestImported(CURRENT_CLIENT_REQ_CTX);
-      } catch (err) {
-        console.warn('Failed to mark client request as imported from floating panel:', err);
-      }
-    }
+    // ⭐ NEW: Just remember which request we’re using.
+    CURRENT_CLIENT_REQ_CTX = {
+      rowIndex,
+      payload
+    };
 
     // Open quotation pre-filled from this client request
     createQuotationFromClientRequestPayload(payload);
 
-    // Close the floating panel
+    // Close the floating panel (optional)
     panel.classList.add('hidden');
   });
 }
-
 
 
   // ------------- DRAGGING (MOUSE + TOUCH via POINTER EVENTS) -------------
