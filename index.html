@@ -7044,22 +7044,23 @@ async function markClientRequestImported(ctx) {
   const payload = ctx.payload || null;
 
   // 1) Best-effort: notify central Sheet that this row is imported.
-  //    If CORS / network fails, we just log and continue.
-  try {
-    await fetch(CLIENT_REQ_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        _action: 'markImported',
-        rowIndex
-      })
-    });
-  } catch (e) {
-    console.warn(
-      'Could not notify Google Sheet that client request is imported (likely CORS / offline).',
-      e
-    );
-  }
+//    No custom headers → simple request → no CORS preflight.
+try {
+  await fetch(CLIENT_REQ_API_URL, {
+    method: 'POST',
+    // mode: 'no-cors',  // optional: uncomment if you want to completely silence CORS errors
+    body: JSON.stringify({
+      _action: 'markImported',
+      rowIndex
+    })
+  });
+} catch (e) {
+  console.warn(
+    'Could not notify Google Sheet that client request is imported (likely CORS / offline).',
+    e
+  );
+}
+
 
   // 2) Move into System Recycle Bin (local only)
   try {
