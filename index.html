@@ -2951,15 +2951,6 @@ try {
     // persist quotations
     saveToLS(SAVED_QUOTATIONS_KEY, existing);
 
-    // ensure no booking entries for events we just saved (they are enquiries)
-    const bookings = loadFromLS(BOOKED_EVENTS_KEY, {});
-    (savedQuotation.events || []).forEach(ev => {
-      if (ev.eventId && bookings[ev.eventId]) {
-        delete bookings[ev.eventId];
-      }
-    });
-        saveToLS(BOOKED_EVENTS_KEY, bookings);
-
     CURRENT_EDIT_QUOTATION_ID = null;
 
     // ✅ success prompt
