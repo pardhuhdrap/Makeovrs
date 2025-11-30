@@ -1422,18 +1422,8 @@ const CLIENT_REQ_API_URL =
 
 // Who owns these requests? (the signed-in user)
 function getClientReqOwnerId() {
-  // Primary source: Google Sign-In profile (your app already stores this)
-  if (window.userProfile && userProfile.email) {
-    return userProfile.email;
-  }
-
-  // Secondary fallback (future use)
-  try {
-    const stored = localStorage.getItem('APP_OWNER_EMAIL') || '';
-    if (stored) return stored;
-  } catch (e) {}
-
-  return '';
+  // TEMP: use the same dummy ownerId as client-form.html
+  return 'demo-owner';
 }
    
 
