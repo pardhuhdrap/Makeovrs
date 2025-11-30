@@ -7787,75 +7787,134 @@ function confirmMapPrice() {
 
 
 function initClientRequestsFloatingUi() {
-  const fab   = document.getElementById('clientRequestsFab');
-  const panel = document.getElementById('clientRequestsPanel');
-  const close = document.getElementById('clientReqCloseBtn');
+  const app    = document.getElementById('app');
+  const fab    = document.getElementById('clientRequestsFab');
+  const panel  = document.getElementById('clientRequestsPanel');
+  const close  = document.getElementById('clientReqCloseBtn');
   const refreshBtn = document.getElementById('clientReqRefreshBtn');
   const listEl = document.getElementById('clientReqList');
 
-  if (!fab || !panel) return;
+  if (!app || !fab || !panel) return;
 
-  // toggle popup
+  // ------------- OPEN / CLOSE PANEL ON TAP -------------
+  let clickAllowedAfterDrag = true;
+
   fab.addEventListener('click', () => {
+    // if we just dragged, ignore this click
+    if (!clickAllowedAfterDrag) {
+      clickAllowedAfterDrag = true;
+      return;
+    }
     panel.classList.toggle('hidden');
     if (!panel.classList.contains('hidden')) {
       refreshClientRequestsUI();
     }
   });
 
-  if (close) close.addEventListener('click', () => {
-    panel.classList.add('hidden');
-  });
+  if (close) {
+    close.addEventListener('click', () => {
+      panel.classList.add('hidden');
+    });
+  }
 
-  if (refreshBtn) refreshBtn.addEventListener('click', () => {
-    refreshClientRequestsUI();
-  });
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      refreshClientRequestsUI();
+    });
+  }
 
-  // convert → quotation
+  // ------------- “CREATE QUOTATION” IN LIST -------------
   if (listEl) {
     listEl.addEventListener('click', (e) => {
       const btn = e.target.closest('.clientReqCreateBtn');
       if (!btn) return;
 
       const card = btn.closest('[data-payload-json]');
+      if (!card) return;
+
       let payload = {};
-      try { payload = JSON.parse(card.dataset.payloadJson); } catch {}
+      try {
+        payload = JSON.parse(card.dataset.payloadJson || '{}');
+      } catch {
+        payload = {};
+      }
 
       createQuotationFromClientRequestPayload(payload);
     });
   }
 
-  // simple drag inside app
-  let dragging = false;
-  let offsetX = 0;
-  let offsetY = 0;
+  // ------------- DRAGGING (MOUSE + TOUCH via POINTER EVENTS) -------------
+  let drag = {
+    active: false,
+    startX: 0,
+    startY: 0,
+    origX:  0,
+    origY:  0,
+    moved:  false
+  };
 
-  fab.addEventListener('mousedown', (e) => {
-    dragging = true;
-    offsetX = e.offsetX;
-    offsetY = e.offsetY;
+  fab.style.touchAction = 'none'; // helps on mobile
+
+  fab.addEventListener('pointerdown', (e) => {
+    drag.active = true;
+    drag.moved  = false;
+    clickAllowedAfterDrag = true;
+
+    const appRect = app.getBoundingClientRect();
+    const fabRect = fab.getBoundingClientRect();
+
+    drag.origX = fabRect.left - appRect.left;
+    drag.origY = fabRect.top  - appRect.top;
+    drag.startX = e.clientX;
+    drag.startY = e.clientY;
+
+    fab.setPointerCapture(e.pointerId);
+    fab.classList.add('dragging');
   });
 
-  document.addEventListener('mousemove', (e) => {
-    if (!dragging) return;
-    const appRect = document.getElementById('app').getBoundingClientRect();
-    let x = e.clientX - appRect.left - offsetX;
-    let y = e.clientY - appRect.top - offsetY;
+  fab.addEventListener('pointermove', (e) => {
+    if (!drag.active) return;
 
-    // clamp inside
-    x = Math.max(0, Math.min(appRect.width - 52, x));
-    y = Math.max(0, Math.min(appRect.height - 52, y));
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
 
-    fab.style.left = x + 'px';
-    fab.style.top  = y + 'px';
-    fab.style.right = 'auto';
+    // treat as drag if moved a bit
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+      drag.moved = true;
+      clickAllowedAfterDrag = false;
+    }
+
+    const appRect = app.getBoundingClientRect();
+    let x = drag.origX + dx;
+    let y = drag.origY + dy;
+
+    const maxX = appRect.width  - fab.offsetWidth  - 4;
+    const maxY = appRect.height - fab.offsetHeight - 4;
+
+    x = Math.max(4, Math.min(maxX, x));
+    y = Math.max(4, Math.min(maxY, y));
+
+    fab.style.left   = x + 'px';
+    fab.style.top    = y + 'px';
+    fab.style.right  = 'auto';
     fab.style.bottom = 'auto';
   });
 
-  document.addEventListener('mouseup', () => {
-    dragging = false;
-  });
+  function endDrag(e) {
+    if (!drag.active) return;
+    drag.active = false;
+    fab.classList.remove('dragging');
+    try {
+      if (e && e.pointerId != null) {
+        fab.releasePointerCapture(e.pointerId);
+      }
+    } catch (_) {}
+  }
+
+  fab.addEventListener('pointerup', endDrag);
+  fab.addEventListener('pointercancel', endDrag);
 }
+
 
 document.addEventListener('DOMContentLoaded', initClientRequestsFloatingUi);
 
