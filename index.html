@@ -2897,21 +2897,27 @@ try {
     // refresh calendar dots
     renderCalendar();
 
-    // ⭐ NEW: If this quotation came from a client request,
-    //         mark that request as imported & move it to System removed.
-    if (
-      typeof CURRENT_CLIENT_REQ_CTX !== 'undefined' &&
-      CURRENT_CLIENT_REQ_CTX &&
-      CURRENT_CLIENT_REQ_CTX.rowIndex &&
-      typeof markClientRequestImported === 'function'
-    ) {
-      try {
-        markClientRequestImported(CURRENT_CLIENT_REQ_CTX);
-      } catch (e) {
-        console.warn('Failed to mark client request as imported:', e);
-      }
-      CURRENT_CLIENT_REQ_CTX = null;
-    }
+    // ⭐ If this quotation came from a client request,
+//   mark that request as imported & move it to System removed.
+console.log('DEBUG: CURRENT_CLIENT_REQ_CTX at save =', window.CURRENT_CLIENT_REQ_CTX);
+
+if (
+  typeof CURRENT_CLIENT_REQ_CTX !== 'undefined' &&
+  CURRENT_CLIENT_REQ_CTX &&
+  CURRENT_CLIENT_REQ_CTX.rowIndex &&
+  typeof markClientRequestImported === 'function'
+) {
+  try {
+    console.log('DEBUG: calling markClientRequestImported with', CURRENT_CLIENT_REQ_CTX);
+    markClientRequestImported(CURRENT_CLIENT_REQ_CTX);
+  } catch (e) {
+    console.warn('Failed to mark client request as imported:', e);
+  }
+  CURRENT_CLIENT_REQ_CTX = null;
+} else {
+  console.log('DEBUG: NOT calling markClientRequestImported – condition failed');
+}
+
 
     // 🔁 Auto-save to Drive (if signed in)
     if (typeof autoSaveDrive === 'function') {
