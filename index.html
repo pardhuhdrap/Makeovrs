@@ -7592,6 +7592,21 @@ function initClientRequestsFloatingUi() {
 
   if (!app || !fab || !panel) return;
 
+    // 🔒 Hide / show floating button based on sign-in
+  try {
+    const isSigned = localStorage.getItem('gdrive_signed_in') === '1';
+    if (!isSigned) {
+      fab.classList.add('hidden');
+      panel.classList.add('hidden');
+    } else {
+      fab.classList.remove('hidden');
+      panel.classList.add('hidden');
+    }
+  } catch (e) {
+    console.warn('Client-req FAB sign-in check failed', e);
+  }
+
+
   // ------------- OPEN / CLOSE PANEL ON TAP -------------
   let clickAllowedAfterDrag = true;
 
@@ -9274,6 +9289,16 @@ async function onSignedIn(){
       // remember we are signed in
       try { localStorage.setItem('gdrive_signed_in', '1'); } catch(e) {}
 
+       // ✅ Show floating Client Requests FAB after sign-in
+      try {
+        const fab   = document.getElementById('clientRequestsFab');
+        const panel = document.getElementById('clientRequestsPanel');
+        if (fab)   fab.classList.remove('hidden');
+        if (panel) panel.classList.add('hidden');
+      } catch (e) {
+        console.warn('Failed to update client-req FAB on sign-in', e);
+      }
+
       try { updateDashboardForSignIn(); } catch (e) {}
 
       // 🔁 update header avatar based on sign-in + app logo
@@ -9325,6 +9350,16 @@ function signOutFromGoogle(){
     document.getElementById('btnLoadDrive').style.display = 'none';
     document.getElementById('gdrive-status').innerText = '';
     localStorage.removeItem('gdrive_signed_in');
+        // 🔒 Hide floating Client Requests FAB when signed out
+    try {
+      const fab   = document.getElementById('clientRequestsFab');
+      const panel = document.getElementById('clientRequestsPanel');
+      if (fab)   fab.classList.add('hidden');
+      if (panel) panel.classList.add('hidden');
+    } catch (e) {
+      console.warn('Failed to hide client-req FAB on sign-out', e);
+    }
+
     try { updateDashboardForSignIn(); } catch (e) {}
     const userSettingsBtn = document.getElementById('btnUserProfileSettings');
     if (userSettingsBtn) userSettingsBtn.style.display = 'none';
