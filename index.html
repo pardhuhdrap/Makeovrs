@@ -7383,8 +7383,8 @@ function openClientRequestPreview(payload, rowIndex) {
 
   // map buttons
   const green   = document.getElementById('messageGenerateInvoiceBtn'); // Create quotation
-  const red     = document.getElementById('messageDownloadBtn');        // Delete
-  const black   = document.getElementById('messageCloseBtn');           // Close
+  const black     = document.getElementById('messageDownloadBtn');        // Delete
+  const red   = document.getElementById('messageCloseBtn');           // Close
 
   // hide everything else
   ['messageShareBtn','messagePaidBtn','messageEditBtn']
@@ -7403,16 +7403,16 @@ function openClientRequestPreview(payload, rowIndex) {
   };
 
   // 2️⃣ DELETE (RED → move to user recycle)
-  red.classList.remove('hidden');
-  red.textContent = 'Delete';
-  red.onclick = async () => {
+  black.classList.remove('hidden');
+  black.textContent = 'Delete';
+  black.onclick = async () => {
     await markClientRequestDeclined({ rowIndex, payload });
     closeMessage();
   };
 
   // 3️⃣ CLOSE (Black)
-  black.classList.remove('hidden');
-  black.textContent = 'Close';
+  red.classList.remove('hidden');
+  red.textContent = 'Close';
 }
 
 
