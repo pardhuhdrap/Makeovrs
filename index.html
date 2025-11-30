@@ -7035,15 +7035,13 @@ function createQuotationFromClientRequestPayload(payload) {
     }))
   };
 
+  // Store draft so quotation screen can pick it up
   localStorage.setItem('CURRENT_EDIT_QUOTATION', JSON.stringify(qDraft));
 
+  // This will call populateQuotationFields() internally
   navigate('quotation');
-  setTimeout(() => {
-    if (typeof populateQuotationFields === 'function') {
-      populateQuotationFields();
-    }
-  }, 80);
 }
+
 
 
 function updateEventPanelSummary(panelId){
