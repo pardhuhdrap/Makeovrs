@@ -7359,6 +7359,10 @@ function loadInvoiceIntoForm(inv) {
   const discEl    = document.getElementById('invoiceDiscount');
   const container = document.getElementById('invoiceEventsContainer');
 
+  // 🔤 Restrictions for invoice client fields (same as quotation)
+  if (nameEl)    attachAlphaOnlyCapitalize(nameEl);   // A–Z + spaces, auto-capitalize
+  if (contactEl) attachNumbersOnly(contactEl);        // digits only while typing
+
   if (nameEl)    nameEl.value    = inv.clientName    || '';
   if (contactEl) contactEl.value = inv.clientContact || '';
   if (discEl) {
@@ -7399,8 +7403,16 @@ function populateInvoiceFields() {
   // New invoice mode
   const invNameInput    = document.getElementById('invoiceClientNameInput');
   const invContactInput = document.getElementById('invoiceClientContactInput');
-  if (invNameInput)    invNameInput.value = '';
-  if (invContactInput) invContactInput.value = '';
+ // 🔤 Restrictions (same as quotation)
+    if (invNameInput) {
+      attachAlphaOnlyCapitalize(invNameInput);  // A–Z + spaces, auto-capitalize
+      invNameInput.value = '';
+    }
+    if (invContactInput) {
+      attachNumbersOnly(invContactInput);       // digits only while typing
+      invContactInput.value = '';
+    }
+
   const discEl = document.getElementById('invoiceDiscount');
   if (discEl) discEl.value = '0.00';
 
@@ -9241,6 +9253,18 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
     return;
   }
 
+  // 📞 Same rule as quotation: contact must be exactly 10 digits
+  const digitsOnly = clientContactRaw.replace(/\D/g, '');
+  if (digitsOnly.length !== 10) {
+    showMessage('Client contact number must be exactly 10 digits.');
+    if (contactEl) contactEl.focus();
+    return;
+  }
+  if (contactEl) {
+    contactEl.value = digitsOnly;  // normalise value
+  }
+
+
   const panels = Array.from(
     document.querySelectorAll('#invoiceEventsContainer > .event-panel')
   );
@@ -9271,39 +9295,27 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
           ? parseFloat(opt.dataset.price)
           : 0;
       }
-    } else {
-      packageName =
-        panel.querySelector('.event-packageSelectedManual')?.value || '';
+    }  else {
+      packageName = (
+        panel.querySelector('.event-packageSelectedManual')?.value || ''
+      ).trim();
       packagePrice = parseFloat(
         panel.querySelector('.event-packageManualPrice')?.value || 0
       );
     }
 
-    // add-on
+    const addOnDetails = (
+      panel.querySelector('.event-addOnDetails')?.value || ''
+    ).trim();
     const addOnPrice = parseFloat(
       panel.querySelector('.event-addOnPrice')?.value || 0
     );
-
-    let addonDetails = '';
-    const addonDisplay = panel.querySelector('.event-addon-display');
-    const addonManual  = panel.querySelector('.event-addon-manual');
-
-    if (
-      addonDisplay &&
-      addonDisplay.textContent &&
-      addonDisplay.textContent.trim() &&
-      !/Enter \(Text\)/i.test(addonDisplay.textContent) &&
-      !/No items selected/i.test(addonDisplay.textContent)
-    ) {
-      addonDetails = addonDisplay.textContent.trim();
-    } else if (addonManual && addonManual.value.trim()) {
-      addonDetails = addonManual.value.trim();
-    }
-
     const transportPrice = parseFloat(
       panel.querySelector('.event-transportPrice')?.value || 0
     );
-    const notes = panel.querySelector('.event-notes')?.value || '';
+    const notes = (
+      panel.querySelector('.event-notes')?.value || ''
+    ).trim();
 
     return {
       name,
