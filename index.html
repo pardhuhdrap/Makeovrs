@@ -1280,7 +1280,11 @@ header {
     <!-- Payment Info modal -->
 <div id="paymentInfoModal" class="message-modal" style="z-index:1000; display:none;">
   <div class="message-modal-content">
-    <h3 class="text-xl font-bold text-blue-600 mb-4">Payment Info</h3>
+    <h3 id="paymentInfoHeadingMain" class="text-xl font-bold text-blue-600 mb-1">
+  Payment Info
+</h3>
+
+<div id="paymentInfoHeadingSub" class="text-sm text-gray-600 mb-4"></div>
 
     <div class="space-y-3 text-sm">
       <!-- 0. Auto-capture text (read-only log) -->
@@ -4963,7 +4967,7 @@ html += `
 html += `
   <tr>
     <td style="${tdLabelStyle}">Package Selected</td>
-    <td style="${tdValueStyle} color:black; font-weight:bold; font-size:16px;">
+    <td style="${tdValueStyle} font-weight:bold;">
       ${pkgName.replace(/</g,"&lt;")}
     </td>
     <td style="${tdPriceStyle}; text-align:right;">
@@ -5714,6 +5718,28 @@ function openPaymentInfoModal() {
   const ctx = window.CURRENT_VIEWED_INVOICE || null;
   const inv = ctx && ctx.invoice ? ctx.invoice : null;
 
+  // ------------------ Set Payment Info Heading ------------------
+const headMain = document.getElementById('paymentInfoHeadingMain');
+const headSub  = document.getElementById('paymentInfoHeadingSub');
+
+const cName = inv?.clientName || ctx?.clientName || "Client";
+const cContact = inv?.clientContact || ctx?.clientContact || "";
+
+// Event Date (first event only)
+let eventDate = "";
+if (inv?.events?.length > 0) {
+    const e0 = inv.events[0];
+    if (e0.eventDate) {
+        const d = new Date(e0.eventDate);
+        eventDate = d.toLocaleDateString("en-IN");
+    }
+}
+
+// MAIN HEADING
+headMain.textContent = `Payment Info - ${cName}${cContact ? " - " + cContact : ""}`;
+
+// SUB LINE
+headSub.textContent = eventDate
 
 
   // 1) Billed amount from context (actual/final)
