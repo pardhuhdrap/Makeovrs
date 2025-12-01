@@ -2696,7 +2696,7 @@ function openCalendarDatePopup(dateISO){
           // ===========================
           //  SINGLE-EVENT QUOTATION
           // ===========================
-          const generate = window.confirm(
+          const generate = await fancyConfirm(
             'Initiate invoice for this booking?\n\n' +
             'Yes = Open Payment info.\n' +
             'No = Keep this event un-booked.'
