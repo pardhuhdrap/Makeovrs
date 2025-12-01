@@ -1536,6 +1536,27 @@ function getClientReqOwnerId() {
 
 function createLucide(){ if(window.lucide && lucide.createIcons) try{ lucide.createIcons(); }catch(e){} }
 
+function fancyConfirm(message, okText = "OK", cancelText = "Cancel") {
+  return new Promise(resolve => {
+    const overlay = document.getElementById("fancyConfirmOverlay");
+    const msgEl = document.getElementById("fancyConfirmMessage");
+    const okBtn = document.getElementById("fancyConfirmOk");
+    const cancelBtn = document.getElementById("fancyConfirmCancel");
+
+    msgEl.textContent = message;
+    okBtn.textContent = okText;
+    cancelBtn.textContent = cancelText;
+
+    overlay.classList.remove("hidden");
+
+    const close = () => overlay.classList.add("hidden");
+
+    okBtn.onclick = () => { close(); resolve(true); };
+    cancelBtn.onclick = () => { close(); resolve(false); };
+  });
+}
+
+
 function showMessage(msg, title = 'Notice') {
   const t = document.getElementById('messageTitle');
   const b = document.getElementById('messageBody');
@@ -2741,11 +2762,13 @@ function openCalendarDatePopup(dateISO){
           if (yesWhole) {
             // If invoice exists, confirm delete first
             if (relatedInvoices.length) {
-              const sureDelete = window.confirm(
-                "Are you sure to delete invoice?\n\n" +
-                "Yes = auto delete and move the invoice to Recycle Bin → System Removed.\n" +
-                "Cancel = keep bookings and invoice as-is."
-              );
+              const sureDelete = await fancyConfirm(
+                    "Are you sure to delete invoice?\n\n" +
+                    "Yes = Delete Invoce (System Removed)\n" +
+                    "Cancel = Keep booking",
+                    "Yes, Delete",
+                    "Cancel"
+                  );
 
               if (!sureDelete) {
                 // user cancelled → put checkbox back ON and abort
@@ -2816,10 +2839,13 @@ function openCalendarDatePopup(dateISO){
           setSingleEventBooking(evObj.eventId, false);
 
           if (relatedInvoices.length) {
-            const sureDelete = window.confirm(
-              "Are you sure to delete invoice?\n\n" +
-              "Yes = auto delete and move the invoice to Recycle Bin → System Removed."
-            );
+            const sureDelete = await fancyConfirm(
+                    "Are you sure to delete invoice?\n\n" +
+                    "Yes = Delete Invoce (System Removed)\n" +
+                    "Cancel = Keep booking",
+                    "Yes, Delete",
+                    "Cancel"
+                  );
             if (sureDelete) {
               const recycleSystem = loadFromLS(RECYCLE_SYSTEM_KEY, []);
               const nowIso = new Date().toISOString();
@@ -9904,6 +9930,36 @@ document.addEventListener('DOMContentLoaded', () => {
      ">
   Contact Developer
 </div>
+      
+       <!-- Fancy Confirm Modal -->
+<div id="fancyConfirmOverlay" 
+     class="fixed inset-0 bg-black bg-opacity-40 hidden z-[9999] flex items-center justify-center">
+  <div class="bg-white rounded-xl shadow-xl w-11/12 max-w-sm p-5 animate-scaleIn">
+    <div id="fancyConfirmMessage" class="text-gray-700 text-sm whitespace-pre-line"></div>
+
+    <div class="mt-5 flex justify-end gap-3">
+      <button id="fancyConfirmCancel"
+              class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-600">
+        Cancel
+      </button>
+
+      <button id="fancyConfirmOk"
+              class="px-3 py-1.5 text-sm rounded-lg bg-red-600 text-white">
+        Yes, Delete
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes scaleIn {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+.animate-scaleIn {
+  animation: scaleIn 0.18s ease-out;
+}
+</style>       
 
 </body>
 </html>
