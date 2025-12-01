@@ -2676,9 +2676,9 @@ function openCalendarDatePopup(dateISO){
           //  SINGLE-EVENT QUOTATION
           // ===========================
           const generate = window.confirm(
-            'Generate invoice for this booking?\n\n' +
-            'Yes = open Payment Info and create invoice when Partial is clicked.\n' +
-            'No = keep this event un-booked.'
+            'Initiate invoice for this booking?\n\n' +
+            'Yes = Open Payment Info to generate invoice\n' +
+            'No = Keep this event un-booked.'
           );
 
           if (!generate) {
@@ -2743,8 +2743,8 @@ function openCalendarDatePopup(dateISO){
             if (relatedInvoices.length) {
               const sureDelete = window.confirm(
                 "Are you sure to delete invoice?\n\n" +
-                "Yes = auto delete and move the invoice to Recycle Bin → System Removed.\n" +
-                "Cancel = keep bookings and invoice as-is."
+                "Yes = Delete invoice (System Removed).\n" +
+                "Cancel = Keep bookings and invoice as-is."
               );
 
               if (!sureDelete) {
@@ -2794,7 +2794,7 @@ function openCalendarDatePopup(dateISO){
             if (relatedInvoices.length) {
               const voidIt = window.confirm(
                 "Proceed to void invoice?\n\n" +
-                "Yes = mark the invoice as VOID (it stays in the list in red for review/edit later)."
+                "Yes = Mark the invoice as VOID (Will Review/Edit later)."
               );
               if (voidIt) {
                 const nowIso = new Date().toISOString();
@@ -2818,7 +2818,7 @@ function openCalendarDatePopup(dateISO){
           if (relatedInvoices.length) {
             const sureDelete = window.confirm(
               "Are you sure to delete invoice?\n\n" +
-              "Yes = auto delete and move the invoice to Recycle Bin → System Removed."
+              "Yes = Delete invoice (System Removed)."
             );
             if (sureDelete) {
               const recycleSystem = loadFromLS(RECYCLE_SYSTEM_KEY, []);
@@ -3012,7 +3012,7 @@ function saveQuotationMultiEvent() {
 
     if (duplicate) {
       const go = window.confirm(
-        'A quotation already exists for this client name and contact.\n\n' +
+        'A quotation already exists for this Client name and Contact.\n\n' +
         'Do you want to open that quotation in edit mode instead?'
       );
       if (go) {
@@ -9166,7 +9166,7 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
 
   if (duplicateInvoice) {
     const go = window.confirm(
-      'An invoice already exists for this client name and contact.\n\n' +
+      'An invoice already exists for this Client name and Contact.\n\n' +
       'Do you want to open that invoice in edit mode instead?'
     );
     if (go) {
@@ -9190,9 +9190,9 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
     );
     if (editing && editing.status === 'void') {
       const makeValid = window.confirm(
-        'This invoice is currently marked as VOID.\n\n' +
-        'Click OK to save it as VALID (normal invoice).\n' +
-        'Click Cancel to keep it as VOID.'
+        'Invoice marked as VOID.\n\n' +
+        'OK = Mark it as VALID (normal invoice).\n' +
+        'Cancel = Keep it as VOID.'
       );
 
       if (makeValid) {
