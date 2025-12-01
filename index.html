@@ -80,7 +80,16 @@ header {
   grid-template-columns: repeat(7, 1fr);
   gap: 8px;
 }
-.calendar-cell { min-height:64px; display:flex; align-items:flex-start; justify-content:center; padding-top:6px; position:relative; border-radius:8px; }
+.calendar-cell {
+  min-height:64px;
+  display:flex;
+  flex-direction:column;      /* NEW: stack children vertically */
+  align-items:center;         /* NEW: center the circle + amount */
+  justify-content:flex-start; /* content from top */
+  padding-top:6px;
+  position:relative;
+  border-radius:8px;
+}
 .calendar-weekdays { display:grid; grid-template-columns: repeat(7, 1fr); gap:8px; margin-bottom:8px; text-align:center; color:#6b7280; font-weight:600; font-size:13px; }
 
 .calendar-date-circle {
@@ -2462,15 +2471,14 @@ function renderCalendar(y=curYear, m=curMonth){
     else if (bookedCount === 3) { bgColor = '#ef4444'; circleClass = 'colored'; }
     else if (bookedCount > 3) { bgColor = '#000000'; circleClass = 'colored'; }
   }
-    const bookedTotal = eventsOnDay.reduce((sum, e) => {
+      const bookedTotal = eventsOnDay.reduce((sum, e) => {
   if (!e.booked) return sum;
-  const pkg  = Number(e.packagePrice   || 0) || 0;
-  const add  = Number(e.addOnPrice     || 0) || 0;
-  const transp = Number(e.transportPrice || 0) || 0;
-  return sum + pkg + add + transp;
+  return sum
+    + Number(e.packagePrice   || 0)
+    + Number(e.addOnPrice     || 0)
+    + Number(e.transportPrice || 0);
 }, 0);
 
-   
 
     const today =
     d === now.getDate() && m === now.getMonth() && y === now.getFullYear();
@@ -2481,20 +2489,21 @@ function renderCalendar(y=curYear, m=curMonth){
     today ? 'box-shadow:0 6px 18px rgba(59,130,246,0.12);' : ''
   }">${d}</span>`;
 
-  html += `
-    <div class="calendar-cell" onclick="openCalendarDatePopup('${dateISO}')">
-      ${dateNumHtml}
-      ${eventsOnDay.length > 0
-        ? `<div style="position:absolute;left:6px;top:6px;font-size:11px;color:#6b7280">${eventsOnDay.length}</div>`
-        : ''
-      }
-      ${bookedTotal > 0
-        ? `<div style="margin-top:2px;font-size:11px;color:#16a34a;font-weight:500;">
-             ${formatINR(bookedTotal)}
-           </div>`
-        : ''
-      }
-    </div>`;
+  html += `<div class="calendar-cell" onclick="openCalendarDatePopup('${dateISO}')">
+  ${dateNumHtml}
+  ${bookedTotal > 0
+    ? `<div style="margin-top:2px;font-size:11px;color:#16a34a;font-weight:500;">
+         ${formatINR(bookedTotal)}
+       </div>`
+    : ''
+  }
+  ${eventsOnDay.length>0
+    ? `<div style="position:absolute;left:6px;top:6px;font-size:11px;color:#6b7280">
+         ${eventsOnDay.length}
+       </div>`
+    : ''
+  }
+</div>`;
   }
   html += `</div>`;
   document.getElementById('calendar-widget').innerHTML = html;
