@@ -1280,7 +1280,7 @@ header {
     <!-- Payment Info modal -->
 <div id="paymentInfoModal" class="message-modal" style="z-index:1000; display:none;">
   <div class="message-modal-content">
-    <h3 id="paymentInfoHeadingMain" class="text-xl font-bold text-blue-600 mb-1">
+   <h3 id="paymentInfoHeadingMain" class="text-xl font-bold text-blue-600 mb-1 flex items-center gap-2">
   Payment Info
 </h3>
 
@@ -5735,8 +5735,19 @@ if (inv?.events?.length > 0) {
     }
 }
 
-// MAIN HEADING
-headMain.textContent = `Payment Info - ${cName}${cContact ? " - " + cContact : ""}`;
+// MAIN HEADING WITH CALL ICON
+headMain.innerHTML = `
+  Payment Info - ${cName}${cContact ? " - " + cContact : ""}
+  ${cContact ? `
+    <span onclick="window.location.href='tel:${cContact}'"
+          class="inline-block text-green-600 cursor-pointer align-middle ml-2">
+      <i data-lucide="phone-call" class="w-5 h-5"></i>
+    </span>
+  ` : ""}
+`;
+
+// Enable lucide icons
+lucide.createIcons();
 
 // SUB LINE
 headSub.textContent = eventDate ? `Event Date: ${eventDate}` : "";
