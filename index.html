@@ -2696,10 +2696,10 @@ function openCalendarDatePopup(dateISO){
           // ===========================
           //  SINGLE-EVENT QUOTATION
           // ===========================
-          const generate = window.confirm(
-            'Generate invoice for this booking?\n\n' +
-            'Yes = open Payment Info and create invoice when Partial is clicked.\n' +
-            'No = keep this event un-booked.'
+          const sureDelete = await fancyConfirm(
+            'Initiate invoice for this booking?\n\n' +
+            'Yes = Open Payment info.\n' +
+            'No = Keep this event un-booked.'
           );
 
           if (!generate) {
