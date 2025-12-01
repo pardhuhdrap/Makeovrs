@@ -2446,24 +2446,55 @@ function renderCalendar(y=curYear, m=curMonth){
   for(let d=1; d<=daysInMonth; d++){
     const dateISO = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const eventsOnDay = idx[dateISO] || [];
+
     const bookedCount = eventsOnDay.filter(e=>e.booked).length;
-    let bgColor = 'transparent'; let circleClass = '';
-    if(eventsOnDay.length === 0){ bgColor = 'transparent'; circleClass = ''; }
-    else if(bookedCount === 0 && eventsOnDay.length > 0){ bgColor = '#3b82f6'; circleClass = 'colored'; } // Enquiry -> Blue
-    else {
-      if(bookedCount === 1){ bgColor = '#10b981'; circleClass = 'colored'; }
-      else if(bookedCount === 2){ bgColor = '#f59e0b'; circleClass = 'colored'; }
-      else if(bookedCount === 3){ bgColor = '#ef4444'; circleClass = 'colored'; }
-      else if(bookedCount > 3){ bgColor = '#000000'; circleClass = 'colored'; }
-    }
+    let bgColor = 'transparent';
+  let circleClass = '';
+  if (eventsOnDay.length === 0) {
+    bgColor = 'transparent';
+    circleClass = '';
+  } else if (bookedCount === 0 && eventsOnDay.length > 0) {
+    bgColor = '#3b82f6';
+    circleClass = 'colored'; // Enquiry -> Blue
+  } else {
+    if (bookedCount === 1) { bgColor = '#10b981'; circleClass = 'colored'; }
+    else if (bookedCount === 2) { bgColor = '#f59e0b'; circleClass = 'colored'; }
+    else if (bookedCount === 3) { bgColor = '#ef4444'; circleClass = 'colored'; }
+    else if (bookedCount > 3) { bgColor = '#000000'; circleClass = 'colored'; }
+  }
+    const bookedTotal = eventsOnDay.reduce((sum, e) => {
+  if (!e.booked) return sum;
+  const pkg  = Number(e.packagePrice   || 0) || 0;
+  const add  = Number(e.addOnPrice     || 0) || 0;
+  const transp = Number(e.transportPrice || 0) || 0;
+  return sum + pkg + add + transp;
+}, 0);
 
-    const today = (d === now.getDate() && m === now.getMonth() && y === now.getFullYear());
-    // Use circle as background of date number (full circle)
-    const circleStyle = bgColor === 'transparent' ? '' : `background:${bgColor};`;
-    const textColorClass = bgColor === 'transparent' ? '' : 'calendar-date-circle colored';
-    const dateNumHtml = `<span class="calendar-date-circle ${circleClass}" style="${circleStyle} ${today ? 'box-shadow:0 6px 18px rgba(59,130,246,0.12);' : ''}">${d}</span>`;
+   
 
-    html += `<div class="calendar-cell" onclick="openCalendarDatePopup('${dateISO}')">${dateNumHtml}${eventsOnDay.length>0 ? `<div style="position:absolute;left:6px;top:6px;font-size:11px;color:#6b7280">${eventsOnDay.length}</div>` : ''}</div>`;
+    const today =
+    d === now.getDate() && m === now.getMonth() && y === now.getFullYear();
+
+  // Use circle as background of date number (full circle)
+  const circleStyle = bgColor === 'transparent' ? '' : `background:${bgColor};`;
+  const dateNumHtml = `<span class="calendar-date-circle ${circleClass}" style="${circleStyle} ${
+    today ? 'box-shadow:0 6px 18px rgba(59,130,246,0.12);' : ''
+  }">${d}</span>`;
+
+  html += `
+    <div class="calendar-cell" onclick="openCalendarDatePopup('${dateISO}')">
+      ${dateNumHtml}
+      ${eventsOnDay.length > 0
+        ? `<div style="position:absolute;left:6px;top:6px;font-size:11px;color:#6b7280">${eventsOnDay.length}</div>`
+        : ''
+      }
+      ${bookedTotal > 0
+        ? `<div style="margin-top:2px;font-size:11px;color:#16a34a;font-weight:500;">
+             ${formatINR(bookedTotal)}
+           </div>`
+        : ''
+      }
+    </div>`;
   }
   html += `</div>`;
   document.getElementById('calendar-widget').innerHTML = html;
