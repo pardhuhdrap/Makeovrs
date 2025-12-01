@@ -2696,7 +2696,7 @@ function openCalendarDatePopup(dateISO){
           // ===========================
           //  SINGLE-EVENT QUOTATION
           // ===========================
-          const sureDelete = await fancyConfirm(
+          const generate = window.confirm(
             'Initiate invoice for this booking?\n\n' +
             'Yes = Open Payment info.\n' +
             'No = Keep this event un-booked.'
@@ -2815,9 +2815,9 @@ function openCalendarDatePopup(dateISO){
             setSingleEventBooking(evObj.eventId, false);
 
             if (relatedInvoices.length) {
-              const voidIt = window.confirm(
+              const voidIt = await fancyConfirm(
                 "Proceed to void invoice?\n\n" +
-                "Yes = mark the invoice as VOID (it stays in the list in red for review/edit later)."
+                "Yes = Mark invoice as VOID (Will be reviewed later)."
               );
               if (voidIt) {
                 const nowIso = new Date().toISOString();
