@@ -182,6 +182,43 @@
 
     let eventCounter = 0;
 
+        // 🔤 Allow only A–Z + spaces, auto-capitalize first letter
+    function attachAlphaOnlyCapitalize(inputEl) {
+      if (!inputEl) return;
+
+      inputEl.addEventListener("input", () => {
+        let v = inputEl.value || "";
+
+        // keep only letters + spaces
+        v = v.replace(/[^A-Za-z\s]/g, "");
+        // collapse multiple spaces
+        v = v.replace(/\s+/g, " ");
+        // remove leading spaces
+        v = v.replace(/^\s+/, "");
+
+        if (v.length > 0) {
+          v = v.charAt(0).toUpperCase() + v.slice(1);
+        }
+
+        inputEl.value = v;
+      });
+    }
+
+    // 🔢 Allow only digits, max 10 while typing
+    function attachNumbersOnly(inputEl) {
+      if (!inputEl) return;
+
+      inputEl.addEventListener("input", () => {
+        let v = inputEl.value || "";
+        // digits only
+        v = v.replace(/[^0-9]/g, "");
+        // limit to 10 digits
+        if (v.length > 10) v = v.slice(0, 10);
+        inputEl.value = v;
+      });
+    }
+
+
     // 🔹 Enable / disable global Add Event button
     function setAddEventEnabled(enabled) {
       const btn = document.getElementById("addEventBtn");
@@ -390,6 +427,16 @@
         </div>
       `;
 
+            // 🔤 Apply restrictions for event fields (manual only)
+      const evNameInput = panel.querySelector(".event-name");
+      const evLocInput  = panel.querySelector(".event-location");
+      const evPkgInput  = panel.querySelector(".event-packageIdea");
+
+      attachAlphaOnlyCapitalize(evNameInput);
+      attachAlphaOnlyCapitalize(evLocInput);
+      attachAlphaOnlyCapitalize(evPkgInput);
+
+
       const header = panel.querySelector(".header");
       const body   = panel.querySelector(".body");
 
@@ -492,7 +539,7 @@
         .querySelectorAll(".field-error-red")
         .forEach(el => el.classList.remove("field-error-red"));
 
-      // Client side required
+            // Client side required
       if (!payload.clientName) {
         ok = false;
         markFieldError(document.getElementById("clientName"));
@@ -500,6 +547,18 @@
       if (!payload.clientContact) {
         ok = false;
         markFieldError(document.getElementById("clientContact"));
+      } else {
+        // 🔢 Must be exactly 10 digits
+        const contactEl = document.getElementById("clientContact");
+        const digits = (payload.clientContact || "").replace(/\D/g, "");
+        if (digits.length !== 10) {
+          ok = false;
+          markFieldError(contactEl);
+          alert("Phone / WhatsApp must be exactly 10 digits.");
+          return false;
+        }
+        // Normalise stored value to just digits
+        payload.clientContact = digits;
       }
 
       if (!payload.events.length) {
@@ -556,6 +615,14 @@
       const form            = document.getElementById("clientRequestForm");
       const resetBtn        = document.getElementById("resetFormBtn");
       const addEventBtn     = document.getElementById("addEventBtn");
+
+            // 🔤 Client-level restrictions
+      const clientNameInput    = document.getElementById("clientName");
+      const clientContactInput = document.getElementById("clientContact");
+
+      attachAlphaOnlyCapitalize(clientNameInput);   // A–Z + spaces, auto-capitalise
+      attachNumbersOnly(clientContactInput);        // digits only, up to 10
+
 
       // initial one event (expanded)
       if (eventsContainer) {
