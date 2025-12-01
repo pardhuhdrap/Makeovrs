@@ -1536,6 +1536,59 @@ function getClientReqOwnerId() {
 
 function createLucide(){ if(window.lucide && lucide.createIcons) try{ lucide.createIcons(); }catch(e){} }
 
+// ========================
+// SYNCHRONOUS FANCY CONFIRM
+// ========================
+function fancyConfirmSync(message, okText = "Yes", cancelText = "Cancel") {
+  return new Promise(resolve => {
+    const overlay = document.getElementById("fancyConfirmOverlay");
+    const msgEl = document.getElementById("fancyConfirmMessage");
+    const okBtn = document.getElementById("fancyConfirmOk");
+    const cancelBtn = document.getElementById("fancyConfirmCancel");
+
+    msgEl.innerHTML = message;
+    okBtn.textContent = okText;
+    cancelBtn.textContent = cancelText;
+
+    overlay.classList.remove("hidden");
+
+    okBtn.onclick = () => {
+      overlay.classList.add("hidden");
+      resolve(true);
+    };
+
+    cancelBtn.onclick = () => {
+      overlay.classList.add("hidden");
+      resolve(false);
+    };
+  });
+}
+
+
+// =====================================
+// GLOBAL CONFIRM OVERRIDE (SYNC BLOCK)
+// =====================================
+window.confirm = function(message) {
+  let finished = false;
+  let result = false;
+
+  fancyConfirmSync(message).then(r => {
+    result = r;
+    finished = true;
+  });
+
+  // ⛔ Synchronously block until finished
+  // (with minimal UI delay)
+  const start = Date.now();
+  while (!finished) {
+    if (Date.now() - start > 20000) break; // safety
+  }
+
+  return result;
+};
+
+
+
 function showMessage(msg, title = 'Notice') {
   const t = document.getElementById('messageTitle');
   const b = document.getElementById('messageBody');
