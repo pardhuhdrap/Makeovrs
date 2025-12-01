@@ -6929,6 +6929,11 @@ function createEventPanel(prefill = {}) {
   `;
   cont.appendChild(panel);
 
+  // Apply A–Z + auto-capitalize rules on manual text fields
+  attachAlphaOnlyCapitalize(panel.querySelector('.event-eventNameManual'));
+  attachAlphaOnlyCapitalize(panel.querySelector('.event-eventLocationManual'));
+  attachAlphaOnlyCapitalize(panel.querySelector('.event-packageSelectedManual'));
+
   // Any input/change inside this panel makes it "dirty"
   panel.addEventListener('input', (e) => {
     // ignore clicks on the Update button itself
@@ -6972,7 +6977,8 @@ function createEventPanel(prefill = {}) {
     } else {
       area.innerHTML =
         '<input type="text" class="event-eventNameManual block w-full border-gray-300 rounded p-2 text-sm" placeholder="Manually enter event name">';
-    }
+         attachAlphaOnlyCapitalize(area.querySelector(".event-eventNameManual"));
+      }
   });
 
   panel.querySelector('.eventFetchPackage')?.addEventListener('change', (ev) => {
@@ -7017,6 +7023,7 @@ function createEventPanel(prefill = {}) {
                class="event-packageManualPrice block w-full border-gray-300 rounded p-2 text-sm mt-2"
                placeholder="Manual price (₹)" value="0.00" />
       `;
+       attachAlphaOnlyCapitalize(area.querySelector(".event-packageSelectedManual"));
       panel
         .querySelector('.event-packageManualPrice')
         ?.addEventListener('input', updateSummaryUI);
@@ -7100,6 +7107,10 @@ function createEventPanel(prefill = {}) {
   const chkLoc = panel.querySelector('.eventFetchLocation');
   const mapBtn = panel.querySelector('.event-mapBtn');
   const manualLoc = panel.querySelector('.event-eventLocationManual');
+  // 👉 apply A–Z + auto-capital rule on manual typing
+if (typeof attachAlphaOnlyCapitalize === 'function' && manualLoc) {
+  attachAlphaOnlyCapitalize(manualLoc);
+}
   chkLoc?.addEventListener('change', (ev) => {
     if (ev.target.checked) {
       mapBtn.classList.remove('hidden');
@@ -8180,6 +8191,42 @@ function attachFieldClearOnInput(panel) {
     }, { once: true });
   });
 }
+
+// Restrict manual text fields to A–Z + spaces, and auto-capitalize words
+function attachAlphaOnlyCapitalize(inputEl) {
+  if (!inputEl) return;
+
+  inputEl.addEventListener('input', () => {
+    let v = inputEl.value || '';
+
+    // Keep only letters and spaces
+    v = v.replace(/[^a-zA-Z\s]/g, '');
+
+    // Collapse multiple spaces
+    v = v.replace(/\s+/g, ' ');
+
+    // Trim left
+    v = v.replace(/^\s+/, '');
+
+    if (!v) {
+      inputEl.value = '';
+      return;
+    }
+
+    // Capitalize first letter of each word
+    v = v
+      .split(' ')
+      .map(word =>
+        word
+          ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+          : ''
+      )
+      .join(' ');
+
+    inputEl.value = v;
+  });
+}
+
 
 /* simple validate for update button */
 function validateEventPanel(panel){
