@@ -1581,7 +1581,7 @@ window.confirm = function(message) {
   // (with minimal UI delay)
   const start = Date.now();
   while (!finished) {
-    if (Date.now() - start > 20000) break; // safety
+    if (Date.now() - start > 10000) break; // safety
   }
 
   return result;
