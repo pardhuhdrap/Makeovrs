@@ -1496,6 +1496,12 @@ header {
         </div>
         <div class="flex items-center gap-2">
           <button
+            id="clientFormBtn"
+            class="text-[11px] px-2 py-1 rounded-full border border-gray-200 bg-white hover:bg-blue-50"
+          >
+            Share Form
+          </button>
+          <button
             id="clientReqRefreshBtn"
             class="text-[11px] px-2 py-1 rounded-full border border-gray-200 bg-white hover:bg-gray-50"
           >
@@ -1695,6 +1701,21 @@ function parseINR(value) {
   return isNaN(n) ? 0 : n;
 }
 
+document.getElementById("clientFormBtn")?.addEventListener("click", () => {
+  const link = `${location.origin}/client-form.html`;
+
+  if (navigator.share) {
+    navigator.share({
+      title: "Client Form",
+      text: "Please fill this form:",
+      url: link
+    }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(link).then(() => {
+      showMessage("Client form link copied!");
+    });
+  }
+});
 
 
 function goBack() {
@@ -7904,6 +7925,7 @@ function initClientRequestsFloatingUi() {
   const close  = document.getElementById('clientReqCloseBtn');
   const refreshBtn = document.getElementById('clientReqRefreshBtn');
   const listEl = document.getElementById('clientReqList');
+  const formBtn = document.getElementById('clientFormBtn');
 
   if (!app || !fab || !panel) return;
 
