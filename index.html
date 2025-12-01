@@ -5739,7 +5739,7 @@ if (inv?.events?.length > 0) {
 headMain.textContent = `Payment Info - ${cName}${cContact ? " - " + cContact : ""}`;
 
 // SUB LINE
-headSub.textContent = eventDate
+headSub.textContent = eventDate ? `Event Date: ${eventDate}` : "";
 
 
   // 1) Billed amount from context (actual/final)
