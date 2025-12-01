@@ -2756,7 +2756,9 @@ function openCalendarDatePopup(dateISO){
         // --- Scenario 1: YES = unmark whole quotation & auto delete invoice ---
         if (hasMultipleEvents) {
           const yesWhole = confirm(
-            "Unmark whole quotation's events as booked? (Yes = unmark all events of this quotation)"
+            "Un-book whole quotation's events? (Yes = unmark all events of this quotation)",
+            "Yes, unmark all",
+            "No, Keep as-is"
           );
 
           if (yesWhole) {
