@@ -2151,32 +2151,54 @@ datesToShow.forEach(dateKey => {
 
   const events = grouped[dateKey];
 
-  html += `
-    <div class="bg-white border border-gray-200 rounded p-2 shadow-sm">
-      <div class="font-semibold text-gray-800 mb-2">${dateStr}</div>
-      <div class="space-y-1 text-xs">
-        ${events
-          .map((ev, i) => {
-            const loc = ev.location ? `<div class="text-[10px] text-gray-500 ml-4">${ev.location}</div>` : "";
-            return `
-              <div>
-                <div class="text-gray-700">${i + 1}. ${ev.clientName || '--'}</div>
-                ${loc}
-              </div>
-            `;
-          })
-          .join('')}
-      </div>
+// Build inner events HTML: each event → 2 lines
+let eventsHtml = '';
+
+events.forEach((ev, i) => {
+  const name = ev.clientName || '--';
+
+  const rawLoc = ev.location || '';
+  const trimmed = rawLoc.trim();
+  const firstWord = trimmed ? trimmed.split(/\s+/)[0] : '';
+
+  const time = ev.time || '';
+
+  // Decide what to show on line 2:
+  //  - Location (Time)
+  //  - Location
+  //  - Time
+  let secondLine = '';
+  if (firstWord && time) {
+    secondLine = `${firstWord} (${time})`;
+  } else if (firstWord) {
+    secondLine = firstWord;
+  } else if (time) {
+    secondLine = time;
+  }
+
+  // Build HTML for this event (max 2 lines)
+  eventsHtml += '<div>';
+  eventsHtml += `<div class="text-gray-700">${i + 1}. ${name}</div>`;
+  if (secondLine) {
+    eventsHtml += `<div class="text-[10px] text-gray-500 ml-4">${secondLine}</div>`;
+  }
+  eventsHtml += '</div>';
+});
+
+html += `
+  <div class="bg-white border border-gray-200 rounded p-2 shadow-sm">
+    <div class="font-semibold text-gray-800 mb-2">${dateStr}</div>
+    <div class="space-y-1 text-xs">
+      ${eventsHtml}
     </div>
-  `;
+  </div>
+`;
 });
 
 html += `</div>`;
 
 box.innerHTML = html;
 }
-
-
 
 
 /* Persist eventId for any events missing one in saved quotations (migration)
