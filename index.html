@@ -5728,12 +5728,17 @@ const cContact = inv?.clientContact || ctx?.clientContact || "";
 // Event Date (first event only)
 let eventDate = "";
 if (inv?.events?.length > 0) {
-    const e0 = inv.events[0];
-    if (e0.eventDate) {
-        const d = new Date(e0.eventDate);
-        eventDate = d.toLocaleDateString("en-IN");
+  const e0 = inv.events[0];
+  const rawDate = e0.eventDate || e0.date;  // <-- support both keys
+
+  if (rawDate) {
+    const d = new Date(rawDate);
+    if (!isNaN(d.getTime())) {
+      eventDate = d.toLocaleDateString("en-IN");
     }
+  }
 }
+
 
 // MAIN HEADING WITH CALL ICON (uses contact chooser)
 headMain.innerHTML = `
