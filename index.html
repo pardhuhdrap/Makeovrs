@@ -5194,12 +5194,49 @@ html += `
   }
 }
 
+function formatDocDateTimeForFilename(doc) {
+  if (!doc) return "Unknown";
 
+  const raw = doc.createdAt || doc.date || new Date().toISOString();
+  const d = new Date(raw);
 
+  if (isNaN(d.getTime())) return "Unknown";
 
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
 
+  // Example: 07-12-2025 14.30  (no ':' to keep filenames safe)
+  return `${dd}-${mm}-${yyyy} ${hh}.${mi}`;
+}
 
-async function exportQuotationPDF(q){ try{ const blob = await createPdfBlobFromQuotation(q); const a = document.createElement('a'); const url = URL.createObjectURL(blob); a.href = url; a.download = `${(q.clientName|| (q.invoiceId ? 'invoice' : 'quotation')).replace(/\s+/g,'_')}_${q.id || q.invoiceId || Date.now()}.pdf`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }catch(e){ console.error(e); showMessage('Failed to create PDF.'); } }
+async function exportQuotationPDF(q) {
+  try {
+    const blob = await createPdfBlobFromQuotation(q);
+    const a = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    a.href = url;
+
+    const isInvoice = !!(q && (q.invoiceId || q.invoiceId === 0));
+    const baseLabel = isInvoice ? "Invoice" : "Quotation";
+    const clientName = (q.clientName || "").trim() || baseLabel;
+    const dateTimeLabel = formatDocDateTimeForFilename(q);
+
+    // Quotation - Client Name (Quotation Date & Time)
+    // Invoice   - Client Name (Invoice Date & Time)
+    a.download = `${baseLabel} - ${clientName} (${dateTimeLabel}).pdf`;
+
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    console.error(e);
+    showMessage('Failed to create PDF.');
+  }
+}
 
 // FILES → Quotations actions (uses the new PDF generator)
 async function handleFileAction(id, action) {
@@ -5218,9 +5255,14 @@ async function handleFileAction(id, action) {
 
     try {
       const blob = await createPdfBlobFromQuotation(q);
+      const isInvoice = !!(q && (q.invoiceId || q.invoiceId === 0));
+      const baseLabel = isInvoice ? "Invoice" : "Quotation";
+      const clientName = (q.clientName || "").trim() || baseLabel;
+      const dateTimeLabel = formatDocDateTimeForFilename(q);
+
       const file = new File(
         [blob],
-        `${(q.clientName || "quotation").replace(/\s+/g, "_")}_${q.id || Date.now()}.pdf`,
+        `${baseLabel} - ${clientName} (${dateTimeLabel}).pdf`,
         { type: "application/pdf" }
       );
 
@@ -5242,7 +5284,7 @@ async function handleFileAction(id, action) {
         const a = document.createElement("a");
         const url = URL.createObjectURL(blob);
         a.href = url;
-        a.download = `${(q.clientName || "quotation").replace(/\s+/g, "_")}_${q.id || Date.now()}.pdf`;
+        a.download = `${baseLabel} - ${clientName} (${dateTimeLabel}).pdf`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -5334,9 +5376,13 @@ async function handleInvoiceAction(invoiceId, action) {
 
     try {
       const blob = await createPdfBlobFromQuotation(inv);
+      const baseLabel = "Invoice";
+      const clientName = (inv.clientName || "").trim() || baseLabel;
+      const dateTimeLabel = formatDocDateTimeForFilename(inv);
+
       const file = new File(
         [blob],
-        `${(inv.clientName || "invoice").replace(/\s+/g, "_")}_${inv.invoiceId || Date.now()}.pdf`,
+        `${baseLabel} - ${clientName} (${dateTimeLabel}).pdf`,
         { type: "application/pdf" }
       );
 
@@ -5358,7 +5404,7 @@ async function handleInvoiceAction(invoiceId, action) {
         const a = document.createElement("a");
         const url = URL.createObjectURL(blob);
         a.href = url;
-        a.download = `${(inv.clientName || "invoice").replace(/\s+/g, "_")}_${inv.invoiceId || Date.now()}.pdf`;
+        a.download = `${baseLabel} - ${clientName} (${dateTimeLabel}).pdf`;
         document.body.appendChild(a);
         a.click();
         a.remove();
