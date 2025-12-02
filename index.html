@@ -1600,10 +1600,34 @@ const CLIENT_REQ_API_URL =
   'https://script.google.com/macros/s/AKfycbyF-IyhFuTopHGEWHGivYkWBhhV_pd5YcCKzSM5tNxrEbrmfatXIlO7GUViOqrihFc_/exec';
 let CURRENT_CLIENT_REQ_CTX = null;
 // Who owns these requests? (the signed-in user)
+// Who owns these requests? (the signed-in user / this app instance)
 function getClientReqOwnerId() {
-  // TEMP: use the same dummy ownerId as client-form.html
+  // 1) If Google profile is available, use email
+  try {
+    if (window.userProfile && window.userProfile.email) {
+      return window.userProfile.email.toLowerCase();
+    }
+  } catch (e) {
+    console.warn('getClientReqOwnerId: userProfile check failed', e);
+  }
+
+  // 2) Otherwise, use a stable random ID stored in localStorage (per device/app)
+  try {
+    const KEY = 'client_req_owner_id';
+    let ownerId = localStorage.getItem(KEY);
+    if (!ownerId) {
+      ownerId = 'owner_' + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem(KEY, ownerId);
+    }
+    return ownerId;
+  } catch (e) {
+    console.warn('getClientReqOwnerId: localStorage failed', e);
+  }
+
+  // 3) Last fallback
   return 'demo-owner';
 }
+
    
 
 function createLucide(){ if(window.lucide && lucide.createIcons) try{ lucide.createIcons(); }catch(e){} }
@@ -1791,7 +1815,9 @@ function parseINR(value) {
 }
 
 document.getElementById("clientFormBtn")?.addEventListener("click", () => {
-  const link = `${location.origin}/Makeovrs/client-form.html`;
+  const ownerId = getClientReqOwnerId();
+  const baseUrl = `${location.origin}/Makeovrs/client-form.html`;
+  const link    = `${baseUrl}?ownerId=${encodeURIComponent(ownerId)}`;
 
   if (navigator.share) {
     navigator.share({
@@ -1805,6 +1831,7 @@ document.getElementById("clientFormBtn")?.addEventListener("click", () => {
     });
   }
 });
+
 
 
 function goBack() {
