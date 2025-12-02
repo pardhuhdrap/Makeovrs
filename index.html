@@ -8104,68 +8104,111 @@ function openClientRequestPreview(payload, rowIndex) {
   payload = payload || {};
   const events = Array.isArray(payload.events) ? payload.events : [];
 
-  const html = `
-    <div class="space-y-4 text-[14px]">
-      <div>
-        <div class="font-semibold">${payload.clientName || '--'}</div>
-        ${payload.clientContact ? `<div class="text-gray-600 text-[12px]">${payload.clientContact}</div>` : ''}
-      </div>
+  const clientName   = (payload.clientName || '--').trim();
+  const contactText  = (payload.clientContact || '').trim();
+  const contactEsc   = contactText.replace(/'/g, "\\'");
 
-      <div class="space-y-2">
-        ${events.length ? events.map((ev, idx) => `
-          <div class="border rounded p-2">
-            <div class="font-semibold text-[12px]">Event ${idx + 1}: ${ev.name || '-'}</div>
-            <div class="text-[11px]">
-              ${ev.date ? `<div>Date: ${ev.date}</div>` : ''}
-              ${ev.packageIdea ? `<div>Package: ${ev.packageIdea}</div>` : ''}
-              ${ev.location ? `<div>Location: ${ev.location}</div>` : ''}
-              ${ev.addons ? `<div>Add-ons: ${ev.addons}</div>` : ''}
-              ${ev.notes ? `<div>Notes: ${ev.notes}</div>` : ''}
-            </div>
+  let html = '';
+
+  // ---------- HEADER ----------
+  html += `<div style="font-size:14px; line-height:1.5;">`;
+  html += `  <div style="margin-bottom:8px;">`;
+  html += `    <div style="font-weight:600; font-size:15px; color:#0b5ed7;">${clientName || '--'}</div>`;
+
+  if (contactText) {
+    html += `    <div style="font-size:12px; color:#555; display:inline-flex; align-items:center; gap:4px;">`;
+    html += `      ${contactText}`;
+    html += `      <i data-lucide="phone" class="w-4 h-4 text-blue-600 cursor-pointer" onclick="openContactOptions('${contactEsc}')"></i>`;
+    html += `    </div>`;
+  }
+
+  html += `  </div>`;
+
+  // ---------- EVENTS ----------
+  if (!events.length) {
+    html += `<div style="font-size:12px; color:#888;">No event details found.</div>`;
+  } else {
+    events.forEach((ev, idx) => {
+      const name     = (ev.name || '').trim() || '(No name)';
+      const date     = ev.date || '';
+      const pkg      = ev.packageIdea || '';
+      const location = ev.location || '';
+      const addons   = ev.addons || '';
+      const notes    = ev.notes || '';
+
+      html += `
+        <div style="
+          border:1px solid #e5e7eb;
+          border-radius:8px;
+          padding:8px 10px;
+          margin-bottom:8px;
+          background:#f9fafb;
+        ">
+          <div style="font-weight:600; font-size:13px; margin-bottom:4px;">
+            Event ${idx + 1}: ${name}
           </div>
-        `).join('') : '<div class="text-[11px] text-gray-400">No event details found.</div>'}
-      </div>
-    </div>
-  `;
+          <div style="font-size:12px; color:#444;">
+            ${date ? `<div><span style="color:#555;">Date</span> : ${date}</div>` : ''}
+            ${pkg ? `<div><span style="color:#555;">Package idea</span> : ${pkg}</div>` : ''}
+            ${location ? `<div><span style="color:#555;">Location</span> : ${location}</div>` : ''}
+            ${addons ? `<div><span style="color:#555;">Add-ons</span> : ${addons}</div>` : ''}
+            ${notes ? `<div><span style="color:#555;">Notes</span> : <i>${notes}</i></div>` : ''}
+          </div>
+        </div>
+      `;
+    });
+  }
 
+  html += `</div>`; // end main wrapper
+
+  // Open the standard modal
   showMessage(html, 'Client Request');
 
+  // Hide buttons that are not used here
   ['messageShareBtn','messagePaidBtn','messageEditBtn']
     .forEach(id => document.getElementById(id)?.classList.add('hidden'));
 
-  // map buttons
-  const green   = document.getElementById('messageGenerateInvoiceBtn'); // Create quotation
-  const black     = document.getElementById('messageDownloadBtn');        // Delete
+  // Map footer buttons
+  const green = document.getElementById('messageGenerateInvoiceBtn'); // Create quotation
+  const black = document.getElementById('messageDownloadBtn');        // Delete (Decline)
   const red   = document.getElementById('messageCloseBtn');           // Close
 
-  // hide everything else
-  ['messageShareBtn','messagePaidBtn','messageEditBtn']
-    .forEach(id => document.getElementById(id)?.classList.add('hidden'));
-
   // 1️⃣ CREATE QUOTATION (GREEN)
-  green.classList.remove('hidden');
-  green.textContent = 'Create Quotation';
-  green.onclick = () => {
-    window.CURRENT_CLIENT_REQ_CTX = { rowIndex, payload };
-    createQuotationFromClientRequestPayload(payload);
-    closeMessage();
+  if (green) {
+    green.classList.remove('hidden');
+    green.textContent = 'Create Quotation';
+    green.onclick = () => {
+      window.CURRENT_CLIENT_REQ_CTX = { rowIndex, payload };
+      createQuotationFromClientRequestPayload(payload);
+      closeMessage();
 
-    const panel = document.getElementById('clientRequestsPanel');
-    if (panel) panel.classList.add('hidden');
-  };
+      const panel = document.getElementById('clientRequestsPanel');
+      if (panel) panel.classList.add('hidden');
+    };
+  }
 
-  // 2️⃣ DELETE (RED → move to user recycle)
-  black.classList.remove('hidden');
-  black.textContent = 'Delete';
-  black.onclick = async () => {
-    await markClientRequestDeclined({ rowIndex, payload });
-    closeMessage();
-  };
+  // 2️⃣ DECLINE / DELETE (BLACK button)
+  if (black) {
+    black.classList.remove('hidden');
+    black.textContent = 'Decline';
+    black.onclick = async () => {
+      await markClientRequestDeclined({ rowIndex, payload });
+      closeMessage();
+    };
+  }
 
-  // 3️⃣ CLOSE (Black)
-  red.classList.remove('hidden');
-  red.textContent = 'Close';
+  // 3️⃣ CLOSE (RED button text)
+  if (red) {
+    red.classList.remove('hidden');
+    red.textContent = 'Close';
+  }
+
+  // Refresh icons (phone icon etc.)
+  if (typeof createLucide === 'function') {
+    createLucide();
+  }
 }
+
 
 
 
