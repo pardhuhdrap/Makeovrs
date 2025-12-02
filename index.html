@@ -2863,7 +2863,7 @@ function openCalendarDatePopup(dateISO){
               dateISO,
               willBeVoid: false
             };
-            
+
             updateCurrentInvoicePreviewFromCalendar(evObj.quotationId);
             openPaymentInfoModalRestrictedFromCalendar();
         }
@@ -3128,6 +3128,11 @@ function openCalendarDatePopup(dateISO){
       // Re-render popup and calendar to reflect new states
       openCalendarDatePopup(dateISO);
       renderCalendar();
+
+      // 🔄 Also refresh Dashboard "Upcoming Events"
+      if (typeof updateDashboardUpcomingEvents === 'function') {
+        updateDashboardUpcomingEvents();
+      }
 
       // 🔁 Auto-save to Drive (if signed in)
       if (typeof autoSaveDrive === 'function') {
