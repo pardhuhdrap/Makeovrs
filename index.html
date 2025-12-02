@@ -2727,7 +2727,7 @@ function openCalendarDatePopup(dateISO){
         // ===========================
 
         if (hasMultipleEvents) {
-  const yesWhole = await appConfirm(
+  const yesWhole = confirm(
     "Are whole event's booked as per quotation? (Yes = mark all events in this quotation as booked)"
   );
 
@@ -2870,7 +2870,7 @@ function openCalendarDatePopup(dateISO){
 
             // --- Scenario 1: YES = unmark whole quotation & auto delete invoice ---
         if (hasMultipleEvents) {
-              const yesWhole = await appConfirm(
+              const yesWhole = window.confirm(
                 "Unmark whole quotation's events as booked? (Yes = unmark all events of this quotation)"
               );
 
@@ -2930,7 +2930,7 @@ function openCalendarDatePopup(dateISO){
             if (relatedInvoices.length) {
               if (isLastBookedEvent) {
                 // ✅ LAST booked event → offer DELETE invoice, not VOID
-                const sureDelete = await appConfirm(
+                const sureDelete = window.confirm(
                   "Are you sure to delete invoice?\n\n" +
                   "Yes = Delete invoice (System Removed)."
                 );
