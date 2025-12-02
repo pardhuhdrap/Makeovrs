@@ -9631,6 +9631,9 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', asyn
     return;
   }
 
+  const contactEl = document.getElementById('invoiceClientContactInput');
+  const clientContactRaw = clientContact;
+
   // 📞 Same rule as quotation: contact must be exactly 10 digits
   const digitsOnly = clientContactRaw.replace(/\D/g, '');
   if (digitsOnly.length !== 10) {
