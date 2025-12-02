@@ -1244,7 +1244,11 @@ header {
   <div id="messageModal" class="message-modal" style="z-index:999">
     <div class="message-modal-content">
       <h3 id="messageTitle" class="text-xl font-bold text-red-600 mb-3">Input Error</h3>
-      <pre id="messageBody" class="text-gray-700 mb-4" style="white-space:pre-wrap;"></pre>
+      <div
+      id="messageBody"
+      class="text-gray-700 mb-4 text-sm"
+      style="white-space:normal; max-height:60vh; overflow-y:auto;"
+    ></div>
 
             <div class="flex flex-wrap w-full" id="modalButtonRow">
         <!-- These are hidden by default and shown per-screen in JS -->
@@ -1658,8 +1662,14 @@ function showMessage(msg, title = 'Notice') {
 
   if (b) {
     if (typeof msg === 'string') {
+      // HTML layouts (quotation / invoice / client request)
+      b.style.whiteSpace = 'normal';
+      b.style.fontFamily = '';
       b.innerHTML = msg;
     } else {
+      // JSON / plain objects – keep pretty formatting
+      b.style.whiteSpace = 'pre-wrap';
+      b.style.fontFamily = 'monospace';
       b.textContent = JSON.stringify(msg, null, 2);
     }
   }
