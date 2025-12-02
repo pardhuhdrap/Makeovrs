@@ -9553,27 +9553,34 @@ document.getElementById('invoiceAddEventBtn')?.addEventListener('click', () => {
   recomputeAddEventState();
 });
 
-    // Invoice save button
 // Invoice save button
 document.getElementById('generateInvoiceButton')?.addEventListener('click', () => {
-  const clientName = (document.getElementById('invoiceClientNameInput')?.value || '').trim();
-  const clientContact = (document.getElementById('invoiceClientContactInput')?.value || '').trim();
+  const nameEl    = document.getElementById('invoiceClientNameInput');
+  const contactEl = document.getElementById('invoiceClientContactInput');
+
+  const clientNameRaw    = nameEl?.value || '';
+  const clientContactRaw = contactEl?.value || '';
+
+  const clientName = clientNameRaw.trim();
+  let clientContact = clientContactRaw.trim();
+
+  // Basic validation
   if (!clientName || !clientContact) {
     showMessage('Client name and contact are required.');
     return;
   }
 
   // 📞 Same rule as quotation: contact must be exactly 10 digits
-  const digitsOnly = clientContactRaw.replace(/\D/g, '');
+  const digitsOnly = clientContact.replace(/\D/g, '');
   if (digitsOnly.length !== 10) {
     showMessage('Client contact number must be exactly 10 digits.');
     if (contactEl) contactEl.focus();
     return;
   }
+  clientContact = digitsOnly;
   if (contactEl) {
-    contactEl.value = digitsOnly;  // normalise value
+    contactEl.value = digitsOnly;  // normalise value in the field
   }
-
 
   const panels = Array.from(
     document.querySelectorAll('#invoiceEventsContainer > .event-panel')
@@ -9605,7 +9612,7 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
           ? parseFloat(opt.dataset.price)
           : 0;
       }
-    }  else {
+    } else {
       packageName = (
         panel.querySelector('.event-packageSelectedManual')?.value || ''
       ).trim();
@@ -9614,9 +9621,23 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
       );
     }
 
-    const addOnDetails = (
-      panel.querySelector('.event-addOnDetails')?.value || ''
-    ).trim();
+    // --- Add-on details (same logic style as quotation) ---
+    let addonDetails = '';
+    const addonDisplay = panel.querySelector('.event-addon-display');
+    const addonManual  = panel.querySelector('.event-addon-manual');
+
+    if (
+      addonDisplay &&
+      addonDisplay.textContent &&
+      addonDisplay.textContent.trim() &&
+      !/Enter \(Text\)/i.test(addonDisplay.textContent) &&
+      !/No items selected/i.test(addonDisplay.textContent)
+    ) {
+      addonDetails = addonDisplay.textContent.trim();
+    } else if (addonManual && addonManual.value.trim()) {
+      addonDetails = addonManual.value.trim();
+    }
+
     const addOnPrice = parseFloat(
       panel.querySelector('.event-addOnPrice')?.value || 0
     );
@@ -9632,14 +9653,14 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
       date,
       packageName,
       packagePrice,
-      addonDetails,
+      addonDetails,   // ✅ variable now correctly defined
       addOnPrice,
       transportPrice,
       notes
     };
   });
 
-  // totals
+  // Totals
   const actual = events.reduce(
     (s, e) =>
       s +
@@ -9648,8 +9669,12 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
        Number(e.transportPrice || 0)),
     0
   );
-  const discount =
-    parseFloat(document.getElementById('invoiceDiscount')?.value || 0) || 0;
+
+  let discount = parseFloat(
+    document.getElementById('invoiceDiscount')?.value || 0
+  );
+  if (isNaN(discount) || discount < 0) discount = 0;
+
   const final = Math.max(0, actual - discount);
 
   if (typeof updateInvoiceSummaryUI === 'function') {
@@ -9661,13 +9686,14 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
 
   const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
 
-  // (Optional) duplicate check – keep if you were using it before
+  // (Optional) duplicate check – same as your existing logic
   const nameKey    = clientName.toLowerCase();
   const contactKey = clientContact.toLowerCase();
   const duplicateInvoice = invoices.find(inv => {
     const n = (inv.clientName    || '').trim().toLowerCase();
     const c = (inv.clientContact || '').trim().toLowerCase();
     const sameClient = n === nameKey && c === contactKey;
+
     if (CURRENT_EDIT_INVOICE_ID && (inv.invoiceId || inv.id) === CURRENT_EDIT_INVOICE_ID) {
       return false;
     }
@@ -9687,11 +9713,9 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
   }
 
   // ==============================
-  // 🔴 Special handling for VOID invoices
+  // Special handling for VOID invoices (edit mode)
   // ==============================
-  // When editing an invoice that is currently status: 'void',
-  // ask whether to save as VALID (normal) or keep it VOID.
-  let forcedStatus = null;     // 'valid' | 'void' | null
+  let forcedStatus   = null;  // 'valid' | 'void' | null
   let forcedVoidedAt = null;
 
   if (CURRENT_EDIT_INVOICE_ID) {
@@ -9706,11 +9730,9 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
       );
 
       if (makeValid) {
-        // user wants to validate (will be shown orange as "valid-from-void")
         forcedStatus   = 'valid';
         forcedVoidedAt = null;
       } else {
-        // keep it VOID
         forcedStatus   = 'void';
         forcedVoidedAt = editing.voidedAt || new Date().toISOString();
       }
@@ -9732,7 +9754,6 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
 
       // apply forced choice (only when it was a void invoice we edited)
       if (forcedStatus === 'valid') {
-        // mark as "validated from void" → will show orange in list
         status   = 'valid-from-void';
         voidedAt = undefined;
       } else if (forcedStatus === 'void') {
@@ -9785,6 +9806,7 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
     autoSaveDrive('invoice saved from invoice screen');
   }
 });
+
 
   // 🔹 Auto-clean client requests older than 30 days from System removed
 cleanupOldClientRequestSystemRemoved();
