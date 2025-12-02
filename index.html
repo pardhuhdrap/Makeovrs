@@ -2825,7 +2825,7 @@ function openCalendarDatePopup(dateISO){
     dateISO,
     willBeVoid
   };
-
+  updateCurrentInvoicePreviewFromCalendar(evObj.quotationId);
   openPaymentInfoModalRestrictedFromCalendar();
 
         } else {
@@ -2863,7 +2863,8 @@ function openCalendarDatePopup(dateISO){
               dateISO,
               willBeVoid: false
             };
-
+            
+            updateCurrentInvoicePreviewFromCalendar(evObj.quotationId);
             openPaymentInfoModalRestrictedFromCalendar();
         }
 
@@ -6629,10 +6630,6 @@ function handlePaymentSave(markCompleted = false) {
   closePaymentInfoModal();
 }
 
-
-
-
-
 // Apply Partial Amount → updates Final Paid, history log, and Pending
 function handlePartialAmountApply() {
   const partialInput = document.getElementById('paymentPartialValue');
@@ -6679,6 +6676,59 @@ function handlePartialAmountApply() {
   // 4️⃣ Recalculate Final Paid + Pending
   recalcPaymentPending();
 }
+
+function updateCurrentInvoicePreviewFromCalendar(quotationId) {
+  const preview = prepareInvoicePreviewFromQuotation(quotationId);
+  if (!preview) return;
+
+  const { quotation: q } = preview;
+  let { actual, discount, final } = preview;
+
+  const bookings  = loadFromLS(BOOKED_EVENTS_KEY, {});
+  const allEvents = Array.isArray(q.events) ? q.events : [];
+
+  let effectiveEvents   = allEvents;
+  let effectiveActual   = actual;
+  let effectiveDiscount = (typeof discount === 'number') ? discount : 0;
+  let effectiveFinal    = final;
+
+  if (allEvents.length) {
+    const bookedEvents = allEvents.filter(ev => ev.eventId && bookings[ev.eventId]);
+    const bookedCount  = bookedEvents.length;
+    const totalCount   = allEvents.length;
+    const allBookedNow = bookedCount > 0 && bookedCount === totalCount;
+
+    // Partial booking -> only include booked events in preview
+    if (!allBookedNow && bookedCount > 0) {
+      effectiveEvents = bookedEvents.map(ev => ({ ...ev }));
+
+      effectiveActual = bookedEvents.reduce((sum, ev) => {
+        return sum +
+          Number(ev.packagePrice   || 0) +
+          Number(ev.addOnPrice     || 0) +
+          Number(ev.transportPrice || 0);
+      }, 0);
+
+      effectiveFinal = Math.max(0, effectiveActual - effectiveDiscount);
+    }
+  }
+
+  // This is what Payment Info uses
+  window.CURRENT_VIEWED_INVOICE = {
+    id:       q.id || q.quotationId || quotationId,
+    actual:   effectiveActual,
+    discount: effectiveDiscount,
+    final:    effectiveFinal,
+    invoice: {
+      ...q,
+      events:   effectiveEvents,
+      actual:   effectiveActual,
+      discount: effectiveDiscount,
+      final:    effectiveFinal
+    }
+  };
+}
+
 
 // Create / update invoice when coming from Calendar booking flow.
 // Re-uses the quotation totals and respects VOID / NORMAL logic.
