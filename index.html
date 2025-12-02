@@ -9755,40 +9755,38 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
   }
 
   // ==============================
-  // 🔴 Special handling for VOID invoices
-  // ==============================
-  // When editing an invoice that is currently status: 'void',
-  // ask whether to save as VALID (normal) or keep it VOID.
-  let forcedStatus = null;     // 'valid' | 'void' | null
-  let forcedVoidedAt = null;
+// 🔴 Special handling for VOID invoices
+// ==============================
+// When editing an invoice that is currently status: 'void',
+// ask whether to save as VALID (normal) or keep it VOID.
+let forcedStatus = null;     // 'valid' | 'void' | null
+let forcedVoidedAt = null;
 
-  if (CURRENT_EDIT_INVOICE_ID) {
+if (CURRENT_EDIT_INVOICE_ID) {
   const editing = invoices.find(inv =>
     (inv.invoiceId || inv.id) === CURRENT_EDIT_INVOICE_ID
   );
 
   if (editing && editing.status === 'void') {
+    const makeValid = await appConfirm(
+      'Invoice marked as MODIFIED.\n\n' +
+      'OK = Mark it as ORIGINAL.\n' +
+      'Cancel = Keep it as VOID.'
+    );
 
-    // Wrap only the confirm part in async IIFE
-    (async () => {
-      const makeValid = await appConfirm(
-        'Invoice marked as VOID.\n\n' +
-        'OK = Mark it as VALID (normal invoice).\n' +
-        'Cancel = Keep it as VOID.'
-      );
-
-      if (makeValid) {
-        forcedStatus   = 'valid';
-        forcedVoidedAt = null;
-      } else {
-        forcedStatus   = 'void';
-        forcedVoidedAt = editing.voidedAt || new Date().toISOString();
-      }
-    })();
+    if (makeValid) {
+      // user wants to validate (will be shown orange as "valid-from-void")
+      forcedStatus   = 'valid';
+      forcedVoidedAt = null;
+    } else {
+      // keep it VOID
+      forcedStatus   = 'void';
+      forcedVoidedAt = editing.voidedAt || new Date().toISOString();
+    }
   }
 }
 
-  let savedInvoice;
+let savedInvoice;
 
   if (CURRENT_EDIT_INVOICE_ID) {
     const idx = invoices.findIndex(inv =>
