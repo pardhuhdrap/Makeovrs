@@ -2185,7 +2185,7 @@ function updateDashboardUpcomingEvents() {
   today.setHours(0, 0, 0, 0);
   const DAY_MS = 1000 * 60 * 60 * 24;
 
-  // Group booked events by date (YYYY-MM-DD) for today + next 3 days
+  // Group booked events by date (YYYY-MM-DD) for today + next 15 days
   const grouped = {};
 
   Object.keys(index).forEach(dateISO => {
@@ -2198,8 +2198,8 @@ function updateDashboardUpcomingEvents() {
       d.setHours(0, 0, 0, 0);
 
       const diffDays = Math.floor((d - today) / DAY_MS);
-      // keep only today (0) to next 3 days (3)
-      if (diffDays < 0 || diffDays > 3) return;
+      // keep only today (0) to next 15 days (15)
+      if (diffDays < 0 || diffDays > 15) return;
 
       const key = d.toISOString().slice(0, 10); // YYYY-MM-DD
       if (!grouped[key]) grouped[key] = [];
@@ -2217,11 +2217,11 @@ function updateDashboardUpcomingEvents() {
 
   if (!datesToShow.length) {
     box.innerHTML =
-      `<div class="text-xs text-gray-400 italic">No booked events for today and next 3 days.</div>`;
+      `<div class="text-xs text-gray-400 italic">No booked events in the next 15 days.</div>`;
     return;
   }
 
-  // 4-column grid; if fewer than 4 dates, you'll just see that many cards
+  // Grid with up to 4 columns; if fewer dates, you'll see fewer cards
   let html = `
     <div class="grid grid-cols-4 gap-3">
   `;
@@ -2231,7 +2231,7 @@ function updateDashboardUpcomingEvents() {
     const dateStr = d.toLocaleDateString('en-IN', {
       day: '2-digit',
       month: 'short',
-      year: '2-digit'   // 👉 DD Mon YY
+      year: '2-digit'   // DD Mon 25
     });
 
     const eventsForDay = grouped[key].slice().sort((a, b) => {
@@ -2251,7 +2251,7 @@ function updateDashboardUpcomingEvents() {
 
       const time = ev.time || '';
 
-      // Location + time in one neat line, no leading space/indent
+      // Decide what to show on line 2
       let secondLine = '';
       if (firstWord && time) {
         secondLine = `${firstWord} (${time})`;
@@ -2259,13 +2259,16 @@ function updateDashboardUpcomingEvents() {
         secondLine = firstWord;
       } else if (time) {
         secondLine = time;
+      } else {
+        // both location & time empty
+        secondLine = 'Empty(no loc &time)';
       }
 
-      eventsHtml += '<div class="mb-1">';
-      // S.no and client name inline
+      eventsHtml += '<div class="mb-1 break-words">';
+      // S.no and client name inline, left aligned
       eventsHtml += `<div class="text-[11px] text-gray-700">${i + 1}. ${name}</div>`;
       if (secondLine) {
-        // No ml-4 here, so line starts from the left without extra space
+        // Second line also left aligned, no extra left margin
         eventsHtml += `<div class="text-[10px] text-gray-500">${secondLine}</div>`;
       }
       eventsHtml += '</div>';
@@ -2273,7 +2276,7 @@ function updateDashboardUpcomingEvents() {
 
     html += `
       <div class="bg-white border border-gray-200 rounded p-2 shadow-sm">
-        <div class="font-semibold text-[11px] text-gray-800 mb-2">${dateStr}</div>
+        <div class="font-semibold text-[11px] text-gray-800 mb-2 break-words">${dateStr}</div>
         <div class="space-y-1 leading-tight">
           ${eventsHtml}
         </div>
