@@ -161,6 +161,22 @@
   </div>
 
   <script>
+
+        function getOwnerIdFromUrl() {
+      try {
+        const params = new URLSearchParams(location.search || "");
+        const raw =
+          params.get("ownerId") ||
+          params.get("owner") ||
+          "";
+        const val = (raw || "").trim();
+        return val || null;
+      } catch (e) {
+        console.warn("getOwnerIdFromUrl failed", e);
+        return null;
+      }
+    }
+
     const CLIENT_REQ_API_URL = 'https://script.google.com/macros/s/AKfycbwicU99YlamFBcg1_zxIRIs0nvdA21GeX4P92p8XIdE2VXWC0imV4pk7jBShQIoCuoE/exec';
     
     // Who should receive this request? (owner)
@@ -527,13 +543,15 @@ const OWNER_ID =
         });
       });
 
+      const ownerId = getOwnerIdFromUrl() || "unknown-owner";
+
       return {
         clientName,
         clientContact,
         events,
         submittedAt: new Date().toISOString(),
         source: "client-form",
-        ownerId:  OWNER_ID   // 👈 dynamic owner from URL
+        ownerId
       };
     }
 
