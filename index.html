@@ -2887,6 +2887,25 @@ function openCalendarDatePopup(dateISO){
           return sameClient || sameQuotation;
         });
 
+        // 🔢 How many events are currently BOOKED for this quotation?
+        const bookings = loadFromLS(BOOKED_EVENTS_KEY, {});
+        let bookedCount = 0;
+
+        for (const d in idx2) {
+          const arr = idx2[d];
+          for (const it of arr) {
+            if (it.quotationId === evObj.quotationId && it.eventId && bookings[it.eventId]) {
+              bookedCount++;
+            }
+          }
+        }
+
+        // This event is the last booked one if:
+        //  - exactly 1 booked event exists now
+        //  - and it's this event
+        const isLastBookedEvent =
+          bookedCount === 1 && evObj.eventId && bookings[evObj.eventId];
+
             // --- Scenario 1: YES = unmark whole quotation & auto delete invoice ---
         if (hasMultipleEvents) {
               const yesWhole = await appConfirm(
@@ -2943,71 +2962,118 @@ function openCalendarDatePopup(dateISO){
             setQuotationBookings(evObj.quotationId, false);
 
           } else {
-             // --- Scenario 2: NO = unmark only this event & offer to VOID invoice ---
+             // 🧩 Scenario 2: only this event will be unmarked
             setSingleEventBooking(evObj.eventId, false);
 
             if (relatedInvoices.length) {
-              const voidIt = await appConfirm(
-                "Proceed to void invoice?\n\n" +
-                "Yes = Mark the invoice as VOID (Will Review/Edit later)."
-              );
-              if (voidIt) {
-                const nowIso = new Date().toISOString();
+              if (isLastBookedEvent) {
+                // ✅ LAST booked event → offer DELETE invoice, not VOID
+                const sureDelete = await appConfirm(
+                  "Are you sure to delete invoice?\n\n" +
+                  "Yes = Delete invoice (System Removed)."
+                );
 
-                // 1️⃣ Mark related invoice(s) as VOID
-                relatedInvoices.forEach(inv => {
-                  inv.status = 'void';
-                  inv.voidedAt = nowIso;
-                });
+                if (sureDelete) {
+                  const recycleSystem = loadFromLS(RECYCLE_SYSTEM_KEY, []);
+                  const nowIso = new Date().toISOString();
 
-                // 2️⃣ Trim invoice events to only the *currently booked* events
-                try {
-                  const quotations = loadFromLS(SAVED_QUOTATIONS_KEY, []);
-                  const q = quotations.find(x => x.id === evObj.quotationId);
+                  relatedInvoices.forEach(inv => {
+                    const idForInvoice = inv.invoiceId || inv.id;
+                    recycleSystem.push({
+                      recycleId: uid('recycle'),
+                      type: 'invoice',
+                      kind: 'invoice',
+                      label: (inv.clientName || 'Invoice'),
+                      clientName: inv.clientName,
+                      clientContact: inv.clientContact,
+                      invoiceId: idForInvoice,
+                      invoiceNo: inv.invoiceNo,
+                      quotationId: evObj.quotationId,
+                      removedAt: nowIso,
+                      reason: 'Auto-deleted because all events in the quotation were un-booked from calendar',
+                      original: inv
+                    });
+                  });
 
-                  if (q && Array.isArray(q.events)) {
-                    const bookings = loadFromLS(BOOKED_EVENTS_KEY, {});
+                  saveToLS(RECYCLE_SYSTEM_KEY, recycleSystem);
 
-                    // Keep only events that are still booked in this quotation
-                    const bookedEvents = q.events.filter(ev =>
-                      ev.eventId && bookings[ev.eventId]
-                    );
+                  const remaining = allInvoices.filter(inv => !relatedInvoices.includes(inv));
+                  saveToLS(SAVED_INVOICES_KEY, remaining);
 
-                    if (bookedEvents.length) {
-                      const clonedEvents = JSON.parse(JSON.stringify(bookedEvents));
-
-                      // Recompute total from remaining booked events
-                      const newActual = clonedEvents.reduce((sum, ev) => {
-                        return sum +
-                          Number(ev.packagePrice   || 0) +
-                          Number(ev.addOnPrice     || 0) +
-                          Number(ev.transportPrice || 0);
-                      }, 0);
-
-                      relatedInvoices.forEach(inv => {
-                        inv.events = clonedEvents;
-
-                        // Prefer existing invoice discount; fallback to quotation discount
-                        const disc = (typeof inv.discount === 'number')
-                          ? inv.discount
-                          : (typeof q.discount === 'number' ? q.discount : 0);
-
-                        inv.discount = disc;
-                        inv.actual   = newActual;
-                        inv.final    = Math.max(0, newActual - disc);
-                      });
-                    }
-                    // If no events remain booked, we leave events as-is; invoice stays void
+                  if (typeof renderFilesList === 'function') {
+                    renderFilesList();
                   }
-                } catch (e) {
-                  console.warn('Failed to trim invoice events after calendar un-book:', e);
+                } else {
+                  // User cancelled → revert the unbooking & checkbox
+                  e.target.checked = true;
+                  setSingleEventBooking(evObj.eventId, true);
                 }
 
-                // 3️⃣ Persist + refresh Files list
-                saveToLS(SAVED_INVOICES_KEY, allInvoices);
+              } else {
+                // 🟡 Still at least one other event booked → VOID invoice + trim events
+                const voidIt = await appConfirm(
+                  "Proceed to void invoice?\n\n" +
+                  "Yes = Mark the invoice as VOID (Will Review/Edit later)."
+                );
 
-                if (typeof renderFilesList === 'function') {
-                  renderFilesList();
+                if (voidIt) {
+                  const nowIso = new Date().toISOString();
+
+                  // 1️⃣ Mark related invoices as VOID
+                  relatedInvoices.forEach(inv => {
+                    inv.status   = 'void';
+                    inv.voidedAt = nowIso;
+                  });
+
+                  // 2️⃣ Trim invoice events to only currently booked ones
+                  try {
+                    const quotations = loadFromLS(SAVED_QUOTATIONS_KEY, []);
+                    const q = quotations.find(x => x.id === evObj.quotationId);
+
+                    if (q && Array.isArray(q.events)) {
+                      const bookingsNow = loadFromLS(BOOKED_EVENTS_KEY, {});
+
+                      const bookedEvents = q.events.filter(ev =>
+                        ev.eventId && bookingsNow[ev.eventId]
+                      );
+
+                      if (bookedEvents.length) {
+                        const clonedEvents = JSON.parse(JSON.stringify(bookedEvents));
+
+                        const newActual = clonedEvents.reduce((sum, ev) => {
+                          return sum +
+                            Number(ev.packagePrice   || 0) +
+                            Number(ev.addOnPrice     || 0) +
+                            Number(ev.transportPrice || 0);
+                        }, 0);
+
+                        relatedInvoices.forEach(inv => {
+                          inv.events = clonedEvents;
+
+                          const disc = (typeof inv.discount === 'number')
+                            ? inv.discount
+                            : (typeof q.discount === 'number' ? q.discount : 0);
+
+                          inv.discount = disc;
+                          inv.actual   = newActual;
+                          inv.final    = Math.max(0, newActual - disc);
+                        });
+                      }
+                      // If no events remain booked, we leave events as-is; invoice stays void
+                    }
+                  } catch (err) {
+                    console.warn('Failed to trim invoice events after calendar un-book:', err);
+                  }
+
+                  // 3️⃣ Save + refresh
+                  saveToLS(SAVED_INVOICES_KEY, allInvoices);
+                  if (typeof renderFilesList === 'function') {
+                    renderFilesList();
+                  }
+                } else {
+                  // User cancelled → revert the unbooking & checkbox
+                  e.target.checked = true;
+                  setSingleEventBooking(evObj.eventId, true);
                 }
               }
             }
