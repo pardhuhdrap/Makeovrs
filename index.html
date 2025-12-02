@@ -2766,53 +2766,67 @@ function openCalendarDatePopup(dateISO){
         // ===========================
 
         if (hasMultipleEvents) {
-           const yesWhole = await appConfirm(
-            "Are whole event's booked as per quotation? (Yes = mark all events in this quotation as booked)"
-          );
+  const yesWhole = await appConfirm(
+    "Are whole event's booked as per quotation? (Yes = mark all events in this quotation as booked)"
+  );
 
-          let mode;
-          let willBeVoid = false;
+  let mode;
 
-          if (yesWhole) {
-            // YES → mark all events booked (normal invoice)
-            setQuotationBookings(evObj.quotationId, true);
-            mode = 'multi-all';
-            willBeVoid = false;
-          } else {
-            // NO → only this event booked (void invoice)
-            setSingleEventBooking(evObj.eventId, true);
-            mode = 'multi-single';
-            willBeVoid = true;
-          }
+  if (yesWhole) {
+    // YES → mark ALL events of this quotation as booked
+    setQuotationBookings(evObj.quotationId, true);
+    mode = 'multi-all';
+  } else {
+    // NO → only this event booked (but we will check if this completes all)
+    setSingleEventBooking(evObj.eventId, true);
+    mode = 'multi-single';
+  }
 
-          const preview = prepareInvoicePreviewFromQuotation(evObj.quotationId);
-          if (!preview) {
-            alert('Quotation not found for generating invoice.');
+  // 🔍 Rebuild index AFTER booking change to see current booking status
+  const idxAfter = buildCalendarEventIndex();
+  let totalForQ = 0;
+  let bookedForQ = 0;
 
-            // revert booking because we cannot proceed
-            if (mode === 'multi-all') {
-              setQuotationBookings(evObj.quotationId, false);
-            } else {
-              setSingleEventBooking(evObj.eventId, false);
-            }
-            e.target.checked = false;
-            return;
-          }
+  for (const d in idxAfter) {
+    const arr = idxAfter[d];
+    for (const it of arr) {
+      if (it.quotationId === evObj.quotationId) {
+        totalForQ++;
+        if (it.booked) bookedForQ++;
+      }
+    }
+  }
 
-          // Save context so that:
-          // - Partial click = generate (normal / void) invoice
-          // - Closing modal without Partial = revert booking(s)
-          window.CALENDAR_BOOKING_FLOW = {
-            fromCalendar: true,
-            mode,
-            quotationId: evObj.quotationId,
-            eventId: evObj.eventId,
-            dateISO,
-            willBeVoid
-          };
+  // If ALL events for this quotation are now booked → invoice should be NORMAL
+  const allBookedNow = totalForQ > 0 && bookedForQ === totalForQ;
 
-          // Open payment popup (user must click Partial to actually create invoice)
-          openPaymentInfoModalRestrictedFromCalendar();
+  // Invoice should only be void if it is still a partial booking
+  const willBeVoid = !allBookedNow;
+
+  const preview = prepareInvoicePreviewFromQuotation(evObj.quotationId);
+  if (!preview) {
+    alert('Quotation not found for generating invoice.');
+
+    // revert booking because we cannot proceed
+    if (yesWhole) {
+      setQuotationBookings(evObj.quotationId, false);
+    } else {
+      setSingleEventBooking(evObj.eventId, false);
+    }
+    e.target.checked = false;
+    return;
+  }
+
+  window.CALENDAR_BOOKING_FLOW = {
+    fromCalendar: true,
+    mode,
+    quotationId: evObj.quotationId,
+    eventId: evObj.eventId,
+    dateISO,
+    willBeVoid
+  };
+
+  openPaymentInfoModalRestrictedFromCalendar();
 
         } else {
           // ===========================
