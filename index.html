@@ -10064,7 +10064,7 @@ function updateProfileIcon() {
 }
 
 
-async function onSignedIn(){
+async function onSignedIn() {
   if (!accessToken) return;
   document.getElementById('gdrive-status').innerText = 'Signed in — fetching profile.';
   try {
@@ -10084,22 +10084,10 @@ async function onSignedIn(){
         'Signed in as ' + (userProfile.email || '');
 
       const userSettingsBtn = document.getElementById('btnUserProfileSettings');
-      if (userSettingsBtn) userSettingsBtn.style.display = 'block';  
+      if (userSettingsBtn) userSettingsBtn.style.display = 'block';
 
       // remember we are signed in
-      try { localStorage.setItem('gdrive_signed_in', '1'); } catch(e) {}
-
-       // ✅ Show floating Client Requests FAB after sign-in
-      try {
-        const fab   = document.getElementById('clientRequestsFab');
-        const panel = document.getElementById('clientRequestsPanel');
-        if (fab)   fab.classList.remove('hidden');
-        if (panel) panel.classList.add('hidden');
-      } catch (e) {
-        console.warn('Failed to update client-req FAB on sign-in', e);
-      }
-
-      try { updateDashboardForSignIn(); } catch (e) {}
+      try { localStorage.setItem('gdrive_signed_in', '1'); } catch (e) {}
 
       // 💾 Also remember email as ownerId for client requests
       try {
@@ -10123,6 +10111,8 @@ async function onSignedIn(){
         console.warn('Failed to update client-req FAB on sign-in', e);
       }
 
+      try { updateDashboardForSignIn(); } catch (e) {}
+
       // 🔁 update header avatar based on sign-in + app logo
       updateProfileIcon();
 
@@ -10139,7 +10129,7 @@ async function onSignedIn(){
         if (typeof renderCalendar === 'function') renderCalendar();
         if (typeof updateSummaryUI === 'function') updateSummaryUI();
         if (typeof updateInvoiceSummaryUI === 'function') updateInvoiceSummaryUI();
-        try { updateDashboardUpcomingEvents(); } catch(e) {}
+        try { updateDashboardUpcomingEvents(); } catch (e) {}
 
         document.getElementById('gdrive-status').innerText = 'Loaded saved data';
       } catch (e) {
@@ -10158,7 +10148,6 @@ async function onSignedIn(){
       'Failed to fetch profile';
   }
 }
-
 
 function signOutFromGoogle(){
   const resetUi = () => {
