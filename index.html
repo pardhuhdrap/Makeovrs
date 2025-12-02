@@ -3318,18 +3318,21 @@ function saveQuotationMultiEvent() {
     });
 
     if (duplicate) {
-      const go = window.confirm(
-        'A quotation already exists for this Client name and Contact.\n\n' +
-        'Do you want to open that quotation in edit mode instead?'
-      );
-      if (go) {
-        // put original quotation into edit buffer and go to quotation screen
-        localStorage.setItem('CURRENT_EDIT_QUOTATION', JSON.stringify(duplicate));
-        navigate('quotation', { skipInit: false });
-      }
-      // ⛔ stop saving in both cases (Yes or No)
-      return;
+  (async () => {
+    const go = await appConfirm(
+      'A quotation already exists for this Client name and Contact.\n\n' +
+      'Do you want to open that quotation in edit mode instead?'
+    );
+
+    if (go) {
+      localStorage.setItem('CURRENT_EDIT_QUOTATION', JSON.stringify(duplicate));
+      navigate('quotation', { skipInit: false });
     }
+  })();
+
+  // ⛔ stop saving in both cases (Yes or No)
+  return;
+}
 
     let savedQuotation;
 
@@ -4878,9 +4881,9 @@ function renderFilesList() {
           ${inv.clientName || 'Unnamed'}
           ${
             isVoid
-              ? '<span class="ml-2 text-xs font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 align-middle">VOID</span>'
+              ? '<span class="ml-2 text-xs font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 align-middle">MODIFIED</span>'
               : isValidated
-              ? '<span class="ml-2 text-xs font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-900 align-middle">VALID</span>'
+              ? '<span class="ml-2 text-xs font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-900 align-middle">ORIGINAL</span>'
               : ''
           }
         </div>
@@ -9619,7 +9622,6 @@ document.getElementById('invoiceAddEventBtn')?.addEventListener('click', () => {
   recomputeAddEventState();
 });
 
-    // Invoice save button
 // Invoice save button
 document.getElementById('generateInvoiceButton')?.addEventListener('click', () => {
   const clientName = (document.getElementById('invoiceClientNameInput')?.value || '').trim();
