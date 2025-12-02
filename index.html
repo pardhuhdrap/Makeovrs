@@ -2183,7 +2183,6 @@ function updateDashboardUpcomingEvents() {
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-
   const DAY_MS = 1000 * 60 * 60 * 24;
 
   // Group booked events by date (YYYY-MM-DD) for today + next 3 days
@@ -2211,39 +2210,36 @@ function updateDashboardUpcomingEvents() {
     });
   });
 
-  // Check if ANY events exist in these 4 days
-  const hasAnyEvents = Object.values(grouped).some(arr => arr && arr.length);
-  if (!hasAnyEvents) {
+  // Sort the dates that actually have events
+  const sortedDates = Object.keys(grouped).sort();
+  // Show up to 4 upcoming dates with events
+  const datesToShow = sortedDates.slice(0, 4);
+
+  if (!datesToShow.length) {
     box.innerHTML =
       `<div class="text-xs text-gray-400 italic">No booked events for today and next 3 days.</div>`;
     return;
   }
 
-  // --- Build 4 columns: today + next 3 days ---
+  // 4-column grid; if fewer than 4 dates, you'll just see that many cards
   let html = `
     <div class="grid grid-cols-4 gap-3">
   `;
 
-  for (let offset = 0; offset < 4; offset++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + offset);
+  datesToShow.forEach(key => {
+    const d = new Date(key);
+    const dateStr = d.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: '2-digit'   // 👉 DD Mon YY
+    });
 
-    const key = d.toISOString().slice(0, 10);
-
-    const eventsForDay = (grouped[key] || []).slice().sort((a, b) => {
-      // Optional: sort by time string if present
+    const eventsForDay = grouped[key].slice().sort((a, b) => {
       const ta = a.time || '';
       const tb = b.time || '';
       return ta.localeCompare(tb);
     });
 
-    const dateStr = d.toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
-
-    // Build inner events HTML: each event → 2 lines
     let eventsHtml = '';
 
     eventsForDay.forEach((ev, i) => {
@@ -2255,10 +2251,7 @@ function updateDashboardUpcomingEvents() {
 
       const time = ev.time || '';
 
-      // Decide what to show on line 2:
-      //  - Location (Time)
-      //  - Location
-      //  - Time
+      // Location + time in one neat line, no leading space/indent
       let secondLine = '';
       if (firstWord && time) {
         secondLine = `${firstWord} (${time})`;
@@ -2268,19 +2261,15 @@ function updateDashboardUpcomingEvents() {
         secondLine = time;
       }
 
-      eventsHtml += '<div>';
-      // Slightly smaller but readable font
+      eventsHtml += '<div class="mb-1">';
+      // S.no and client name inline
       eventsHtml += `<div class="text-[11px] text-gray-700">${i + 1}. ${name}</div>`;
       if (secondLine) {
-        eventsHtml += `<div class="text-[10px] text-gray-500 ml-4">${secondLine}</div>`;
+        // No ml-4 here, so line starts from the left without extra space
+        eventsHtml += `<div class="text-[10px] text-gray-500">${secondLine}</div>`;
       }
       eventsHtml += '</div>';
     });
-
-    if (!eventsForDay.length) {
-      // No events on this day → still show date, but with a subtle message
-      eventsHtml = `<div class="text-[10px] text-gray-400 italic">No events</div>`;
-    }
 
     html += `
       <div class="bg-white border border-gray-200 rounded p-2 shadow-sm">
@@ -2290,12 +2279,13 @@ function updateDashboardUpcomingEvents() {
         </div>
       </div>
     `;
-  }
+  });
 
   html += `</div>`;
 
   box.innerHTML = html;
 }
+
 
 
 
