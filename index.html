@@ -2179,126 +2179,124 @@ function updateDashboardUpcomingEvents() {
   const box = document.getElementById('dashboardUpcomingList');
   if (!box) return;
 
-  // Build from quotations + bookings
   const index = buildCalendarEventIndex();
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  let upcoming = [];
+  const DAY_MS = 1000 * 60 * 60 * 24;
 
-  // Flatten events from the index
+  // Group booked events by date (YYYY-MM-DD) for today + next 3 days
+  const grouped = {};
+
   Object.keys(index).forEach(dateISO => {
     const events = index[dateISO] || [];
     events.forEach(ev => {
       if (!ev.booked) return; // only booked events
 
-      const d = new Date(ev.date);
+      const d = new Date(ev.date || dateISO);
       if (isNaN(d.getTime())) return;
       d.setHours(0, 0, 0, 0);
 
-      upcoming.push({
+      const diffDays = Math.floor((d - today) / DAY_MS);
+      // keep only today (0) to next 3 days (3)
+      if (diffDays < 0 || diffDays > 3) return;
+
+      const key = d.toISOString().slice(0, 10); // YYYY-MM-DD
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push({
         ...ev,
         dateObj: d
       });
     });
   });
 
-  // Filter: tomorrow + next 3 days (4 days total), exclude today
-  upcoming = upcoming
-    .filter(ev => {
-      const diffDays = Math.floor(
-        (ev.dateObj - today) / (1000 * 60 * 60 * 24)
-      );
-      return diffDays >= 1 && diffDays <= 4;
-    })
-    .sort((a, b) => a.dateObj - b.dateObj);
-
-  if (!upcoming.length) {
+  // Check if ANY events exist in these 4 days
+  const hasAnyEvents = Object.values(grouped).some(arr => arr && arr.length);
+  if (!hasAnyEvents) {
     box.innerHTML =
-      `<div class="text-xs text-gray-400 italic">No upcoming events in next 4 days.</div>`;
+      `<div class="text-xs text-gray-400 italic">No booked events for today and next 3 days.</div>`;
     return;
   }
 
-  const finalList = upcoming.slice(0, 3);
+  // --- Build 4 columns: today + next 3 days ---
+  let html = `
+    <div class="grid grid-cols-4 gap-3">
+  `;
 
-  // --- GROUP by date ---
-const grouped = {};
-upcoming.forEach(ev => {
-  const key = ev.dateObj.toISOString().slice(0, 10); // YYYY-MM-DD
-  if (!grouped[key]) grouped[key] = [];
-  grouped[key].push(ev);
-});
+  for (let offset = 0; offset < 4; offset++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + offset);
 
-// --- Sort dates ASC ---
-const sortedDates = Object.keys(grouped).sort();
+    const key = d.toISOString().slice(0, 10);
 
-// --- Limit to exactly 2 columns (2 upcoming days) ---
-const datesToShow = sortedDates.slice(0, 2);
+    const eventsForDay = (grouped[key] || []).slice().sort((a, b) => {
+      // Optional: sort by time string if present
+      const ta = a.time || '';
+      const tb = b.time || '';
+      return ta.localeCompare(tb);
+    });
 
-// --- Build HTML ---
-let html = `
-  <div class="grid grid-cols-2 gap-3">
-`;
+    const dateStr = d.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
 
-datesToShow.forEach(dateKey => {
-  const dateObj = new Date(dateKey);
-  const dateStr = dateObj.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  });
+    // Build inner events HTML: each event → 2 lines
+    let eventsHtml = '';
 
-  const events = grouped[dateKey];
+    eventsForDay.forEach((ev, i) => {
+      const name = ev.clientName || '--';
 
-// Build inner events HTML: each event → 2 lines
-let eventsHtml = '';
+      const rawLoc = ev.location || '';
+      const trimmed = rawLoc.trim();
+      const firstWord = trimmed ? trimmed.split(/\s+/)[0] : '';
 
-events.forEach((ev, i) => {
-  const name = ev.clientName || '--';
+      const time = ev.time || '';
 
-  const rawLoc = ev.location || '';
-  const trimmed = rawLoc.trim();
-  const firstWord = trimmed ? trimmed.split(/\s+/)[0] : '';
+      // Decide what to show on line 2:
+      //  - Location (Time)
+      //  - Location
+      //  - Time
+      let secondLine = '';
+      if (firstWord && time) {
+        secondLine = `${firstWord} (${time})`;
+      } else if (firstWord) {
+        secondLine = firstWord;
+      } else if (time) {
+        secondLine = time;
+      }
 
-  const time = ev.time || '';
+      eventsHtml += '<div>';
+      // Slightly smaller but readable font
+      eventsHtml += `<div class="text-[11px] text-gray-700">${i + 1}. ${name}</div>`;
+      if (secondLine) {
+        eventsHtml += `<div class="text-[10px] text-gray-500 ml-4">${secondLine}</div>`;
+      }
+      eventsHtml += '</div>';
+    });
 
-  // Decide what to show on line 2:
-  //  - Location (Time)
-  //  - Location
-  //  - Time
-  let secondLine = '';
-  if (firstWord && time) {
-    secondLine = `${firstWord} (${time})`;
-  } else if (firstWord) {
-    secondLine = firstWord;
-  } else if (time) {
-    secondLine = time;
+    if (!eventsForDay.length) {
+      // No events on this day → still show date, but with a subtle message
+      eventsHtml = `<div class="text-[10px] text-gray-400 italic">No events</div>`;
+    }
+
+    html += `
+      <div class="bg-white border border-gray-200 rounded p-2 shadow-sm">
+        <div class="font-semibold text-[11px] text-gray-800 mb-2">${dateStr}</div>
+        <div class="space-y-1 leading-tight">
+          ${eventsHtml}
+        </div>
+      </div>
+    `;
   }
 
-  // Build HTML for this event (max 2 lines)
-  eventsHtml += '<div>';
-  eventsHtml += `<div class="text-gray-700">${i + 1}. ${name}</div>`;
-  if (secondLine) {
-    eventsHtml += `<div class="text-[10px] text-gray-500 ml-4">${secondLine}</div>`;
-  }
-  eventsHtml += '</div>';
-});
+  html += `</div>`;
 
-html += `
-  <div class="bg-white border border-gray-200 rounded p-2 shadow-sm">
-    <div class="font-semibold text-gray-800 mb-2">${dateStr}</div>
-    <div class="space-y-1 text-xs">
-      ${eventsHtml}
-    </div>
-  </div>
-`;
-});
-
-html += `</div>`;
-
-box.innerHTML = html;
+  box.innerHTML = html;
 }
+
 
 
 /* Persist eventId for any events missing one in saved quotations (migration)
