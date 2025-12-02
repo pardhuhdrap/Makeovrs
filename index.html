@@ -1600,33 +1600,30 @@ const CLIENT_REQ_API_URL =
   'https://script.google.com/macros/s/AKfycbyF-IyhFuTopHGEWHGivYkWBhhV_pd5YcCKzSM5tNxrEbrmfatXIlO7GUViOqrihFc_/exec';
 let CURRENT_CLIENT_REQ_CTX = null;
 // Who owns these requests? (the signed-in user)
-// Who owns these requests? (the signed-in user / this app instance)
+// ✅ Use Google email as the stable ownerId
 function getClientReqOwnerId() {
-  // 1) If Google profile is available, use email
   try {
-    if (window.userProfile && window.userProfile.email) {
-      return window.userProfile.email.toLowerCase();
+    if (window.userProfile && userProfile.email) {
+      const email = String(userProfile.email).trim().toLowerCase();
+      // remember it so Share Form still works after reload
+      try {
+        localStorage.setItem('client_req_owner_email', email);
+      } catch (e) {}
+      return email;
+    }
+
+    // fallback: last stored email
+    const stored = localStorage.getItem('client_req_owner_email');
+    if (stored) {
+      return stored.trim().toLowerCase();
     }
   } catch (e) {
-    console.warn('getClientReqOwnerId: userProfile check failed', e);
+    console.warn('getClientReqOwnerId failed', e);
   }
 
-  // 2) Otherwise, use a stable random ID stored in localStorage (per device/app)
-  try {
-    const KEY = 'client_req_owner_id';
-    let ownerId = localStorage.getItem(KEY);
-    if (!ownerId) {
-      ownerId = 'owner_' + Math.random().toString(36).slice(2, 10);
-      localStorage.setItem(KEY, ownerId);
-    }
-    return ownerId;
-  } catch (e) {
-    console.warn('getClientReqOwnerId: localStorage failed', e);
-  }
-
-  // 3) Last fallback
-  return 'demo-owner';
+  return null; // will show "Please sign in first."
 }
+
 
    
 
@@ -1816,8 +1813,18 @@ function parseINR(value) {
 
 document.getElementById("clientFormBtn")?.addEventListener("click", () => {
   const ownerId = getClientReqOwnerId();
-  const baseUrl = `${location.origin}/Makeovrs/client-form.html`;
-  const link    = `${baseUrl}?ownerId=${encodeURIComponent(ownerId)}`;
+
+  if (!ownerId) {
+    showMessage(
+      "Please sign in with Google first.\n\n" +
+      "We use your Google email as the owner id so that client requests come only to you.",
+      "Sign in required"
+    );
+    return;
+  }
+
+  const base = `${location.origin}/Makeovrs/client-form.html`;
+  const link = `${base}?ownerId=${encodeURIComponent(ownerId)}`;
 
   if (navigator.share) {
     navigator.share({
@@ -1831,8 +1838,6 @@ document.getElementById("clientFormBtn")?.addEventListener("click", () => {
     });
   }
 });
-
-
 
 function goBack() {
   if (navHistory.length === 0) {
@@ -10095,6 +10100,28 @@ async function onSignedIn(){
       }
 
       try { updateDashboardForSignIn(); } catch (e) {}
+
+      // 💾 Also remember email as ownerId for client requests
+      try {
+        if (userProfile.email) {
+          localStorage.setItem(
+            'client_req_owner_email',
+            String(userProfile.email).trim().toLowerCase()
+          );
+        }
+      } catch (e) {
+        console.warn('Could not store client_req_owner_email', e);
+      }
+
+      // ✅ Show floating Client Requests FAB after sign-in
+      try {
+        const fab   = document.getElementById('clientRequestsFab');
+        const panel = document.getElementById('clientRequestsPanel');
+        if (fab)   fab.classList.remove('hidden');
+        if (panel) panel.classList.add('hidden');
+      } catch (e) {
+        console.warn('Failed to update client-req FAB on sign-in', e);
+      }
 
       // 🔁 update header avatar based on sign-in + app logo
       updateProfileIcon();
