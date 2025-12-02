@@ -57,7 +57,16 @@ header {
 
 .app-icon:hover{box-shadow:0 20px 25px rgba(0,0,0,.08)}
 #screen-wrapper { position: absolute; left: 0; right: 0; top: var(--app-header-height, 30px); bottom: 0; overflow-y: auto; }
-.screen-container{position:absolute;inset:0;top: 54px; background:#f8fafc;padding:1rem;transition:transform .3s;z-index:10;overflow-y:auto}
+.screen-container{
+  position:absolute;
+  inset:0;
+  top: 0;               /* 👈 changed from 54px to 0 */
+  background:#f8fafc;
+  padding:1rem;
+  transition:transform .3s;
+  z-index:10;
+  overflow-y:auto;
+}
 .message-modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:50;padding:1rem}
 .message-modal-content{background:#fff;padding:1.25rem;border-radius:1rem;box-shadow:0 25px 50px rgba(0,0,0,.18);max-width:28rem;width:100%; max-height:80vh; overflow-y:auto;}
 .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -342,7 +351,7 @@ header {
     class="flex flex-wrap justify-center"
   >
       <!-- === UPCOMING EVENTS NOTEPAD === -->
-<div id="dashboardUpcoming" class="w-full px-0 py-3">
+<div id="dashboardUpcoming" class="w-full px-0 py-0">
   <div class="border border-yellow-400 bg-yellow-50 rounded-lg p-4 shadow-sm w-full">
     <div class="text-md font-semibold text-yellow-800 mb-2">Upcoming Events</div>
 
