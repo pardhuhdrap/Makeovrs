@@ -2875,24 +2875,24 @@ function openCalendarDatePopup(dateISO){
 
             // --- Scenario 1: YES = unmark whole quotation & auto delete invoice ---
         if (hasMultipleEvents) {
-          const yesWhole = confirm(
-            "Unmark whole quotation's events as booked? (Yes = unmark all events of this quotation)"
-          );
-
-          if (yesWhole) {
-            // If invoice exists, confirm delete first
-            if (relatedInvoices.length) {
-              const sureDelete = await appConfirm(
-                "Are you sure to delete invoice?\n\n" +
-                "Yes = Delete invoice (System Removed).\n" +
-                "Cancel = Keep bookings and invoice as-is."
+              const yesWhole = await appConfirm(
+                "Unmark whole quotation's events as booked? (Yes = unmark all events of this quotation)"
               );
 
-              if (!sureDelete) {
-                // user cancelled → put checkbox back ON and abort
-                e.target.checked = true;
-                return;
-              }
+              if (yesWhole) {
+                // If invoice exists, confirm delete first
+                if (relatedInvoices.length) {
+                  const sureDelete = await appConfirm(
+                    "Are you sure to delete invoice?\n\n" +
+                    "Yes = Delete invoice (System Removed).\n" +
+                    "Cancel = Keep bookings and invoice as-is."
+                  );
+
+                  if (!sureDelete) {
+                    // user cancelled → put checkbox back ON and abort
+                    e.target.checked = true;
+                    return;
+                  }
 
               const recycleSystem = loadFromLS(RECYCLE_SYSTEM_KEY, []);
               const nowIso = new Date().toISOString();
