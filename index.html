@@ -223,6 +223,21 @@ header {
   pointer-events: none;
 }
 
+/* === Dashboard Upcoming pad: remove gap to header & sides === */
+#dashboard.screen-container {
+  /* keep normal padding-bottom, but top/left/right are handled by the notepad */
+  padding-top: 1rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+#dashboardUpcoming {
+  /* cancel the top + side padding of .screen-container */
+  margin-top: -0.75rem;   /* pull yellow pad up towards header */
+  margin-left: -1rem;     /* fill left padding */
+  margin-right: -1rem;    /* fill right padding */
+}
+
 
 </style>
 </head>
