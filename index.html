@@ -2943,7 +2943,7 @@ function openCalendarDatePopup(dateISO){
             setQuotationBookings(evObj.quotationId, false);
 
           } else {
-            // --- Scenario 2: NO = unmark only this event & offer to VOID invoice ---
+             // --- Scenario 2: NO = unmark only this event & offer to VOID invoice ---
             setSingleEventBooking(evObj.eventId, false);
 
             if (relatedInvoices.length) {
@@ -2953,10 +2953,57 @@ function openCalendarDatePopup(dateISO){
               );
               if (voidIt) {
                 const nowIso = new Date().toISOString();
+
+                // 1️⃣ Mark related invoice(s) as VOID
                 relatedInvoices.forEach(inv => {
                   inv.status = 'void';
                   inv.voidedAt = nowIso;
                 });
+
+                // 2️⃣ Trim invoice events to only the *currently booked* events
+                try {
+                  const quotations = loadFromLS(SAVED_QUOTATIONS_KEY, []);
+                  const q = quotations.find(x => x.id === evObj.quotationId);
+
+                  if (q && Array.isArray(q.events)) {
+                    const bookings = loadFromLS(BOOKED_EVENTS_KEY, {});
+
+                    // Keep only events that are still booked in this quotation
+                    const bookedEvents = q.events.filter(ev =>
+                      ev.eventId && bookings[ev.eventId]
+                    );
+
+                    if (bookedEvents.length) {
+                      const clonedEvents = JSON.parse(JSON.stringify(bookedEvents));
+
+                      // Recompute total from remaining booked events
+                      const newActual = clonedEvents.reduce((sum, ev) => {
+                        return sum +
+                          Number(ev.packagePrice   || 0) +
+                          Number(ev.addOnPrice     || 0) +
+                          Number(ev.transportPrice || 0);
+                      }, 0);
+
+                      relatedInvoices.forEach(inv => {
+                        inv.events = clonedEvents;
+
+                        // Prefer existing invoice discount; fallback to quotation discount
+                        const disc = (typeof inv.discount === 'number')
+                          ? inv.discount
+                          : (typeof q.discount === 'number' ? q.discount : 0);
+
+                        inv.discount = disc;
+                        inv.actual   = newActual;
+                        inv.final    = Math.max(0, newActual - disc);
+                      });
+                    }
+                    // If no events remain booked, we leave events as-is; invoice stays void
+                  }
+                } catch (e) {
+                  console.warn('Failed to trim invoice events after calendar un-book:', e);
+                }
+
+                // 3️⃣ Persist + refresh Files list
                 saveToLS(SAVED_INVOICES_KEY, allInvoices);
 
                 if (typeof renderFilesList === 'function') {
