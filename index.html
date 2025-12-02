@@ -10460,27 +10460,32 @@ document.addEventListener('DOMContentLoaded', () => {
   Contact Developer
 </div>
 <style>
-  /* Make the Upcoming Events pad wider and flush up */
+  /* Remove top gap under the maroon header */
+  #screen-wrapper {
+    padding-top: 0 !important;
+  }
+
+  /* Upcoming Events outer wrapper: no extra padding, full width */
   #dashboardUpcoming {
     margin-top: 0 !important;
-    padding-top: 0 !important;
+    padding: 0 !important;          /* removes px-4 py-3 */
     width: 100% !important;
   }
 
-  /* Make the yellow notepad stretch as much as possible */
+  /* Yellow notepad sizing / centering */
   #dashboardUpcoming > .border-yellow-400 {
     width: 100% !important;
-    max-width: 1150px !important;  /* adjust if you want even wider */
-    margin-left: auto !important;
-    margin-right: auto !important;
+    max-width: 1150px !important;   /* adjust if you want even wider */
+    margin: 0 auto !important;
   }
 
-  /* Remove any extra gap between the heading and cards inside */
+  /* Remove any extra gap between heading and cards */
   #dashboardUpcomingList {
     margin-top: 0 !important;
     padding-top: 0 !important;
   }
 </style>
+
 
 
 </body>
