@@ -3318,21 +3318,18 @@ function saveQuotationMultiEvent() {
     });
 
     if (duplicate) {
-  (async () => {
-    const go = await appConfirm(
-      'A quotation already exists for this Client name and Contact.\n\n' +
-      'Do you want to open that quotation in edit mode instead?'
-    );
-
-    if (go) {
-      localStorage.setItem('CURRENT_EDIT_QUOTATION', JSON.stringify(duplicate));
-      navigate('quotation', { skipInit: false });
+      const go = window.confirm(
+        'A quotation already exists for this Client name and Contact.\n\n' +
+        'Do you want to open that quotation in edit mode instead?'
+      );
+      if (go) {
+        // put original quotation into edit buffer and go to quotation screen
+        localStorage.setItem('CURRENT_EDIT_QUOTATION', JSON.stringify(duplicate));
+        navigate('quotation', { skipInit: false });
+      }
+      // ⛔ stop saving in both cases (Yes or No)
+      return;
     }
-  })();
-
-  // ⛔ stop saving in both cases (Yes or No)
-  return;
-}
 
     let savedQuotation;
 
@@ -4881,9 +4878,9 @@ function renderFilesList() {
           ${inv.clientName || 'Unnamed'}
           ${
             isVoid
-              ? '<span class="ml-2 text-xs font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 align-middle">MODIFIED</span>'
+              ? '<span class="ml-2 text-xs font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 align-middle">VOID</span>'
               : isValidated
-              ? '<span class="ml-2 text-xs font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-900 align-middle">ORIGINAL</span>'
+              ? '<span class="ml-2 text-xs font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-900 align-middle">VALID</span>'
               : ''
           }
         </div>
@@ -9622,17 +9619,15 @@ document.getElementById('invoiceAddEventBtn')?.addEventListener('click', () => {
   recomputeAddEventState();
 });
 
+    // Invoice save button
 // Invoice save button
-document.getElementById('generateInvoiceButton')?.addEventListener('click', async function (e) {
-  const nameEl    = document.getElementById('invoiceClientNameInput');
-  const contactEl = document.getElementById('invoiceClientContactInput');
+document.getElementById('generateInvoiceButton')?.addEventListener('click', () => {
+  const clientName = (document.getElementById('invoiceClientNameInput')?.value || '').trim();
+  const clientContact = (document.getElementById('invoiceClientContactInput')?.value || '').trim();
   if (!clientName || !clientContact) {
     showMessage('Client name and contact are required.');
     return;
   }
-
-  const clientName       = (nameEl?.value    || '').trim();
-  const clientContactRaw = (contactEl?.value || '').trim();
 
   // 📞 Same rule as quotation: contact must be exactly 10 digits
   const digitsOnly = clientContactRaw.replace(/\D/g, '');
@@ -9747,8 +9742,8 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', asyn
 
   if (duplicateInvoice) {
     const go = window.confirm(
-      'An invoice already exists for this Client .\n\n' +
-      'Do you want to open & edit that invoice?'
+      'An invoice already exists for this Client name and Contact.\n\n' +
+      'Do you want to open that invoice in edit mode instead?'
     );
     if (go) {
       localStorage.setItem('CURRENT_EDIT_INVOICE', JSON.stringify(duplicateInvoice));
@@ -9757,38 +9752,38 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', asyn
     return;
   }
 
- // ==============================
-// 🔴 Special handling for VOID invoices
-// ==============================
-let forcedStatus = null;
-let forcedVoidedAt = null;
+  // ==============================
+  // 🔴 Special handling for VOID invoices
+  // ==============================
+  // When editing an invoice that is currently status: 'void',
+  // ask whether to save as VALID (normal) or keep it VOID.
+  let forcedStatus = null;     // 'valid' | 'void' | null
+  let forcedVoidedAt = null;
 
-if (CURRENT_EDIT_INVOICE_ID) {
-  const editing = invoices.find(inv =>
-    (inv.invoiceId || inv.id) === CURRENT_EDIT_INVOICE_ID
-  );
-
-  if (editing && editing.status === 'void') {
-
-    const makeValid = await appConfirm(
-      'Invoice marked as MODIFIED.\n\n' +
-      'OK = Mark it as ORIGINAL.\n' +
-      'Cancel = Keep it as VOID.'
+  if (CURRENT_EDIT_INVOICE_ID) {
+    const editing = invoices.find(inv =>
+      (inv.invoiceId || inv.id) === CURRENT_EDIT_INVOICE_ID
     );
+    if (editing && editing.status === 'void') {
+      const makeValid = window.confirm(
+        'Invoice marked as VOID.\n\n' +
+        'OK = Mark it as VALID (normal invoice).\n' +
+        'Cancel = Keep it as VOID.'
+      );
 
-    if (makeValid) {
-      forcedStatus   = 'valid';
-      forcedVoidedAt = null;
-    } else {
-      forcedStatus   = 'void';
-      forcedVoidedAt = editing.voidedAt || new Date().toISOString();
+      if (makeValid) {
+        // user wants to validate (will be shown orange as "valid-from-void")
+        forcedStatus   = 'valid';
+        forcedVoidedAt = null;
+      } else {
+        // keep it VOID
+        forcedStatus   = 'void';
+        forcedVoidedAt = editing.voidedAt || new Date().toISOString();
+      }
     }
   }
-}
 
-
-
-let savedInvoice;
+  let savedInvoice;
 
   if (CURRENT_EDIT_INVOICE_ID) {
     const idx = invoices.findIndex(inv =>
