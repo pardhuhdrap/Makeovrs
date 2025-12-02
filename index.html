@@ -9624,15 +9624,15 @@ document.getElementById('invoiceAddEventBtn')?.addEventListener('click', () => {
 
 // Invoice save button
 document.getElementById('generateInvoiceButton')?.addEventListener('click', async function (e) {
-  const clientName = (document.getElementById('invoiceClientNameInput')?.value || '').trim();
-  const clientContact = (document.getElementById('invoiceClientContactInput')?.value || '').trim();
+  const nameEl    = document.getElementById('invoiceClientNameInput');
+  const contactEl = document.getElementById('invoiceClientContactInput');
   if (!clientName || !clientContact) {
     showMessage('Client name and contact are required.');
     return;
   }
 
-  const contactEl = document.getElementById('invoiceClientContactInput');
-  const clientContactRaw = clientContact;
+  const clientName       = (nameEl?.value    || '').trim();
+  const clientContactRaw = (contactEl?.value || '').trim();
 
   // 📞 Same rule as quotation: contact must be exactly 10 digits
   const digitsOnly = clientContactRaw.replace(/\D/g, '');
