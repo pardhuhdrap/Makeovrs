@@ -1301,35 +1301,6 @@ header {
     </div>
   </div>
 
-    <!-- appConfirm modal (nice Yes/No instead of window.confirm) -->
-  <div
-    id="appConfirmModal"
-    class="message-modal"
-    style="z-index: 1000; display: none;"
-  >
-    <div class="message-modal-content">
-      <h3 class="text-lg font-semibold mb-2">Please Confirm</h3>
-      <p id="appConfirmMessage" class="text-sm text-gray-700 mb-4"></p>
-
-      <div class="flex justify-end gap-2">
-        <button
-          type="button"
-          id="appConfirmNo"
-          class="px-3 py-1 rounded bg-gray-200 text-gray-800 text-sm"
-        >
-          No
-        </button>
-        <button
-          type="button"
-          id="appConfirmYes"
-          class="px-3 py-1 rounded bg-blue-600 text-white text-sm"
-        >
-          Yes
-        </button>
-      </div>
-    </div>
-  </div>
-
     <!-- Payment Info modal -->
 <div id="paymentInfoModal" class="message-modal" style="z-index:1000; display:none;">
   <div class="message-modal-content">
@@ -1655,43 +1626,6 @@ function closeMessage(){
 
 let navHistory = [];
 let currentScreen = 'dashboard';
-
-function appConfirm(message) {
-  return new Promise((resolve) => {
-    const modal   = document.getElementById('appConfirmModal');
-    const msgEl   = document.getElementById('appConfirmMessage');
-    const yesBtn  = document.getElementById('appConfirmYes');
-    const noBtn   = document.getElementById('appConfirmNo');
-
-    // Fallback – if modal not found, use normal confirm
-    if (!modal || !msgEl || !yesBtn || !noBtn) {
-      const fallback = window.confirm(message);
-      resolve(fallback);
-      return;
-    }
-
-    msgEl.textContent = message;
-    modal.style.display = 'flex';
-
-    const cleanup = (result) => {
-      modal.style.display = 'none';
-      yesBtn.onclick = null;
-      noBtn.onclick  = null;
-      resolve(result);
-    };
-
-    yesBtn.onclick = () => cleanup(true);
-    noBtn.onclick  = () => cleanup(false);
-  });
-}
-
-
-window.confirm = function (msg) {
-  // Call appConfirm and block logic via async/await
-  console.warn("window.confirm intercepted. Use appConfirm instead.");
-  return false; // fallback if someone uses confirm synchronously
-};
-
 
 function navigate(id, opts = {}) {
   const screens = ['dashboard','settings','maps','master','quotation','calendar','invoice','files','recycle','revenue'];
@@ -2859,7 +2793,7 @@ function openCalendarDatePopup(dateISO){
           // ===========================
           //  SINGLE-EVENT QUOTATION
           // ===========================
-          const generate = await appConfirm(
+          const generate = window.confirm(
                 'Initiate invoice for this booking?\n\n' +
                 'Yes = Open Payment Info to generate invoice\n' +
                 'No = Keep this event un-booked.'
@@ -2943,7 +2877,7 @@ function openCalendarDatePopup(dateISO){
               if (yesWhole) {
                 // If invoice exists, confirm delete first
                 if (relatedInvoices.length) {
-                  const sureDelete = await appConfirm(
+                  const sureDelete = window.confirm(
                     "Are you sure to delete invoice?\n\n" +
                     "Yes = Delete invoice (System Removed).\n" +
                     "Cancel = Keep bookings and invoice as-is."
@@ -3039,7 +2973,7 @@ function openCalendarDatePopup(dateISO){
 
               } else {
                 // 🟡 Still at least one other event booked → VOID invoice + trim events
-                const voidIt = await appConfirm(
+                const voidIt = window.confirm(
                   "Proceed to void invoice?\n\n" +
                   "Yes = Mark the invoice as VOID (Will Review/Edit later)."
                 );
@@ -3112,7 +3046,7 @@ function openCalendarDatePopup(dateISO){
           setSingleEventBooking(evObj.eventId, false);
 
           if (relatedInvoices.length) {
-            const sureDelete = await appConfirm(
+            const sureDelete = window.confirm(
               "Are you sure to delete invoice?\n\n" +
               "Yes = Delete invoice (System Removed)."
             );
