@@ -9744,8 +9744,8 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
 
   if (duplicateInvoice) {
     const go = window.confirm(
-      'An invoice already exists for this Client name and Contact.\n\n' +
-      'Do you want to open that invoice in edit mode instead?'
+      'An invoice already exists for this Client .\n\n' +
+      'Do you want to open & edit that invoice?'
     );
     if (go) {
       localStorage.setItem('CURRENT_EDIT_INVOICE', JSON.stringify(duplicateInvoice));
@@ -9760,31 +9760,31 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', () =
 // When editing an invoice that is currently status: 'void',
 // ask whether to save as VALID (normal) or keep it VOID.
 let forcedStatus = null;     // 'valid' | 'void' | null
-let forcedVoidedAt = null;
+  let forcedVoidedAt = null;
 
-if (CURRENT_EDIT_INVOICE_ID) {
-  const editing = invoices.find(inv =>
-    (inv.invoiceId || inv.id) === CURRENT_EDIT_INVOICE_ID
-  );
-
-  if (editing && editing.status === 'void') {
-    const makeValid = await appConfirm(
-      'Invoice marked as MODIFIED.\n\n' +
-      'OK = Mark it as ORIGINAL.\n' +
-      'Cancel = Keep it as VOID.'
+  if (CURRENT_EDIT_INVOICE_ID) {
+    const editing = invoices.find(inv =>
+      (inv.invoiceId || inv.id) === CURRENT_EDIT_INVOICE_ID
     );
+    if (editing && editing.status === 'void') {
+      const makeValid = window.confirm(
+        'Invoice marked as MODIFIED.\n\n' +
+        'OK = Mark it as ORIGINAL.\n' +
+        'Cancel = Keep it as MODIFIED.'
+      );
 
-    if (makeValid) {
-      // user wants to validate (will be shown orange as "valid-from-void")
-      forcedStatus   = 'valid';
-      forcedVoidedAt = null;
-    } else {
-      // keep it VOID
-      forcedStatus   = 'void';
-      forcedVoidedAt = editing.voidedAt || new Date().toISOString();
+      if (makeValid) {
+        // user wants to validate (will be shown orange as "valid-from-void")
+        forcedStatus   = 'valid';
+        forcedVoidedAt = null;
+      } else {
+        // keep it VOID
+        forcedStatus   = 'void';
+        forcedVoidedAt = editing.voidedAt || new Date().toISOString();
+      }
     }
   }
-}
+
 
 let savedInvoice;
 
