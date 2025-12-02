@@ -162,6 +162,12 @@
 
   <script>
     const CLIENT_REQ_API_URL = 'https://script.google.com/macros/s/AKfycbwicU99YlamFBcg1_zxIRIs0nvdA21GeX4P92p8XIdE2VXWC0imV4pk7jBShQIoCuoE/exec';
+    
+    // Who should receive this request? (owner)
+// Read from URL: client-form.html?ownerId=...
+const OWNER_ID =
+  new URLSearchParams(window.location.search).get('ownerId') || 'demo-owner';
+    
     // Simple helper for icons
     function createLucide() {
       if (window.lucide && typeof window.lucide.createIcons === "function") {
@@ -527,7 +533,7 @@
         events,
         submittedAt: new Date().toISOString(),
         source: "client-form",
-        ownerId: "demo-owner"
+        ownerId:  OWNER_ID   // 👈 dynamic owner from URL
       };
     }
 
