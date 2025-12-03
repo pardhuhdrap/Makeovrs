@@ -9715,13 +9715,17 @@ document.getElementById("removeInvoiceLayoutBtn")?.addEventListener("click", () 
 
     const quoteBulkDelete = document.getElementById('quoteBulkDelete');
 if (quoteBulkDelete) {
-  quoteBulkDelete.addEventListener('click', () => {
+  quoteBulkDelete.addEventListener('click', async () => {
     const ids = getCheckedQuoteIds();
     if (!ids.length) {
       showMessage('Please select at least one quotation to delete.');
       return;
     }
-    if (!confirm('Delete selected quotations? This cannot be undone.')) return;
+    // Use the appConfirm modal instead of window.confirm
+    const sure = await appConfirm(
+      'Delete selected quotations? This cannot be undone.'
+    );
+    if (!sure) return;
 
     const list        = loadFromLS(SAVED_QUOTATIONS_KEY, []) || [];
     const recycleUser = loadFromLS(RECYCLE_USER_KEY, []) || [];
@@ -9800,13 +9804,17 @@ if (quoteBulkDelete) {
 
     const invoiceBulkDelete = document.getElementById('invoiceBulkDelete');
 if (invoiceBulkDelete) {
-  invoiceBulkDelete.addEventListener('click', () => {
+  invoiceBulkDelete.addEventListener('click', async () => {
     const ids = getCheckedInvoiceIds();
     if (!ids.length) {
       showMessage('Please select at least one invoice to delete.');
       return;
     }
-    if (!confirm('Delete selected invoices? This cannot be undone.')) return;
+    // Use the appConfirm modal instead of window.confirm
+    const sure = await appConfirm(
+      'Delete selected invoices? This cannot be undone.'
+    );
+    if (!sure) return;
 
     const list        = loadFromLS(SAVED_INVOICES_KEY, []) || [];
     const recycleUser = loadFromLS(RECYCLE_USER_KEY, []) || [];
