@@ -1199,6 +1199,22 @@ header {
                placeholder="Date (YYYY / MM-YYYY / DD-MM-YYYY)" />
       </div>
 
+      <!-- Bulk actions row -->
+      <div class="flex items-center justify-between mb-2 text-xs">
+        <label class="flex items-center gap-2">
+          <input id="recycleUserSelectAll"
+                 type="checkbox"
+                 class="w-4 h-4">
+          <span>Select all</span>
+        </label>
+
+        <button id="recycleUserBulkDelete"
+                type="button"
+                class="px-3 py-1 rounded border bg-red-50 text-red-700 hover:bg-red-100">
+          Delete selected
+        </button>
+      </div>
+
       <div id="recycleUserEmpty"
            class="text-sm text-gray-500 text-center p-4 hidden">
         No user-removed items yet.
@@ -1228,6 +1244,22 @@ header {
                type="text"
                class="border border-gray-300 rounded px-2 py-1 w-44"
                placeholder="Date (YYYY / MM-YYYY / DD-MM-YYYY)" />
+      </div>
+
+      <!-- Bulk actions row -->
+      <div class="flex items-center justify-between mb-2 text-xs">
+        <label class="flex items-center gap-2">
+          <input id="recycleSystemSelectAll"
+                 type="checkbox"
+                 class="w-4 h-4">
+          <span>Select all</span>
+        </label>
+
+        <button id="recycleSystemBulkDelete"
+                type="button"
+                class="px-3 py-1 rounded border bg-red-50 text-red-700 hover:bg-red-100">
+          Delete selected
+        </button>
       </div>
 
       <div id="recycleSystemEmpty"
@@ -1318,17 +1350,17 @@ header {
       <div class="flex justify-end gap-2">
         <button
           type="button"
-          id="appConfirmNo"
-          class="px-3 py-1 rounded bg-gray-200 text-gray-800 text-sm"
+          id="appConfirmYes"
+          class="px-3 py-1 rounded bg-green-700 text-white text-sm"
         >
-          No
+          Yes
         </button>
         <button
           type="button"
-          id="appConfirmYes"
-          class="px-3 py-1 rounded bg-blue-600 text-white text-sm"
+          id="appConfirmNo"
+          class="px-3 py-1 rounded bg-red-700 text-white text-sm"
         >
-          Yes
+          No
         </button>
       </div>
     </div>
@@ -2978,8 +3010,8 @@ function openCalendarDatePopup(dateISO){
             // --- Scenario 1: YES = unmark whole quotation & auto delete invoice ---
         if (hasMultipleEvents) {
               const yesWhole = await appConfirm(
-                "<span style='color:green; font-weight:bold;'>Yes:</span>Un-Mark All Events of this Quotation & Delete Invoice).<br>" +
-                  "<span style='color:red; font-weight:bold;'>No:</span>Un-Mark only this Event as un-booked & Invoice marked as Modified State."
+                "<span style='color:green; font-weight:bold;'>Yes:</span>Un-Mark All Events of this Quotation.<br>" +
+                  "<span style='color:red; font-weight:bold;'>No:</span>Un-Mark only this Event as un-booked & Invoice marked as <b>Modified</b> State."
               );
 
               if (yesWhole) {
@@ -3038,7 +3070,8 @@ function openCalendarDatePopup(dateISO){
               if (isLastBookedEvent) {
                 // ✅ LAST booked event → offer DELETE invoice, not VOID
                 const sureDelete = await appConfirm(
-                  "<span style='color:green; font-weight:bold;'>Yes:</span> Delete invoice (System Removed).<br>" +
+                   "This is the only event marked as Booked.<br><br>" +
+                  "<span style='color:green; font-weight:bold;'>Yes:</span>Mark as un-book & Delete invoice (System Removed).<br>" +
                    "<span style='color:red; font-weight:bold;'>No:</span> Keep Booking & Invoice as-is."
                 );
 
@@ -4464,6 +4497,14 @@ function renderRecycleList(kind) {
 
     return `
       <div class="flex items-center justify-between p-2 border-b bg-gray-50 rounded">
+        <!-- LEFT: checkbox + text -->
+        <div class="flex items-start gap-2 min-w-0">
+          <input
+            type="checkbox"
+            class="recycle-select h-4 w-4 mt-1"
+            data-id="${rid}"
+            data-kind="${kind}"
+          />
         <div class="min-w-0">
           <div class="font-semibold truncate">${label}</div>
           <div class="text-[11px] text-gray-500">
@@ -4486,6 +4527,53 @@ function renderRecycleList(kind) {
       </div>`;
   }).join('');
 }
+
+// === Recycle Bulk Selection Helpers ===
+function getCheckedRecycleIds(kind) {
+  const selector =
+    kind === 'user'
+      ? '#recycleUserList .recycle-select:checked'
+      : '#recycleSystemList .recycle-select:checked';
+
+  return Array.from(document.querySelectorAll(selector))
+    .map(cb => cb.dataset.id);
+}
+
+async function bulkDeleteRecycle(kind) {
+  const ids = getCheckedRecycleIds(kind);
+  if (!ids.length) {
+    showMessage('Please select at least one item to delete.', 'Recycle Bin');
+    return;
+  }
+
+  const confirmMsg =
+    'Permanently delete selected items from Recycle Bin?<br><br>' +
+    '<b>This cannot be undone.</b>';
+
+  const yes = await appConfirm(confirmMsg);
+  if (!yes) return;
+
+  const key  = (kind === 'user') ? RECYCLE_USER_KEY : RECYCLE_SYSTEM_KEY;
+  const list = loadFromLS(key, []) || [];
+
+  const remaining = list.filter(entry =>
+    !ids.includes(String(entry.recycleId))
+  );
+
+  saveToLS(key, remaining);
+
+  renderRecycleList('user');
+  renderRecycleList('system');
+
+  
+
+  if (typeof autoSaveDrive === 'function' && window.accessToken) {
+    try { autoSaveDrive('recycle bulk delete'); } catch (e) {}
+  }
+
+  showMessage('Selected items deleted from Recycle Bin.', 'Recycle Bin');
+}
+
 
 function findRecycleEntry(kind, recycleId) {
   const key  = (kind === 'user') ? RECYCLE_USER_KEY : RECYCLE_SYSTEM_KEY;
@@ -4683,6 +4771,43 @@ function loadRecycleUI() {
       if (nameInp) nameInp.addEventListener('input', () => renderRecycleList(kind));
       if (dateInp) dateInp.addEventListener('input', () => renderRecycleList(kind));
     });
+
+    // -------------------------------------------------
+  // ===== RECYCLE BIN: Select-all + bulk delete =====
+  // -------------------------------------------------
+  const recycleUserSelectAll = document.getElementById('recycleUserSelectAll');
+  if (recycleUserSelectAll) {
+    recycleUserSelectAll.addEventListener('change', (e) => {
+      const checked = e.target.checked;
+      document
+        .querySelectorAll('#recycleUserList .recycle-select')
+        .forEach(cb => cb.checked = checked);
+    });
+  }
+
+  const recycleSystemSelectAll = document.getElementById('recycleSystemSelectAll');
+  if (recycleSystemSelectAll) {
+    recycleSystemSelectAll.addEventListener('change', (e) => {
+      const checked = e.target.checked;
+      document
+        .querySelectorAll('#recycleSystemList .recycle-select')
+        .forEach(cb => cb.checked = checked);
+    });
+  }
+
+  const recycleUserBulkDelete = document.getElementById('recycleUserBulkDelete');
+  if (recycleUserBulkDelete) {
+    recycleUserBulkDelete.addEventListener('click', () => {
+      bulkDeleteRecycle('user');
+    });
+  }
+
+  const recycleSystemBulkDelete = document.getElementById('recycleSystemBulkDelete');
+  if (recycleSystemBulkDelete) {
+    recycleSystemBulkDelete.addEventListener('click', () => {
+      bulkDeleteRecycle('system');
+    });
+  }
 
     RECYCLE_FILTERS_BOUND = true;
   }
