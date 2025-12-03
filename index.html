@@ -248,6 +248,13 @@ header {
   margin-right: -1rem;    /* fill right padding */
 }
 
+/* Extra top gap for detail screens so their H2 is not under the app header */
+#invoice.screen-container,
+#files.screen-container,
+#revenue.screen-container,
+#recycle.screen-container {
+  padding-top: 3.5rem;   /* try 3rem / 4rem if you want less/more gap */
+}
 
 </style>
 </head>
@@ -10779,7 +10786,9 @@ document.addEventListener('DOMContentLoaded', () => {
 </div>
 <style>
   /* Remove top gap under the maroon header */
-  
+  #screen-wrapper {
+    padding-top: 0 !important;
+  }
 
   /* Add default gap under header for all screens except main dashboard */
 #screen-wrapper .screen-container:not(#dashboard) {
