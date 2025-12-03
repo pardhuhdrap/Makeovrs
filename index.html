@@ -2901,9 +2901,9 @@ function openCalendarDatePopup(dateISO){
           //  SINGLE-EVENT QUOTATION
           // ===========================
           const generate = await appConfirm(
-                'Initiate invoice for this booking?\n\n' +
-                'Yes = Open Payment Info to generate invoice\n' +
-                'No = Keep this event un-booked.'
+                "Initiate invoice for this booking?<br><br>" +
+  "<b>Yes:</b> Open Payment Info to generate invoice<br>" +
+  "<b>No:</b> Keep this event un-booked."
               );
             if (!generate) {
               // user does NOT want invoice → keep as unbooked
