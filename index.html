@@ -8358,7 +8358,7 @@ function openClientRequestPreview(payload, rowIndex) {
     green.classList.remove('hidden');
     green.textContent = 'Create Quotation';
     green.onclick = () => {
-      window.CURRENT_CLIENT_REQ_CTX = { rowIndex, payload };
+      CURRENT_CLIENT_REQ_CTX = { rowIndex, payload };
       createQuotationFromClientRequestPayload(payload);
       closeMessage();
 
