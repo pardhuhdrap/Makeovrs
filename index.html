@@ -67,6 +67,40 @@ header {
   z-index:10;
   overflow-y:auto;
 }
+/* ==== DARK MODE ==== */
+body.dark-mode {
+  background: #020617;
+  color: #e5e7eb;
+}
+
+/* main app wrapper */
+body.dark-mode #app {
+  background: #020617;
+}
+
+/* common cards */
+body.dark-mode .bg-white {
+  background: #0b1120 !important;
+}
+
+/* text colours */
+body.dark-mode .text-gray-700,
+body.dark-mode .text-gray-800,
+body.dark-mode .text-gray-900 {
+  color: #e5e7eb !important;
+}
+
+body.dark-mode .text-gray-500,
+body.dark-mode .text-gray-400 {
+  color: #9ca3af !important;
+}
+
+/* header bar */
+body.dark-mode header {
+  background: #020617;
+  border-bottom: 1px solid #1f2937;
+}
+
 .message-modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:50;padding:1rem}
 .message-modal-content{background:#fff;padding:1.25rem;border-radius:1rem;box-shadow:0 25px 50px rgba(0,0,0,.18);max-width:28rem;width:100%; max-height:80vh; overflow-y:auto;}
 .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -426,6 +460,46 @@ header {
           <label class="block text-sm font-medium text-gray-700 mb-1">App Primary Color</label>
           <input id="appColorInput" type="color" class="mt-1 block w-full h-12 rounded border-2 app-color-border" value="#3b82f6">
         </div>
+                <!-- DARK MODE TOGGLE -->
+        <div class="mb-4 flex items-center justify-between">
+          <div>
+            <div class="text-sm font-medium text-gray-700">Dark Mode</div>
+            <div class="text-xs text-gray-500">
+              Applies to all screens & pages.
+            </div>
+          </div>
+          <button
+            type="button"
+            id="darkModeToggle"
+            class="px-3 py-1 rounded-full border text-xs app-color-text"
+          >
+            Use dark mode
+          </button>
+        </div>
+        <!-- /DARK MODE TOGGLE -->
+
+        <!-- APP LOGO -->
+        <div class="mb-3">
+          <!-- FONT SIZE -->
+            <div class="mb-3">
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                App Font Size
+              </label>
+              <input
+                id="appFontSize"
+                type="number"
+                min="12"
+                max="24"
+                class="mt-1 block w-full border-gray-300 rounded p-3"
+                placeholder="14"
+              />
+              <div class="text-xs text-gray-500 mt-1">
+                Default: 14px
+              </div>
+            </div>
+            <!-- /FONT SIZE -->
+
+
         <!-- APP LOGO -->
 <div class="mb-3">
   <label class="block text-sm font-medium text-gray-700 mb-1">App Logo</label>
@@ -1905,7 +1979,7 @@ window.CALENDAR_BOOKING_FLOW = null;
 const APP_LOGO_KEY='app_logo_dataurl';
 const QUOTATION_LAYOUT_KEY='quotation_layout_dataurl';
 const INVOICE_LAYOUT_KEY='invoice_layout_dataurl';
-const APP_FONT_KEY='app_font_size', BOOKED_EVENTS_KEY='booked_event_ids'; const MASTER_DEFAULT_ORIGIN_KEY = 'master_default_origin';
+const APP_FONT_KEY='app_font_size', APP_THEME_KEY='app_theme', BOOKED_EVENTS_KEY='booked_event_ids'; const MASTER_DEFAULT_ORIGIN_KEY = 'master_default_origin';
 const MASTER_DEFAULT_RATE_KEY = 'master_default_rate';
 
 
@@ -2005,6 +2079,36 @@ function applySettings(){
   const colorInput = document.getElementById('appColorInput');
   if (colorInput) {
     try { colorInput.value = color; } catch(e) { /* if browser rejects invalid value */ }
+  }
+  
+  const fontInput = document.getElementById('appFontSize');
+if (fontInput) {
+  try { fontInput.value = fontSize; } catch(e) {}
+}
+
+    // ---- DARK / LIGHT THEME ----
+  let themeRaw = null;
+  try {
+    themeRaw = localStorage.getItem(APP_THEME_KEY);
+  } catch (e) {}
+
+  let theme = 'light';
+  if (themeRaw) {
+    const clean = themeRaw.replace(/"/g, '');
+    if (clean === 'dark') theme = 'dark';
+  }
+
+  if (theme === 'dark') {
+    document.body.classList.add('dark-mode');
+  } else {
+    document.body.classList.remove('dark-mode');
+  }
+
+  // Sync toggle button label if it exists
+  const darkToggle = document.getElementById('darkModeToggle');
+  if (darkToggle) {
+    darkToggle.textContent =
+      theme === 'dark' ? 'Switch to light mode' : 'Use dark mode';
   }
 
   // auto-contrast: keep icons/text readable (white on dark, black on light)
@@ -9377,6 +9481,31 @@ document.addEventListener('DOMContentLoaded', ()=>{
   migrateEventIds(); persistMissingEventIds();
   applySettings();
   loadMasterData();
+    // ---- Dark mode toggle (Settings) ----
+  const darkToggle = document.getElementById('darkModeToggle');
+  if (darkToggle) {
+    darkToggle.addEventListener('click', () => {
+      let themeRaw = null;
+      try {
+        themeRaw = localStorage.getItem(APP_THEME_KEY);
+      } catch (e) {}
+
+      let current = 'light';
+      if (themeRaw) {
+        const clean = themeRaw.replace(/"/g, '');
+        if (clean === 'dark') current = 'dark';
+      }
+
+      const next = current === 'dark' ? 'light' : 'dark';
+
+      try {
+        localStorage.setItem(APP_THEME_KEY, next);
+      } catch (e) {}
+
+      // Re-apply theme + update button text
+      if (typeof applySettings === 'function') applySettings();
+    });
+  }
 
   document.getElementById('generateQuotationButton')?.addEventListener('click', saveQuotationMultiEvent);
   document.getElementById('quotationDiscount')?.addEventListener('input', updateSummaryUI);
@@ -9588,6 +9717,7 @@ document.getElementById("removeInvoiceLayoutBtn")?.addEventListener("click", () 
     "- Quotation Layout\n" +
     "- Invoice Layout\n" +
     "- Font Size\n\n" +
+    "- Dark Mode\n\n" +
     "This action cannot be undone."
   );
 
@@ -9600,6 +9730,7 @@ document.getElementById("removeInvoiceLayoutBtn")?.addEventListener("click", () 
   localStorage.removeItem(QUOTATION_LAYOUT_KEY);
   localStorage.removeItem(INVOICE_LAYOUT_KEY);
   localStorage.removeItem(APP_FONT_KEY);
+  localStorage.removeItem(APP_THEME_KEY);
 
   applySettings();
 
