@@ -9578,38 +9578,39 @@ document.getElementById("removeInvoiceLayoutBtn")?.addEventListener("click", () 
 
  
   document.getElementById('resetSettingsBtn')?.addEventListener('click', () => {
-
   // 🔔 Warning popup before resetting settings
-  const confirmed = confirm(
-    "Are you sure you want to reset all settings?\n\n" +
-    "- App Name\n" +
-    "- App Color\n" +
-    "- App Logo\n" +
-    "- Quotation Layout\n" +
-    "- Invoice Layout\n" +
-    "- Font Size\n\n" +
-    "This action cannot be undone."
-  );
+  appConfirm(
+    "Are you sure you want to reset all settings?<br><br>" +
+    "- App Name<br>" +
+    "- App Color<br>" +
+    "- App Logo<br>" +
+    "- Quotation Layout<br>" +
+    "- Invoice Layout<br>" +
+    "- Font Size<br><br>" +
+    "<b>This action cannot be undone.</b>"
+  ).then(go => {
 
-  if (!confirmed) return;  // ❌ Cancel clicked → do nothing
+    if (!go) return;  // ❌ Cancel clicked → do nothing
 
-  // ✅ OK clicked → proceed with reset
-  localStorage.removeItem(APP_NAME_KEY);
-  localStorage.removeItem(APP_COLOR_KEY);
-  localStorage.removeItem(APP_LOGO_KEY);
-  localStorage.removeItem(QUOTATION_LAYOUT_KEY);
-  localStorage.removeItem(INVOICE_LAYOUT_KEY);
-  localStorage.removeItem(APP_FONT_KEY);
+    // ✅ YES clicked → proceed with reset
+    localStorage.removeItem(APP_NAME_KEY);
+    localStorage.removeItem(APP_COLOR_KEY);
+    localStorage.removeItem(APP_LOGO_KEY);
+    localStorage.removeItem(QUOTATION_LAYOUT_KEY);
+    localStorage.removeItem(INVOICE_LAYOUT_KEY);
+    localStorage.removeItem(APP_FONT_KEY);
 
-  applySettings();
+    applySettings();
 
-  // 🔁 Sync reset to Drive as well
-  if (typeof autoSaveDrive === 'function') {
-    autoSaveDrive('settings reset (including layouts)');
-  }
+    // 🔁 Sync reset to Drive as well
+    if (typeof autoSaveDrive === 'function') {
+      autoSaveDrive('settings reset (including layouts)');
+    }
 
-  showMessage("All settings have been reset.", "Saved");
+    showMessage("All settings have been reset.", "Saved");
+  });
 });
+
 
 
   // Files search
