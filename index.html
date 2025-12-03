@@ -3392,15 +3392,16 @@ function saveQuotationMultiEvent() {
     });
 
     if (duplicate) {
-      const go = window.confirm(
+      appConfirm(
         'A quotation already exists for this Client name and Contact.\n\n' +
         'Do you want to open that quotation in edit mode instead?'
-      );
+      ).then(go => {
       if (go) {
         // put original quotation into edit buffer and go to quotation screen
         localStorage.setItem('CURRENT_EDIT_QUOTATION', JSON.stringify(duplicate));
         navigate('quotation', { skipInit: false });
       }
+    });
       // ⛔ stop saving in both cases (Yes or No)
       return;
     }
