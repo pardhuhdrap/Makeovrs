@@ -3909,6 +3909,21 @@ function drawRevenuePie(data, selectedKeys) {
     ctx.closePath();
     ctx.fillStyle = colors[s.key] || '#9ca3af';
     ctx.fill();
+  
+    // Draw percentage label inside slice
+    const midAngle = startAngle + angle / 2;
+    const labelRadius = radius * 0.6; // 60% of radius, so text is inside
+    const labelX = centerX + Math.cos(midAngle) * labelRadius;
+    const labelY = centerY + Math.sin(midAngle) * labelRadius;
+
+    const percent = (s.value / totalValue) * 100;
+    const percentText = `${Math.round(percent)}%`;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '12px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(percentText, labelX, labelY);
 
     startAngle = endAngle;
   });
