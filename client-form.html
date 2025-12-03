@@ -665,6 +665,7 @@ const OWNER_ID =
       const form            = document.getElementById("clientRequestForm");
       const resetBtn        = document.getElementById("resetFormBtn");
       const addEventBtn     = document.getElementById("addEventBtn");
+      const submitBtn       = form.querySelector('button[type="submit"]');
 
             // 🔤 Client-level restrictions
       const clientNameInput    = document.getElementById("clientName");
@@ -726,72 +727,81 @@ const OWNER_ID =
         }
       });
 
-      form.addEventListener("submit", async (e) => {
-  e.preventDefault();
+            form.addEventListener("submit", async (e) => {
+        e.preventDefault();
 
-  // get submit button safely
-  const submitBtn = form.querySelector('button[type="submit"]');
-  if (!submitBtn) {
-    console.warn("Submit button not found");
-    return;
-  }
+        if (!submitBtn) {
+          alert("Submit button not found.");
+          return;
+        }
 
-  showToast("Sending your requirement...");
-  submitBtn.disabled = true;
-  submitBtn.textContent = "Sending your requirement...";
+        // Small UI feedback
+        showToast("Sending your requirement...");
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Sending your requirement...";
 
-  const payload = collectFormData();
+        const payload = collectFormData();
 
-  // validate before sending
-  if (!validateForm(payload)) {
-    // reset button state if validation fails
-    submitBtn.disabled = false;
-    submitBtn.textContent = "Submit Request";
-    return;
-  }
+        if (!validateForm(payload)) {
+          // Restore button state if validation fails
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Submit Request";
+          return;
+        }
 
-  try {
-    const res = await fetch(CLIENT_REQ_API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+        try {
+          const res = await fetch(CLIENT_REQ_API_URL, {
+            method: "POST",
+            body: JSON.stringify(payload) // simple POST, no extra headers
+          });
 
-    const data = await res.json();
-    console.log("Server response:", data);
+          const rawText = await res.text();
+          console.log("Raw server response:", rawText);
 
-    // adjust this to match your Apps Script response shape
-    if (!data || data.status !== "ok") {
-      alert(
-        (data && data.message) ||
-          "Something went wrong while saving. Please try again."
-      );
-      return;
-    }
+          if (!res.ok) {
+            alert("Server error. Please try again later.");
+            return;
+          }
 
-    alert("Thank you! Your details have been submitted.");
+          let data = null;
+          try {
+            data = JSON.parse(rawText);
+          } catch (parseErr) {
+            console.warn("Response was not JSON, treating plain text as success if it starts with OK", parseErr);
 
-    // reset form + events
-    form.reset();
-    if (eventsContainer) {
-      eventsContainer.innerHTML = "";
-      const first = createEventPanel(true);
-      eventsContainer.appendChild(first);
-      renumberEvents();
-      createLucide();
-      setAddEventEnabled(false);
-    }
-  } catch (err) {
-    console.error(err);
-    alert("Network error. Please try again later.");
-  } finally {
-    // always restore button state
-    submitBtn.disabled = false;
-    submitBtn.textContent = "Submit Request";
-  }
-});
+            // If your Apps Script just returns "OK", treat that as success
+            if (!rawText.trim().toUpperCase().startsWith("OK")) {
+              alert("Unexpected response from server. Please contact admin.");
+              return;
+            }
+          }
 
+          if (data && data.ok === false) {
+            alert(data.message || "Something went wrong while saving. Please try again.");
+            return;
+          }
 
+          alert("Thank you! Your details have been submitted.");
+
+          // Reset form and rebuild first event
+          form.reset();
+          if (eventsContainer) {
+            eventsContainer.innerHTML = "";
+            const first = createEventPanel(true);
+            eventsContainer.appendChild(first);
+            renumberEvents();
+            createLucide();
+            setAddEventEnabled(false);
+          }
+        } catch (err) {
+          console.error("Network / fetch error:", err);
+          alert("Network error. Please check your internet and try again later.");
+        } finally {
+          // Always restore button state
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Submit Request";
+        }
+      });
     });
   </script>
 </body>
