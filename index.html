@@ -10104,17 +10104,24 @@ cleanupOldClientRequestSystemRemoved();
   // init
   renderFilesList();
   renderCalendar();
-  // 🆕 Decide first screen based on Drive sign-in
+   // init
+  renderFilesList();
+  renderCalendar();
+
+  // 🔒 Force sign-in before using full app
   let firstScreen = 'dashboard';
   try {
     const isSigned = localStorage.getItem('gdrive_signed_in') === '1';
-    if (!isSigned) {
-      firstScreen = 'dashboard';
 
-      // Gentle reminder so user doesn't forget to log in
+    if (isSigned) {
+      firstScreen = 'dashboard';
+    } else {
+      // send user straight to Settings so they see the Google sign-in area
+      firstScreen = 'settings';
+
       const msg =
-        'Please sign in with Google Drive so your data is backed up and synced.\n' +
-        'You can explore all features after signing in.';
+        'Please sign in with Google Drive to use the app.\n' +
+        'Go to Settings and tap "Sign in with Google".';
       if (typeof showMessage === 'function') {
         showMessage(msg, 'Sign in required');
       } else {
@@ -10122,7 +10129,6 @@ cleanupOldClientRequestSystemRemoved();
       }
     }
   } catch (e) {
-    // if anything fails, just fall back to dashboard
     console.warn('Sign-in check failed, falling back to dashboard', e);
   }
 
