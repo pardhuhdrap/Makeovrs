@@ -3393,8 +3393,8 @@ function saveQuotationMultiEvent() {
 
     if (duplicate) {
       appConfirm(
-        'A quotation already exists for this Client name and Contact.\n\n' +
-        'Do you want to open that quotation in edit mode instead?'
+        'Duplicate Quotation found for this Client name and Contact.\n\n' +
+        'Do you want to open & edit that Quotation?'
       ).then(go => {
       if (go) {
         // put original quotation into edit buffer and go to quotation screen
@@ -9986,14 +9986,15 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', asyn
   });
 
   if (duplicateInvoice) {
-    const go = window.confirm(
-      'An invoice already exists for this Client name and Contact.\n\n' +
-      'Do you want to open that invoice in edit mode instead?'
-    );
+    appConfirm(
+      'Duplicate Invoice found for this Client name and Contact.\n\n' +
+      'Do you want to open & edit that Invoice?'
+    ).then(go => {
     if (go) {
       localStorage.setItem('CURRENT_EDIT_INVOICE', JSON.stringify(duplicateInvoice));
       navigate('invoice', { skipInit: false });
     }
+  });
     return;
   }
 
