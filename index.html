@@ -9420,62 +9420,89 @@ if (document.getElementById('eventsContainer')?.children.length === 0)
   createEventPanel();
 
 
-  // settings image handlers (simple)
-  const logoInput = document.getElementById('appLogoInput');
-  logoInput?.addEventListener('change', async (ev)=>{
-    const file = ev.target.files && ev.target.files[0];
-    if(!file) return;
-     try {
-    // upload or update existing
-    const name = 'app_logo_' + (USE_APPDATA ? 'appdata' : 'file') + '.png'; // logical stable name
-    // check existing
+ // settings image handlers (simple)
+const logoInput = document.getElementById('appLogoInput');
+logoInput?.addEventListener('change', async (ev) => {
+  const file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+
+  try {
+    // 1) Always create local preview + store in APP_LOGO_KEY
+    const fr = new FileReader();
+    fr.onload = () => {
+      const dataUrl = fr.result;
+
+      try {
+        localStorage.setItem(APP_LOGO_KEY, dataUrl);
+      } catch (e) {
+        console.warn('Failed to store APP_LOGO_KEY', e);
+      }
+
+      // Update Settings preview
+      const logoPreview   = document.getElementById('appLogoPreview');
+      const removeLogoBtn = document.getElementById('removeLogoBtn');
+
+      if (logoPreview && typeof dataUrl === 'string') {
+        logoPreview.src = dataUrl;
+        logoPreview.classList.remove('hidden');
+      }
+      if (removeLogoBtn) {
+        removeLogoBtn.classList.remove('hidden');
+      }
+
+      // Also refresh header avatar based on new logo
+      try { updateProfileIcon(); } catch (e) { console.warn(e); }
+    };
+    fr.readAsDataURL(file);
+
+    // 2) Upload or update logo file in Drive (same logic as before)
+    const name = 'app_logo_' + (USE_APPDATA ? 'appdata' : 'file') + '.png';
     const existing = localStorage.getItem('APP_LOGO_FILE_ID');
+
     if (existing && accessToken) {
-      // try update if existing file still valid
+      // try update existing file
       try {
         await updateDriveFileContent(existing, file);
-        // keep same fileId
-      } catch(e) {
+      } catch (e) {
         console.warn('Update failed, will try re-upload', e);
         const newId = await uploadDriveFile(name, file);
         localStorage.setItem('APP_LOGO_FILE_ID', newId);
       }
-    } else {
-      // find by name in Drive (optional) or just upload
-      if (accessToken) {
-        const found = await findDriveFileIdByName(name);
-        if (found && found.id) {
-          await updateDriveFileContent(found.id, file);
-          localStorage.setItem('APP_LOGO_FILE_ID', found.id);
-        } else {
-          const id = await uploadDriveFile(name, file);
-          localStorage.setItem('APP_LOGO_FILE_ID', id);
-        }
+    } else if (accessToken) {
+      // either find by name, or upload new
+      const found = await findDriveFileIdByName(name);
+      if (found && found.id) {
+        await updateDriveFileContent(found.id, file);
+        localStorage.setItem('APP_LOGO_FILE_ID', found.id);
       } else {
-        // fallback: save as local dataURL if not signed in
-        const fr = new FileReader();
-        fr.onload = () => {
-          try { localStorage.setItem(APP_LOGO_KEY, fr.result); } catch(e){ console.warn(e); }
-        };
-        fr.readAsDataURL(file);
+        const id = await uploadDriveFile(name, file);
+        localStorage.setItem('APP_LOGO_FILE_ID', id);
       }
     }
-    // update UI immediately
+
+    // 3) If signed in, try to refresh any header <img id="appLogo">
     if (accessToken) {
-      const fileId = localStorage.getItem('APP_LOGO_FILE_ID');
-      const blob = await downloadDriveFileBlob(fileId);
-      const url = URL.createObjectURL(blob);
-      document.getElementById('appLogo')?.setAttribute('src', url);
+      try {
+        const fileId = localStorage.getItem('APP_LOGO_FILE_ID');
+        if (fileId) {
+          const blob = await downloadDriveFileBlob(fileId);
+          const url  = URL.createObjectURL(blob);
+          document.getElementById('appLogo')?.setAttribute('src', url);
+        }
+      } catch (e) {
+        console.warn('Could not refresh appLogo from Drive', e);
+      }
     } else {
-      // applySettings will show local cached dataURL
-      applySettings();
+      // not signed in → let applySettings propagate the new logo everywhere
+      if (typeof applySettings === 'function') applySettings();
     }
-    // scheduleAutoSave(); // optional: persist mapping to drive/json if you want
+
   } catch (err) {
     console.error(err);
     showMessage('Logo upload failed: ' + (err.message || err));
   }
 });
+
   document.getElementById('removeLogoBtn')?.addEventListener('click', ()=>{ localStorage.removeItem(APP_LOGO_KEY); applySettings(); });
 
   const quotationLayoutInput = document.getElementById('quotationLetterheadInput');
