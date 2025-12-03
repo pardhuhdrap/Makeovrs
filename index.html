@@ -147,6 +147,8 @@ header {
 .screen-container {
   overflow-x: hidden;          /* no horizontal scrollbar */
   touch-action: pan-y;         /* gestures treated as vertical inside */
+  padding: 0.75rem 1rem 1rem;  /* 👈 top / left-right / bottom padding */
+  box-sizing: border-box;
 }
 
 .field-error-red {
@@ -1381,6 +1383,9 @@ header {
         <label class="block text-xs text-gray-700 mb-1">
           Partial Payment History (auto-capture)
         </label>
+        <div class="text-xs text-gray-500 mb-2">
+          If you want to correct this use a negative value in Partial Amount below.
+        </div>
         <textarea
           id="paymentPartialLog"
           class="w-full border rounded p-2 bg-gray-100 text-xs"
