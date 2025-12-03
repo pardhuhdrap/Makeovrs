@@ -3377,6 +3377,29 @@ function saveQuotationMultiEvent() {
     return;
   }
 
+  // 🔒 NEW: apply the same event restrictions used by the Update button
+  const qPanels = Array.from(
+    document.querySelectorAll('#eventsContainer > .event-panel')
+  );
+
+  if (qPanels.length === 0) {
+    showMessage('Add at least one event with date & name.');
+    return;
+  }
+
+  for (const panel of qPanels) {
+    const res = validateEventPanel(panel);
+    if (!res.valid) {
+      // show the same message as Update button (name/date/package/location/add-on checks)
+      showMessage(res.message);
+      // scroll the bad panel into view so user can see what to fix
+      try {
+        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (e) {}
+      return;
+    }
+  }
+
   const payload = getCleanQuotationPayloadWithEventIds();
   if ((payload.events || []).length === 0) {
     showMessage('Add at least one event with date & name.');
@@ -9913,6 +9936,18 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', asyn
   if (panels.length === 0) {
     showMessage('Add at least one event.');
     return;
+  }
+
+   // 🔒 NEW: apply same event restrictions used by the Update button
+  for (const panel of panels) {
+    const res = validateEventPanel(panel);
+    if (!res.valid) {
+      showMessage(res.message);
+      try {
+        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (e) {}
+      return;
+    }
   }
 
   // Build events from panels
