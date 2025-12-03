@@ -4658,7 +4658,7 @@ function openRecycleView(recycleId, kind) {
   showMessage(html, title);
 }
 
-function restoreRecycleItem(recycleId, kind) {
+async function restoreRecycleItem(recycleId, kind) {
   const { key, list, idx } = findRecycleEntry(kind, recycleId);
   if (idx === -1) {
     showMessage(
@@ -4672,7 +4672,7 @@ function restoreRecycleItem(recycleId, kind) {
   const typeRaw = String(entry.type || entry.kind || '').toLowerCase();
 
   try {
-    // ✅ NEW: handle client-request restore
+    // ✅ handle client-request restore
     if (typeRaw.includes('client-request')) {
       const rowIndex = Number(entry.rowIndex || 0);
       const payload  = entry.payload || null;
@@ -4686,11 +4686,10 @@ function restoreRecycleItem(recycleId, kind) {
       }
 
       // 1) Tell Google Sheet to set status back to "pending"
-      //    (implemented in Apps Script as _action: "restorePending")
       try {
         fetch(CLIENT_REQ_API_URL, {
           method: 'POST',
-          // no custom headers → keep it a "simple" POST (avoids CORS preflight)
+          // keep it a "simple" POST (no preflight)
           body: JSON.stringify({
             _action: 'restorePending',
             rowIndex
@@ -4698,14 +4697,14 @@ function restoreRecycleItem(recycleId, kind) {
         });
       } catch (e) {
         console.warn('Failed to restore client request status in sheet', e);
-        // we still continue with local restore
+        // still continue with local restore
       }
 
       // 2) Remove from recycle store
       list.splice(idx, 1);
       saveToLS(key, list);
 
-      // 3) Refresh recycle lists & floating client-requests UI (best-effort)
+      // 3) Refresh recycle lists & floating client-requests UI
       try { renderRecycleList('user'); }   catch (e) { console.warn(e); }
       try { renderRecycleList('system'); } catch (e) { console.warn(e); }
       try {
@@ -4720,7 +4719,7 @@ function restoreRecycleItem(recycleId, kind) {
       return;
     }
 
-    // ---------- Existing restore for invoices / quotations ----------
+    // ---------- Restore for invoices / quotations with dedupe ----------
 
     const original = entry.original;
     if (!original) {
@@ -4733,40 +4732,132 @@ function restoreRecycleItem(recycleId, kind) {
 
     if (typeRaw.includes('invoice')) {
       const invoices = loadFromLS(SAVED_INVOICES_KEY, []) || [];
-      const newId    = original.invoiceId || original.id;
-      const newNo    = (original.invoiceNo || '').trim().toLowerCase();
 
-      const duplicate = invoices.some(inv => {
+      const newId      = original.invoiceId || original.id;
+      const keyName    = (original.clientName || '').trim().toLowerCase();
+      const keyContact = (original.clientContact || '').trim().toLowerCase();
+      const keyInvNo   = (original.invoiceNo || '').trim().toLowerCase();
+
+      const duplicate = invoices.find(inv => {
+        if (!inv) return false;
+
         const existId = inv.invoiceId || inv.id;
+        const idMatch = newId && existId && String(existId) === String(newId);
+
+        const invName    = (inv.clientName || '').trim().toLowerCase();
+        const invContact = (inv.clientContact || '').trim().toLowerCase();
+        const clientMatch =
+          keyName && keyContact &&
+          invName === keyName &&
+          invContact === keyContact;
+
         const existNo = (inv.invoiceNo || '').trim().toLowerCase();
-        return (
-          (newId && existId && String(existId) === String(newId)) ||
-          (newNo && existNo && existNo === newNo)
-        );
+        const noMatch =
+          keyInvNo && existNo && existNo === keyInvNo;
+
+        return idMatch || clientMatch || noMatch;
       });
 
       if (duplicate) {
-        showMessage(
-          'Another invoice with same ID / number already exists. Restore cancelled.',
-          'Restore invoice'
-        );
+        if (typeof appConfirm === 'function') {
+          const goEdit = await appConfirm(
+            'An invoice already exists in Files for this client & contact.\n\n' +
+            'Open the existing invoice instead of restoring this deleted copy?'
+          );
+
+          if (goEdit) {
+            const existingId = duplicate.invoiceId || duplicate.id;
+            CURRENT_EDIT_INVOICE_ID = existingId;
+            try {
+              localStorage.setItem(
+                'CURRENT_EDIT_INVOICE',
+                JSON.stringify(duplicate)
+              );
+            } catch (e) {
+              console.warn('Failed to store CURRENT_EDIT_INVOICE', e);
+            }
+            if (typeof navigate === 'function') {
+              navigate('invoice');
+            }
+          } else {
+            showMessage(
+              'Restore cancelled. Existing invoice kept in Files.',
+              'Restore invoice'
+            );
+          }
+        } else {
+          showMessage(
+            'Another invoice with same ID / number / client already exists. Restore cancelled.',
+            'Restore invoice'
+          );
+        }
         return;
       }
 
+      // ✅ No duplicate → restore invoice
       invoices.push(original);
       saveToLS(SAVED_INVOICES_KEY, invoices);
+
     } else if (typeRaw.includes('quotation')) {
       const quotations = loadFromLS(SAVED_QUOTATIONS_KEY, []) || [];
+
       const newId      = original.id || original.quotationId;
+      const nameKey    = (original.clientName || '').trim().toLowerCase();
+      const contactKey = (original.clientContact || '').trim().toLowerCase();
 
-      const duplicateQ = quotations.some(q =>
-        newId && String(q.id) === String(newId)
-      );
+      const duplicateQ = quotations.find(q => {
+        if (!q) return false;
 
-      if (!duplicateQ) {
-        quotations.push(original);
-        saveToLS(SAVED_QUOTATIONS_KEY, quotations);
+        const sameId = newId && String(q.id) === String(newId);
+
+        const qName    = (q.clientName || '').trim().toLowerCase();
+        const qContact = (q.clientContact || '').trim().toLowerCase();
+        const sameClient =
+          nameKey && contactKey &&
+          qName === nameKey &&
+          qContact === contactKey;
+
+        return sameId || sameClient;
+      });
+
+      if (duplicateQ) {
+        if (typeof appConfirm === 'function') {
+          const go = await appConfirm(
+            'Duplicate Quotation found for this Client name and Contact.\n\n' +
+            'Do you want to open & edit that Quotation instead of restoring this deleted copy?'
+          );
+
+          if (go) {
+            try {
+              localStorage.setItem(
+                'CURRENT_EDIT_QUOTATION',
+                JSON.stringify(duplicateQ)
+              );
+            } catch (e) {
+              console.warn('Failed to store CURRENT_EDIT_QUOTATION', e);
+            }
+            if (typeof navigate === 'function') {
+              navigate('quotation', { skipInit: false });
+            }
+          } else {
+            showMessage(
+              'Restore cancelled. Existing quotation kept in Files.',
+              'Restore quotation'
+            );
+          }
+        } else {
+          showMessage(
+            'Duplicate quotation already exists for this client & contact. Restore cancelled.',
+            'Restore quotation'
+          );
+        }
+        return;
       }
+
+      // ✅ No duplicate → restore quotation
+      quotations.push(original);
+      saveToLS(SAVED_QUOTATIONS_KEY, quotations);
+
     } else {
       showMessage(
         'Restore is currently supported only for quotations, invoices and client requests.',
@@ -4775,7 +4866,7 @@ function restoreRecycleItem(recycleId, kind) {
       return;
     }
 
-    // Remove from recycle list
+    // Remove from recycle list after successful restore
     list.splice(idx, 1);
     saveToLS(key, list);
 
@@ -4796,6 +4887,7 @@ function restoreRecycleItem(recycleId, kind) {
     showMessage('Restore failed. See console for details.', 'Error');
   }
 }
+
 
 
 
