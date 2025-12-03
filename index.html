@@ -10783,6 +10783,10 @@ document.addEventListener('DOMContentLoaded', () => {
     padding-top: 0 !important;
   }
 
+  /* Add default gap under header for all screens except main dashboard */
+#screen-wrapper .screen-container:not(#dashboard) {
+  padding-top: 3.25rem; /* adjust if needed */
+}
   /* Upcoming Events outer wrapper: no extra padding, full width */
   #dashboardUpcoming {
     margin-top: 0 !important;
