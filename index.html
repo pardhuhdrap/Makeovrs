@@ -1701,7 +1701,7 @@ function appConfirm(message) {
       return;
     }
 
-    msgEl.textContent = message;
+    msgEl.innerHTML = message;
     modal.style.display = 'flex';
 
     const cleanup = (result) => {
