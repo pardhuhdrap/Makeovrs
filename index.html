@@ -67,7 +67,6 @@ header {
   z-index:10;
   overflow-y:auto;
 }
-
 .message-modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:50;padding:1rem}
 .message-modal-content{background:#fff;padding:1.25rem;border-radius:1rem;box-shadow:0 25px 50px rgba(0,0,0,.18);max-width:28rem;width:100%; max-height:80vh; overflow-y:auto;}
 .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -426,30 +425,7 @@ header {
         <div class="mb-3">
           <label class="block text-sm font-medium text-gray-700 mb-1">App Primary Color</label>
           <input id="appColorInput" type="color" class="mt-1 block w-full h-12 rounded border-2 app-color-border" value="#3b82f6">
-        </div>              
-
-        <!-- APP LOGO -->
-        <div class="mb-3">
-          <!-- FONT SIZE -->
-            <div class="mb-3">
-              <label class="block text-sm font-medium text-gray-700 mb-1">
-                App Font Size
-              </label>
-              <input
-                id="appFontSize"
-                type="number"
-                min="12"
-                max="24"
-                class="mt-1 block w-full border-gray-300 rounded p-3"
-                placeholder="14"
-              />
-              <div class="text-xs text-gray-500 mt-1">
-                Default: 14px
-              </div>
-            </div>
-            <!-- /FONT SIZE -->
-
-
+        </div>
         <!-- APP LOGO -->
 <div class="mb-3">
   <label class="block text-sm font-medium text-gray-700 mb-1">App Logo</label>
@@ -2030,11 +2006,6 @@ function applySettings(){
   if (colorInput) {
     try { colorInput.value = color; } catch(e) { /* if browser rejects invalid value */ }
   }
-  
-  const fontInput = document.getElementById('appFontSize');
-if (fontInput) {
-  try { fontInput.value = fontSize; } catch(e) {}
-}
 
   // auto-contrast: keep icons/text readable (white on dark, black on light)
   (function setContrast(){
@@ -9405,7 +9376,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   createLucide();
   migrateEventIds(); persistMissingEventIds();
   applySettings();
-  loadMasterData();    
+  loadMasterData();
 
   document.getElementById('generateQuotationButton')?.addEventListener('click', saveQuotationMultiEvent);
   document.getElementById('quotationDiscount')?.addEventListener('input', updateSummaryUI);
@@ -9629,7 +9600,6 @@ document.getElementById("removeInvoiceLayoutBtn")?.addEventListener("click", () 
   localStorage.removeItem(QUOTATION_LAYOUT_KEY);
   localStorage.removeItem(INVOICE_LAYOUT_KEY);
   localStorage.removeItem(APP_FONT_KEY);
-  
 
   applySettings();
 
