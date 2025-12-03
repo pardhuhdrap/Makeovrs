@@ -2835,7 +2835,8 @@ function openCalendarDatePopup(dateISO){
 
         if (hasMultipleEvents) {
           const yesWhole = await appConfirm(
-    "Yes = Mark All Events in this Quotation as Booked\n\nNo = Mark only this Event as Booked"
+          "<span style='color:green; font-weight:bold;'>Yes:</span> Mark All Events in this Quotation as Booked.<br>" +
+           "<span style='color:red; font-weight:bold;'>No:</span> Mark only this Event as Booked."
   );
 
   let mode;
@@ -2901,9 +2902,8 @@ function openCalendarDatePopup(dateISO){
           //  SINGLE-EVENT QUOTATION
           // ===========================
           const generate = await appConfirm(
-                "Initiate invoice for this booking?<br><br>" +
-  "<b>Yes:</b> Open Payment Info to generate invoice<br>" +
-  "<b>No:</b> Keep this event un-booked."
+                "<span style='color:green; font-weight:bold;'>Yes:</span> Initiate Payment Info to generate Invoice<br>" +
+                "<span style='color:red; font-weight:bold;'>No:</span> Keep this Event un-booked."
               );
             if (!generate) {
               // user does NOT want invoice → keep as unbooked
@@ -2978,16 +2978,16 @@ function openCalendarDatePopup(dateISO){
             // --- Scenario 1: YES = unmark whole quotation & auto delete invoice ---
         if (hasMultipleEvents) {
               const yesWhole = await appConfirm(
-                "Unmark whole quotation's events as booked? (Yes = unmark all events of this quotation)"
+                "<span style='color:green; font-weight:bold;'>Yes:</span>Un-Mark All Events of this Quotation & Delete Invoice).<br>" +
+                  "<span style='color:red; font-weight:bold;'>No:</span>Un-Mark only this Event as un-booked & Invoice marked as Modified State."
               );
 
               if (yesWhole) {
                 // If invoice exists, confirm delete first
                 if (relatedInvoices.length) {
                   const sureDelete = await appConfirm(
-                    "Are you sure to delete invoice?\n\n" +
-                    "Yes = Delete invoice (System Removed).\n" +
-                    "Cancel = Keep bookings and invoice as-is."
+                    "<span style='color:green; font-weight:bold;'>Yes:</span>Delete invoice (System Removed).<br>" +
+                    "<span style='color:red; font-weight:bold;'>No:</span>Keep Bookings and Invoice as-is."
                   );
 
                   if (!sureDelete) {
@@ -3038,8 +3038,8 @@ function openCalendarDatePopup(dateISO){
               if (isLastBookedEvent) {
                 // ✅ LAST booked event → offer DELETE invoice, not VOID
                 const sureDelete = await appConfirm(
-                  "Are you sure to delete invoice?\n\n" +
-                  "Yes = Delete invoice (System Removed)."
+                  "<span style='color:green; font-weight:bold;'>Yes:</span> Delete invoice (System Removed).<br>" +
+                   "<span style='color:red; font-weight:bold;'>No:</span> Keep Booking & Invoice as-is."
                 );
 
                 if (sureDelete) {
@@ -3081,8 +3081,8 @@ function openCalendarDatePopup(dateISO){
               } else {
                 // 🟡 Still at least one other event booked → VOID invoice + trim events
                 const voidIt = await appConfirm(
-                  "Proceed to void invoice?\n\n" +
-                  "Yes = Mark the invoice as VOID (Will Review/Edit later)."
+                  "<span style='color:green; font-weight:bold;'>Yes:</span> Mark invoice as MODIFIED.<br>" +
+                  "<span style='color:red; font-weight:bold;'>No:</span> Keep Booking & Invoice as-is."
                 );
 
                 if (voidIt) {
@@ -3154,8 +3154,8 @@ function openCalendarDatePopup(dateISO){
 
           if (relatedInvoices.length) {
             const sureDelete = await appConfirm(
-              "Are you sure to delete invoice?\n\n" +
-              "Yes = Delete invoice (System Removed)."
+              "<span style='color:green; font-weight:bold;'>Yes:</span>Delete invoice (System Removed).<br>" +
+               "<span style='color:red; font-weight:bold;'>No:</span> Keep Booking & Invoice as-is."
             );
             if (sureDelete) {
               const recycleSystem = loadFromLS(RECYCLE_SYSTEM_KEY, []);
@@ -9876,9 +9876,9 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', asyn
 
     if (editing && editing.status === 'void') {
       const makeValid = await appConfirm(
-        'Invoice marked as MODIFIED.\n\n' +
-        'OK = Mark it as ORIGINAL.\n' +
-        'Cancel = Keep it as VOID.'
+        "Invoice marked as MODIFIED.<br>" +
+        "<span style='color:green; font-weight:bold;'>Yes:</span> Mark it as ORIGINAL.<br>" +
+        "<span style='color:red; font-weight:bold;'>No:</span>Keep it as MODIFIED."
       );
 
       if (makeValid) {
