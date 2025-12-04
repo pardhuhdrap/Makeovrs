@@ -8194,6 +8194,13 @@ async function refreshClientRequestsUI() {
       );
     }
 
+    // ✅ SORT: latest first (higher rowIndex = newer)
+    items.sort((a, b) => {
+      const ra = Number(a.rowIndex || 0);
+      const rb = Number(b.rowIndex || 0);
+      return rb - ra; // descending
+    });
+
     listEl.innerHTML = '';
 
     if (!items.length) {
