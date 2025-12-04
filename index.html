@@ -35,6 +35,12 @@ header {
   left: 0;
   right: 0;
   z-index: 40;
+
+  /* NEW: fix the bar height & center contents */
+  height: 60px;          /* adjust 56 / 64 if you want */
+  display: flex;
+  align-items: center;
+  padding: 0 16px;       /* no top/bottom padding, only left/right */
 }
 :root{--app-color:#3b82f6}
 .app-color-bg{background:var(--app-color)}
@@ -288,7 +294,7 @@ header {
         class="text-white p-1 rounded-full hover:bg-white/10 transition-all"
         title="Sign in / Drive">
  <img id="profileAvatar"
-     class="h-12 w-12 rounded-full object-cover hidden" />
+     class="h-14 w-14 rounded-full object-cover hidden" />
 
 <i id="profileIconDefault"
    data-lucide="user"
