@@ -3902,9 +3902,9 @@ function drawRevenuePie(data, selectedKeys) {
     enquiry: '#000000', // black
     booked:  '#2563eb', // blue-ish
      misc:    '#a855f7', // violet
-    partial: '#f97316', // orange
+    partial: '#ff9549', // orange
     paid:    '#22c55e',  // green
-    actualPending: '#ef4444'  // red
+    actualPending: '#7b0000'  // red
   };
 
   const buckets = data && data.buckets ? data.buckets : {};
@@ -10601,7 +10601,33 @@ function initGoogleTokenClient(){
     callback: (resp) => {
       if (resp.error) {
         console.error('Token error', resp);
-        document.getElementById('gdrive-status').innerText = 'Sign-in failed';
+        document.getElementById('gdrive-status').innerText = 'Sign-in required';
+        // 🔴 Treat silent failure as signed out
+        accessToken = null;
+        userProfile = null;
+        try {
+          localStorage.removeItem('gdrive_signed_in');
+        } catch (e) {}
+
+        // Reset UI similar to signOutFromGoogle
+        document.getElementById('gdrive-user').innerText = 'Not signed in';
+        document.getElementById('btnSignIn').style.display  = 'inline-block';
+        document.getElementById('btnSignOut').style.display = 'none';
+        document.getElementById('btnSaveDrive').style.display = 'none';
+        document.getElementById('btnLoadDrive').style.display = 'none';
+
+        // Hide client requests FAB when not signed in
+        try {
+          const fab   = document.getElementById('clientRequestsFab');
+          const panel = document.getElementById('clientRequestsPanel');
+          if (fab)   fab.classList.add('hidden');
+          if (panel) panel.classList.add('hidden');
+        } catch (e) {}
+
+        // Update dashboard + avatar
+        try { updateDashboardForSignIn(); } catch (e) {}
+        updateProfileIcon();
+
         return;
       }
       accessToken = resp.access_token;
