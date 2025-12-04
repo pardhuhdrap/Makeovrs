@@ -1953,6 +1953,81 @@ function dataURLToFile(dataUrl, filename) {
   return new File([bytes], filename, { type: mime });
 }
 
+// Share ONLY the client form link (no PDF)
+async function shareClientFormLink(link) {
+  const shareText = `Please fill this form:\n${link}`;
+
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: "Client Form",
+        text: shareText,
+        url: link
+      });
+    } catch (e) {
+      console.warn("Share form link cancelled/failed", e);
+    }
+  } else {
+    await navigator.clipboard.writeText(shareText);
+    showMessage("Client form link copied!", "Link copied");
+  }
+}
+
+// Share ONLY the catalogue PDF (optionally also copy link)
+async function shareCataloguePdf(link) {
+  const catDataUrl = localStorage.getItem("catalogue_pdf_dataurl");
+  const catName    = localStorage.getItem("catalogue_pdf_name") || "Catalogue.pdf";
+
+  if (!catDataUrl) {
+    showMessage(
+      "No catalogue PDF saved.<br><br>Upload it in Settings → App Settings & Layout → Catalogue (PDF).",
+      "No Catalogue PDF"
+    );
+    return;
+  }
+
+  let file;
+  try {
+    file = dataURLToFile(catDataUrl, catName);
+  } catch (e) {
+    console.warn("Failed to build catalogue file", e);
+    showMessage("Could not load catalogue PDF. Please upload it again.", "Error");
+    return;
+  }
+
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({
+        title: "Catalogue",
+        files: [file]
+      });
+
+      // Optional: also copy form link so you can paste if you want
+      try {
+        await navigator.clipboard.writeText(link);
+        showMessage(
+          "Catalogue shared. Form link copied – paste it in WhatsApp if needed.",
+          "Shared"
+        );
+      } catch (e) {
+        console.warn("Clipboard copy failed", e);
+      }
+
+      return;
+    } catch (e) {
+      console.warn("Share catalogue failed", e);
+      showMessage("Sharing the catalogue failed. Please try again.", "Share failed");
+      return;
+    }
+  }
+
+  showMessage(
+    "Your browser doesn't support sharing PDF files from this app. Please open the catalogue manually and share it.",
+    "Not supported"
+  );
+}
+
+
 document.getElementById("clientFormBtn")?.addEventListener("click", async () => {
   const ownerId = getClientReqOwnerId();
 
@@ -1968,66 +2043,28 @@ document.getElementById("clientFormBtn")?.addEventListener("click", async () => 
   const base = `${location.origin}/Makeovrs/client-form.html`;
   const link = `${base}?ownerId=${encodeURIComponent(ownerId)}`;
 
-  const shareText = `Please fill this form:\n${link}`;
+  // Ask user what they want to share: Form link or Catalogue
+  const message = `
+    <div style="font-size:14px; line-height:1.4;">
+      <div style="margin-bottom:6px;">What do you want to share?</div>
+      <ul style="font-size:12px; color:#555; padding-left:18px; margin:0;">
+        <li><b>Share Link</b> = Client Form </li>
+        <li><b>Share PDF</b> = Catalogue</li>
+      </ul>
+    </div>
+  `;
 
-  // Try to read saved catalogue from localStorage
-  let catalogueFile = null;
-  try {
-    const catDataUrl = localStorage.getItem("catalogue_pdf_dataurl");
-    const catName    = localStorage.getItem("catalogue_pdf_name") || "Catalogue.pdf";
+  // appConfirm returns a promise<boolean>  → true = Yes, false = No
+  const shareForm = await appConfirm(message);
 
-    if (catDataUrl) {
-      catalogueFile = dataURLToFile(catDataUrl, catName);
-    }
-  } catch (e) {
-    console.warn("Failed to build catalogue file", e);
-    catalogueFile = null;
-  }
-
-  // 1️⃣ Best case: share link + attached PDF
-  if (
-    catalogueFile &&
-    navigator.canShare &&
-    typeof navigator.canShare === "function" &&
-    navigator.canShare({ files: [catalogueFile] })
-  ) {
-    try {
-      await navigator.share({
-        title: "Client Form + Catalogue",
-        text: shareText,
-        url: link,
-        files: [catalogueFile]
-      });
-
-      // Also copy link so you can paste if app hides it
-      try {
-        await navigator.clipboard.writeText(shareText);
-        showMessage("Catalogue shared. Form link copied – paste it in chat if not visible.");
-      } catch (e) {
-        console.warn("Clipboard copy failed", e);
-      }
-
-      return;
-    } catch (e) {
-      console.warn("Share with file failed, falling back to link-only", e);
-      // fall through to link-only share
-    }
-  }
-
-  // 2️⃣ Fallback: share only the link text
-  if (navigator.share) {
-    navigator.share({
-      title: "Client Form",
-      text: shareText,
-      url: link
-    }).catch(() => {});
+  if (shareForm) {
+    // Share Link → share form link only
+    await shareClientFormLink(link);
   } else {
-    navigator.clipboard.writeText(shareText).then(() => {
-      showMessage("Client form link copied!");
-    });
+    // Share PDF → share catalogue PDF only
+    await shareCataloguePdf(link);
   }
 });
-
 
 
 function goBack() {
