@@ -3843,6 +3843,15 @@ function computeRevenueBuckets() {
     const misc =
       Number(inv.miscAmount || 0) || 0;
 
+      const pendingAbs =
+      Number(
+        inv.paymentPendingAbs != null
+          ? inv.paymentPendingAbs
+          : (inv.paymentPendingRaw != null
+              ? Math.max(0, inv.paymentPendingRaw)
+              : 0)
+      ) || 0;
+
     // Partial paid → sum of Final Paid for partial invoices
     if (statusKey === 'partial' && finalPaid > 0) {
       buckets.partial.amount += finalPaid;
@@ -3997,9 +4006,7 @@ function renderRevenueTable(data, selectedKeys) {
 
     anyRow = true;
 
-    const tr = document.createElement('tr');
-
-    let labelHtml = label;
+      let labelHtml = label;
       if (key === 'actualPending') {
         labelHtml = `
           <span class="inline-flex items-center gap-1">
@@ -4013,6 +4020,8 @@ function renderRevenueTable(data, selectedKeys) {
           </span>
         `;
       }
+
+      const tr = document.createElement('tr');
 
     tr.innerHTML = `
       <td class="border border-gray-200 px-2 py-1 whitespace-nowrap">${label}</td>
