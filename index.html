@@ -1953,80 +1953,6 @@ function dataURLToFile(dataUrl, filename) {
   return new File([bytes], filename, { type: mime });
 }
 
-// Share ONLY the client form link (no PDF)
-async function shareClientFormLink(link) {
-  const shareText = `Please fill this form:\n${link}`;
-
-  if (navigator.share) {
-    try {
-      await navigator.share({
-        title: "Client Form",
-        text: shareText,        
-      });
-    } catch (e) {
-      console.warn("Share form link cancelled/failed", e);
-    }
-  } else {
-    await navigator.clipboard.writeText(shareText);
-    showMessage("Client form link copied!", "Link copied");
-  }
-}
-
-// Share ONLY the catalogue PDF (optionally also copy link)
-async function shareCataloguePdf(link) {
-  const catDataUrl = localStorage.getItem("catalogue_pdf_dataurl");
-  const catName    = localStorage.getItem("catalogue_pdf_name") || "Catalogue.pdf";
-
-  if (!catDataUrl) {
-    showMessage(
-      "No catalogue PDF saved.<br><br>Upload it in Settings → App Settings & Layout → Catalogue (PDF).",
-      "No Catalogue PDF"
-    );
-    return;
-  }
-
-  let file;
-  try {
-    file = dataURLToFile(catDataUrl, catName);
-  } catch (e) {
-    console.warn("Failed to build catalogue file", e);
-    showMessage("Could not load catalogue PDF. Please upload it again.", "Error");
-    return;
-  }
-
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({
-        title: "Catalogue",
-        files: [file]
-      });
-
-      // Optional: also copy form link so you can paste if you want
-      try {
-        await navigator.clipboard.writeText(link);
-        showMessage(
-          "Catalogue shared. Form link copied – paste it in WhatsApp if needed.",
-          "Shared"
-        );
-      } catch (e) {
-        console.warn("Clipboard copy failed", e);
-      }
-
-      return;
-    } catch (e) {
-      console.warn("Share catalogue failed", e);
-      showMessage("Sharing the catalogue failed. Please try again.", "Share failed");
-      return;
-    }
-  }
-
-  showMessage(
-    "Your browser doesn't support sharing PDF files from this app. Please open the catalogue manually and share it.",
-    "Not supported"
-  );
-}
-
-
 document.getElementById("clientFormBtn")?.addEventListener("click", async () => {
   const ownerId = getClientReqOwnerId();
 
@@ -2058,16 +1984,16 @@ document.getElementById("clientFormBtn")?.addEventListener("click", async () => 
 
   const wantFormLink = await appConfirm(choiceHtml);
 
-  // ✅ OPTION 1: only share the client form URL
+  // ✅ OPTION 1: only share the client form URL (no PDF)
   if (wantFormLink) {
     const shareText = `Please fill this form:\n${link}`;
 
     if (navigator.share) {
       try {
+        // IMPORTANT: no `url:` here, only text → avoids duplicate URLs on some mobiles
         await navigator.share({
           title: "Client Form",
-          text: shareText,   // includes the link exactly once
-          url: link
+          text: shareText
         });
       } catch (e) {
         console.warn("Share link failed", e);
@@ -2115,11 +2041,22 @@ document.getElementById("clientFormBtn")?.addEventListener("click", async () => 
     navigator.canShare({ files: [catalogueFile] })
   ) {
     try {
+      // IMPORTANT: again, no `url:` to avoid duplicated link on mobile
       await navigator.share({
         title: "Catalogue",
-        text: catText,       // one link inside text
+        text: catText,
         files: [catalogueFile]
       });
+
+      // Optional: also copy form link so you can paste manually if needed
+      try {
+        await navigator.clipboard.writeText(link);
+        // you can comment this toast out if it’s noisy
+        // showMessage("Form link copied – paste in WhatsApp if needed.", "Link copied");
+      } catch (e) {
+        console.warn("Clipboard copy failed", e);
+      }
+
       return;
     } catch (e) {
       console.warn("Share with catalogue failed, falling back", e);
@@ -2145,8 +2082,6 @@ document.getElementById("clientFormBtn")?.addEventListener("click", async () => 
     "Share catalogue manually"
   );
 });
-
-
 
 function goBack() {
   if (navHistory.length === 0) {
