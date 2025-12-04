@@ -2818,7 +2818,7 @@ function openCalendarDatePopup(dateISO){
         <label style="display:flex;align-items:center;gap:8px">
           <input id="${checkboxId}" type="checkbox" class="calendar-book-checkbox" data-eventid="${ev.eventId||''}" ${bookChecked} /> Booked</label>
           </div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;"><button class="py-1 px-2 rounded border text-sm" onclick="openQuotationViewerById('${ev.quotationId}')">View Quotation</button></div>`;
+        <div style="display:flex;gap:8px;justify-content:flex-end;"><button class="py-1 px-2 rounded border text-sm" onclick="openQuotationFromCalendar('${ev.quotationId}')">View Quotation</button></div>`;
       row.appendChild(meta); row.appendChild(controls);
       popup.appendChild(row);
     });
@@ -3277,6 +3277,22 @@ function openCalendarDatePopup(dateISO){
        }
     });
   });
+}
+
+function openQuotationFromCalendar(qId) {
+  // Close/hide the calendar popup first
+  const container = document.getElementById('calendarPopupContainer');
+  if (container) {
+    container.innerHTML = '';
+    container.classList.add('hidden');
+  }
+
+  // Then open the quotation viewer as usual
+  if (typeof openQuotationViewerById === 'function') {
+    openQuotationViewerById(qId);
+  } else {
+    console.warn('openQuotationViewerById not found');
+  }
 }
 
 
