@@ -1961,8 +1961,7 @@ async function shareClientFormLink(link) {
     try {
       await navigator.share({
         title: "Client Form",
-        text: shareText,
-        url: link
+        text: shareText,        
       });
     } catch (e) {
       console.warn("Share form link cancelled/failed", e);
@@ -2119,7 +2118,6 @@ document.getElementById("clientFormBtn")?.addEventListener("click", async () => 
       await navigator.share({
         title: "Catalogue",
         text: catText,       // one link inside text
-        url: link,           // some apps use this
         files: [catalogueFile]
       });
       return;
