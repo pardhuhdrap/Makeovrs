@@ -8258,6 +8258,110 @@ async function refreshClientRequestsUI() {
   }
 }
 
+async function shareClientRequestSnapshot(payload) {
+  try {
+    const bodyEl = document.getElementById('messageBody');
+    if (!bodyEl) {
+      alert('Preview not ready to share.');
+      return;
+    }
+
+    if (typeof html2canvas !== 'function') {
+      alert('Sharing as image is not supported in this browser (html2canvas missing).');
+      return;
+    }
+
+    // Take screenshot of the popup content
+    const canvas = await html2canvas(bodyEl, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      useCORS: true
+    });
+
+    const blob = await new Promise(resolve =>
+      canvas.toBlob(resolve, 'image/png', 0.95)
+    );
+    if (!blob) {
+      alert('Could not create image from client request.');
+      return;
+    }
+
+    const safeName = (payload.clientName || 'Client')
+      .replace(/[^a-z0-9_\-]+/gi, '_');
+    const fileName = `ClientRequest-${safeName}.png`;
+
+    // Try to create a File (for modern browsers)
+    let file = null;
+    try {
+      file = new File([blob], fileName, { type: 'image/png' });
+    } catch (_) {
+      // Older browsers may not support File constructor – we’ll still fall back
+    }
+
+    // Build a helpful text with WA link
+    const textLines = [];
+    textLines.push('Client enquiry details from Makeovrs');
+
+    if (payload.clientName) {
+      textLines.push('Name: ' + payload.clientName);
+    }
+    if (payload.clientContact) {
+      textLines.push('Contact: ' + payload.clientContact);
+
+      // Build WhatsApp deep link based on the contact
+      const raw = String(payload.clientContact || '').trim();
+      const cleaned = raw.replace(/[^\d+]/g, '');
+      let waDigits = cleaned.replace(/[^\d]/g, '');
+      if (waDigits.length === 10) {
+        // Assume Indian number → add 91
+        waDigits = '91' + waDigits;
+      }
+      if (waDigits) {
+        textLines.push('WhatsApp link: https://wa.me/' + waDigits);
+      }
+    }
+
+    const shareText = textLines.join('\n');
+
+    // 1️⃣ Best case: share with image file + text
+    if (
+      file &&
+      navigator.canShare &&
+      navigator.canShare({ files: [file] })
+    ) {
+      await navigator.share({
+        files: [file],
+        title: `Client Request - ${payload.clientName || ''}`,
+        text: shareText
+      });
+      return;
+    }
+
+    // 2️⃣ Second best: share only text, open image in new tab
+    if (navigator.share) {
+      await navigator.share({
+        title: `Client Request - ${payload.clientName || ''}`,
+        text: shareText
+      });
+
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank'); // user can long-press / save / share from here
+      return;
+    }
+
+    // 3️⃣ Fallback: just open image in new tab and instruct user
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    alert(
+      'Your browser does not support direct sharing. ' +
+      'The image is opened in a new tab – long-press and share via WhatsApp.'
+    );
+  } catch (err) {
+    console.error('shareClientRequestSnapshot failed', err);
+    alert('Sharing failed. Please try again.');
+  }
+}
+
 
 // === Mark a client request as imported & move it to System recycle ===
 // === Mark a client request as imported & move it to System recycle ===
@@ -8462,11 +8566,21 @@ function openClientRequestPreview(payload, rowIndex) {
   // Open the standard modal
   showMessage(html, 'Client Request');
 
-  // Hide buttons that are not used here
-  ['messageShareBtn','messagePaidBtn','messageEditBtn']
-    .forEach(id => document.getElementById(id)?.classList.add('hidden'));
+  /// Hide buttons that are not used here (keep Share visible for image sharing)
+['messagePaidBtn','messageEditBtn']
+  .forEach(id => document.getElementById(id)?.classList.add('hidden'));
 
-  // Map footer buttons
+// Configure Share button for client-request image sharing
+const shareBtn = document.getElementById('messageShareBtn');
+if (shareBtn) {
+  shareBtn.classList.remove('hidden');
+  shareBtn.textContent = 'Share';
+  shareBtn.onclick = () => {
+    shareClientRequestSnapshot(payload);
+  };
+}
+
+// Map footer buttons
   const green = document.getElementById('messageGenerateInvoiceBtn'); // Create quotation
   const black = document.getElementById('messageDownloadBtn');        // Delete (Decline)
   const red   = document.getElementById('messageCloseBtn');           // Close
