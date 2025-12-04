@@ -1106,6 +1106,17 @@ header {
   <input
     type="checkbox"
     class="revenueLegendChk h-4 w-4"
+    data-key="actualPending"
+  />
+  <span class="inline-block w-3 h-3 rounded" style="background:#ef4444;"></span>
+  <span>Actual Pending - Pending bill amount of Partial paid & Pending</span>
+</label>
+
+
+<label class="flex items-center gap-2 cursor-pointer">
+  <input
+    type="checkbox"
+    class="revenueLegendChk h-4 w-4"
     data-key="paid"
     
   />
@@ -3756,7 +3767,8 @@ function computeRevenueBuckets() {
     booked:  { label: 'Booked',               amount: 0, count: 0 },
     misc:    { label: 'Miscellaneous',        amount: 0, count: 0 },
     partial: { label: 'Partial paid',         amount: 0, count: 0 },
-    paid:    { label: 'Paid',                 amount: 0, count: 0 }
+    paid:    { label: 'Paid',                 amount: 0, count: 0 },
+    actualPending: { label: 'Actual Pending', amount: 0, count: 0 }
   };
 
   // 1️⃣ Enquiry / Booked from quotation events (same as earlier)
@@ -3848,6 +3860,12 @@ function computeRevenueBuckets() {
       buckets.misc.amount += misc;
       buckets.misc.count  += 1;
     }
+
+    // 🔴 Pending Actual → pending bill amount of Partial + Pending invoices
+      if ((statusKey === 'pending' || statusKey === 'partial') && pendingAbs > 0) {
+        buckets.actualPending.amount += pendingAbs;
+        buckets.actualPending.count  += 1;
+      }
   });
 
   return {
@@ -3876,11 +3894,12 @@ function drawRevenuePie(data, selectedKeys) {
     booked:  '#2563eb', // blue-ish
      misc:    '#a855f7', // violet
     partial: '#f97316', // orange
-    paid:    '#22c55e'  // green
+    paid:    '#22c55e',  // green
+    actualPending: '#ef4444'  // red
   };
 
   const buckets = data && data.buckets ? data.buckets : {};
-  const order   = ['enquiry','booked','misc','partial','paid'];
+  const order   = ['enquiry','booked','misc','partial','paid','actualPending'];
 
   const slices = [];
   let totalValue = 0;
@@ -3964,7 +3983,8 @@ function renderRevenueTable(data, selectedKeys) {
     ['booked',  'Booked'],
     ['misc',    'Miscellaneous'],
     ['partial', 'Partial paid'],
-    ['paid',    'Paid']
+    ['paid',    'Paid'],
+    ['actualPending', 'Actual Pending']
   ];
 
   const buckets = data.buckets || {};
@@ -3978,6 +3998,22 @@ function renderRevenueTable(data, selectedKeys) {
     anyRow = true;
 
     const tr = document.createElement('tr');
+
+    let labelHtml = label;
+      if (key === 'actualPending') {
+        labelHtml = `
+          <span class="inline-flex items-center gap-1">
+            <span>${label}</span>
+            <span
+              class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-red-100 text-red-700 text-[10px] cursor-default"
+              title="Actual Pending = Pending bill amount of Partial paid & Pending invoices."
+            >
+              i
+            </span>
+          </span>
+        `;
+      }
+
     tr.innerHTML = `
       <td class="border border-gray-200 px-2 py-1 whitespace-nowrap">${label}</td>
       <td class="border border-gray-200 px-2 py-1 text-right">${b.count}</td>
@@ -3988,6 +4024,7 @@ function renderRevenueTable(data, selectedKeys) {
 
   if (!anyRow) {
     const tr = document.createElement('tr');
+    
     tr.innerHTML = `
       <td colspan="3" class="border px-2 py-2 text-center text-gray-500 text-xs">
         No events found for this period / filter.
