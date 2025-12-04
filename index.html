@@ -2043,28 +2043,111 @@ document.getElementById("clientFormBtn")?.addEventListener("click", async () => 
   const base = `${location.origin}/Makeovrs/client-form.html`;
   const link = `${base}?ownerId=${encodeURIComponent(ownerId)}`;
 
-  // Ask user what they want to share: Form link or Catalogue
-  const message = `
-    <div style="font-size:14px; line-height:1.4;">
-      <div style="margin-bottom:6px;">What do you want to share?</div>
-      <ul style="font-size:12px; color:#555; padding-left:18px; margin:0;">
-        <li><b>Share Link</b> = Client Form </li>
-        <li><b>Share PDF</b> = Catalogue</li>
+  // Ask: what do you want to share?
+  const choiceHtml = `
+    <div class="text-sm space-y-2">
+      <p>What do you want to share?</p>
+      <ul class="list-disc pl-5">
+        <li><strong>Client Form link only</strong></li>
+        <li><strong>Catalogue PDF + form link in text</strong></li>
       </ul>
+      <p class="text-xs text-gray-500 mt-1">
+        Tap <b>Yes</b> for <b>Client Form link</b>, <b>No</b> for <b>Catalogue</b>.
+      </p>
     </div>
   `;
 
-  // appConfirm returns a promise<boolean>  → true = Yes, false = No
-  const shareForm = await appConfirm(message);
+  const wantFormLink = await appConfirm(choiceHtml);
 
-  if (shareForm) {
-    // Share Link → share form link only
-    await shareClientFormLink(link);
-  } else {
-    // Share PDF → share catalogue PDF only
-    await shareCataloguePdf(link);
+  // ✅ OPTION 1: only share the client form URL
+  if (wantFormLink) {
+    const shareText = `Please fill this form:\n${link}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "Client Form",
+          text: shareText,   // includes the link exactly once
+          url: link
+        });
+      } catch (e) {
+        console.warn("Share link failed", e);
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(shareText);
+        showMessage("Client form link copied!");
+      } catch (e) {
+        showMessage(shareText, "Client Form link");
+      }
+    }
+    return;
   }
+
+  // ✅ OPTION 2: share catalogue PDF + text containing the form link
+  let catalogueFile = null;
+  try {
+    const catDataUrl = localStorage.getItem("catalogue_pdf_dataurl");
+    const catName    = localStorage.getItem("catalogue_pdf_name") || "Catalogue.pdf";
+
+    if (catDataUrl) {
+      catalogueFile = dataURLToFile(catDataUrl, catName);
+    }
+  } catch (e) {
+    console.warn("Failed to read catalogue from storage", e);
+  }
+
+  if (!catalogueFile) {
+    showMessage(
+      "No catalogue is saved yet. Please upload your catalogue PDF in Settings first.",
+      "Catalogue not found"
+    );
+    return;
+  }
+
+  const catText =
+    `Please check my catalogue.\n\n` +
+    `If you wish to proceed, fill this form:\n${link}`;
+
+  // Try Web Share with file + text
+  if (
+    navigator.canShare &&
+    typeof navigator.canShare === "function" &&
+    navigator.canShare({ files: [catalogueFile] })
+  ) {
+    try {
+      await navigator.share({
+        title: "Catalogue",
+        text: catText,       // one link inside text
+        url: link,           // some apps use this
+        files: [catalogueFile]
+      });
+      return;
+    } catch (e) {
+      console.warn("Share with catalogue failed, falling back", e);
+    }
+  }
+
+  // Fallback: cannot attach file → give manual instructions
+  const blobUrl = URL.createObjectURL(catalogueFile);
+  showMessage(
+    `
+      <div class="space-y-2 text-sm">
+        <p>Your browser cannot attach the PDF directly.</p>
+        <p>
+          1) Open this and share/download the catalogue:<br/>
+          <a href="${blobUrl}" target="_blank" style="color:#2563eb;">Open catalogue PDF</a>
+        </p>
+        <p>
+          2) Share this form link separately:<br/>
+          ${link}
+        </p>
+      </div>
+    `,
+    "Share catalogue manually"
+  );
 });
+
 
 
 function goBack() {
