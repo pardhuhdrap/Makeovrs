@@ -6493,6 +6493,14 @@ headSub.textContent = eventDate ? `Event Date: ${eventDate}` : "";
     recalcPaymentPending();
   }
 
+   // 👉 NEW: recalc profit for THIS invoice based on loaded values
+  if (typeof recalcProfit === 'function') {
+    recalcProfit();
+  } else {
+    const profitInput = document.getElementById('paymentProfit');
+    if (profitInput) profitInput.value = '';
+  }
+
   modal.style.display = 'flex';
 }
 
@@ -6937,6 +6945,16 @@ function handlePaymentSave(markCompleted = false) {
     }
   }
   inv.paymentStatus = statusPayment;
+
+  const profitInput = document.getElementById('paymentProfit');
+let profit = 0;
+if (profitInput) {
+  profit = readNum(profitInput); // same helper as others
+} else {
+  profit = finalPaid - miscAmount;
+}
+
+inv.paymentProfit = Number.isFinite(profit) ? Number(profit) : 0;
 
   // Put back & save
   invoices[idx] = inv;
