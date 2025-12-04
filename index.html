@@ -1968,7 +1968,6 @@ document.getElementById("clientFormBtn")?.addEventListener("click", async () => 
   const base = `${location.origin}/Makeovrs/client-form.html`;
   const link = `${base}?ownerId=${encodeURIComponent(ownerId)}`;
 
-  // This text ALWAYS contains the link
   const shareText = `Please fill this form:\n${link}`;
 
   // Try to read saved catalogue from localStorage
@@ -1985,7 +1984,7 @@ document.getElementById("clientFormBtn")?.addEventListener("click", async () => 
     catalogueFile = null;
   }
 
-  // 1️⃣ Best case: share form link + attached PDF
+  // 1️⃣ Best case: share link + attached PDF
   if (
     catalogueFile &&
     navigator.canShare &&
@@ -1995,10 +1994,19 @@ document.getElementById("clientFormBtn")?.addEventListener("click", async () => 
     try {
       await navigator.share({
         title: "Client Form + Catalogue",
-        text: 'https://pardhuhdrap.github.io/Makeovrs/client-form.html?ownerId=pardhuhdrap%40gmail.com',     // link is inside text
-        url: link,           // some apps also use this
+        text: shareText,
+        url: link,
         files: [catalogueFile]
       });
+
+      // Also copy link so you can paste if app hides it
+      try {
+        await navigator.clipboard.writeText(shareText);
+        showMessage("Catalogue shared. Form link copied – paste it in chat if not visible.");
+      } catch (e) {
+        console.warn("Clipboard copy failed", e);
+      }
+
       return;
     } catch (e) {
       console.warn("Share with file failed, falling back to link-only", e);
@@ -2006,7 +2014,7 @@ document.getElementById("clientFormBtn")?.addEventListener("click", async () => 
     }
   }
 
-  // 2️⃣ Fallback: normal share with just the link in text
+  // 2️⃣ Fallback: share only the link text
   if (navigator.share) {
     navigator.share({
       title: "Client Form",
@@ -2019,6 +2027,7 @@ document.getElementById("clientFormBtn")?.addEventListener("click", async () => 
     });
   }
 });
+
 
 
 function goBack() {
