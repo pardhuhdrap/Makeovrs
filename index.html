@@ -2309,7 +2309,11 @@ function updateDashboardUpcomingEvents() {
       // keep only today (0) to next 15 days (15)
       if (diffDays < 0 || diffDays > 15) return;
 
-      const key = d.toISOString().slice(0, 10); // YYYY-MM-DD
+      const yyyy = d.getFullYear();
+      const mm   = String(d.getMonth() + 1).padStart(2, '0');
+      const dd   = String(d.getDate()).padStart(2, '0');
+      const key  = `${yyyy}-${mm}-${dd}`; // YYYY-MM-DD in *local* time
+
       if (!grouped[key]) grouped[key] = [];
       grouped[key].push({
         ...ev,
@@ -2335,11 +2339,11 @@ function updateDashboardUpcomingEvents() {
   `;
 
   datesToShow.forEach(key => {
-    const d = new Date(key);
+    const d = grouped[key][0].dateObj;
     const dateStr = d.toLocaleDateString('en-IN', {
       day: '2-digit',
       month: 'short',
-      year: '2-digit'   // DD Mon 25
+      year: '2-digit'
     });
 
     const eventsForDay = grouped[key].slice().sort((a, b) => {
