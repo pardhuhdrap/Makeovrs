@@ -1932,25 +1932,25 @@ function parseINR(value) {
   return isNaN(n) ? 0 : n;
 }
 
-// Helper: convert dataURL → Blob
-function dataUrlToBlob(dataUrl) {
+// Convert a data: URL (base64) into a File for Web Share
+function dataURLToFile(dataUrl, filename) {
   const parts = dataUrl.split(',');
-  if (parts.length < 2) return null;
+  if (parts.length < 2) throw new Error('Invalid data URL');
 
   const meta = parts[0];
   const base64 = parts[1];
+
   const mimeMatch = meta.match(/data:(.*?);base64/);
-  const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+  const mime = mimeMatch ? mimeMatch[1] : 'application/pdf';
 
   const binary = atob(base64);
   const len = binary.length;
   const bytes = new Uint8Array(len);
-
   for (let i = 0; i < len; i++) {
     bytes[i] = binary.charCodeAt(i);
   }
 
-  return new Blob([bytes], { type: mime });
+  return new File([bytes], filename, { type: mime });
 }
 
 document.getElementById("clientFormBtn")?.addEventListener("click", async () => {
@@ -1968,62 +1968,53 @@ document.getElementById("clientFormBtn")?.addEventListener("click", async () => 
   const base = `${location.origin}/Makeovrs/client-form.html`;
   const link = `${base}?ownerId=${encodeURIComponent(ownerId)}`;
 
-  // 🔹 Try to read saved catalogue PDF
+  // This text ALWAYS contains the link
+  const shareText = `Please fill this form:\n${link}`;
+
+  // Try to read saved catalogue from localStorage
   let catalogueFile = null;
   try {
     const catDataUrl = localStorage.getItem("catalogue_pdf_dataurl");
     const catName    = localStorage.getItem("catalogue_pdf_name") || "Catalogue.pdf";
 
     if (catDataUrl) {
-      const blob = dataUrlToBlob(catDataUrl);
-      if (blob) {
-        // Some browsers require type to be 'application/pdf'
-        const pdfBlob = blob.type === "application/pdf"
-          ? blob
-          : new Blob([blob], { type: "application/pdf" });
-
-        // Try to build a File for Web Share
-        try {
-          catalogueFile = new File([pdfBlob], catName, { type: "application/pdf" });
-        } catch {
-          // Older browsers may not support File; keep as null & we’ll fall back
-          catalogueFile = null;
-        }
-      }
+      catalogueFile = dataURLToFile(catDataUrl, catName);
     }
   } catch (e) {
-    console.warn("Failed to load catalogue PDF from localStorage", e);
+    console.warn("Failed to build catalogue file", e);
+    catalogueFile = null;
   }
 
-  const shareText = `Please fill this form:\n${link}`;
-
-  // 1️⃣ Best case: share link + attached PDF file
+  // 1️⃣ Best case: share form link + attached PDF
   if (
     catalogueFile &&
     navigator.canShare &&
+    typeof navigator.canShare === "function" &&
     navigator.canShare({ files: [catalogueFile] })
   ) {
     try {
       await navigator.share({
         title: "Client Form + Catalogue",
-        text: shareText,
+        text: shareText,     // link is inside text
+        url: link,           // some apps also use this
         files: [catalogueFile]
       });
       return;
     } catch (e) {
-      console.warn("navigator.share with file failed, falling back...", e);
-      // fall through to text-only share
+      console.warn("Share with file failed, falling back to link-only", e);
+      // fall through to link-only share
     }
   }
 
-  // 2️⃣ Fallback: text-only share with link
+  // 2️⃣ Fallback: normal share with just the link in text
   if (navigator.share) {
     navigator.share({
       title: "Client Form",
-      text: shareText
+      text: shareText,
+      url: link
     }).catch(() => {});
   } else {
-    navigator.clipboard.writeText(link).then(() => {
+    navigator.clipboard.writeText(shareText).then(() => {
       showMessage("Client form link copied!");
     });
   }
