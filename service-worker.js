@@ -2,9 +2,9 @@
 
 const CACHE_NAME = 'makeovrs-static-v1';
 const ASSETS_TO_CACHE = [
-  '/manifest.json',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png'
+  'manifest.json',
+  'icons/icon-192.png',
+  'icons/icon-512.png'
 ];
 
 // Install – cache only icons & manifest
