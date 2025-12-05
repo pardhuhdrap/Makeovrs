@@ -8475,15 +8475,16 @@ async function refreshClientRequestsUI() {
       const userList   = loadFromLS(RECYCLE_USER_KEY, [])   || [];
 
       const removedSet = new Set(
-        [...systemList, ...userList]
-          .filter(
-            (entry) =>
-              entry &&
-              entry.type === 'client-request' &&
-              entry.rowIndex != null
-          )
-          .map((entry) => String(entry.rowIndex))
-      );
+      [systemList, userList]
+        .flat()
+        .filter(
+          (entry) =>
+            entry &&
+            (entry.type === 'client-request' || entry.kind === 'client-request') &&
+            entry.rowIndex != null
+        )
+        .map((entry) => String(entry.rowIndex))
+    );
 
       items = items.filter(
         (row) => !removedSet.has(String(row.rowIndex))
