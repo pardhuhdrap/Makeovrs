@@ -10608,26 +10608,22 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', asyn
     ).trim();
     const date = (panel.querySelector('.event-eventDate')?.value || '').trim();
 
-    // package
+    // package (detect by element presence, not a non-existent .event-packageMode)
     let packageName = '';
     let packagePrice = 0;
-    const pkgMode = panel.querySelector('.event-packageMode')?.value || 'master';
-    if (pkgMode === 'master') {
-      const pkgSel = panel.querySelector('.event-packageMaster');
-      if (pkgSel && pkgSel.value) {
-        const opt = pkgSel.selectedOptions[0];
-        packageName = opt ? opt.textContent.split('—')[0].trim() : '';
-        packagePrice = opt && opt.dataset.price
-          ? parseFloat(opt.dataset.price)
-          : 0;
-      }
+    const pkgMasterSel = panel.querySelector('.event-packageMaster');
+    if (pkgMasterSel) {
+      // master package selected UI is present → read its selected option
+      const opt = pkgMasterSel.options[pkgMasterSel.selectedIndex];
+      packageName = opt ? (opt.textContent || '').split('—')[0].trim() : '';
+      packagePrice = opt && opt.dataset && opt.dataset.price
+        ? parseFloat(opt.dataset.price)
+        : 0;
     } else {
-      packageName = (
-        panel.querySelector('.event-packageSelectedManual')?.value || ''
-      ).trim();
-      packagePrice = parseFloat(
-        panel.querySelector('.event-packageManualPrice')?.value || 0
-      );
+      // fallback = manual package inputs
+      packageName = (panel.querySelector('.event-packageSelectedManual')?.value || '').trim();
+      // parseFloat might return NaN if empty — coerce to 0
+      packagePrice = parseFloat(panel.querySelector('.event-packageManualPrice')?.value || 0) || 0;
     }
 
     // --- Add-on details (using display/manual like quotation) ---
