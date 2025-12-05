@@ -10601,61 +10601,85 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', asyn
   }
 
   // Build events from panels — use the same logic as quotation (detect by element presence)
-  const events = panels.map(panel => {
-    const name = (
-      panel.querySelector('.event-eventNameMaster')?.value ||
-      panel.querySelector('.event-eventNameManual')?.value ||
-      ''
-    ).trim();
-    const date = (panel.querySelector('.event-eventDate')?.value || '').trim();
+  // Build events from panels — include time, location and eventId (same as quotation)
+const events = panels.map(panel => {
+  const name = (
+    panel.querySelector('.event-eventNameMaster')?.value ||
+    panel.querySelector('.event-eventNameManual')?.value ||
+    ''
+  ).trim();
+  const date = (panel.querySelector('.event-eventDate')?.value || '').trim();
 
-    // package (detect by element presence, not by a .event-packageMode)
-    let packageName = '';
-    let packagePrice = 0;
-    const pkgMasterSel = panel.querySelector('.event-packageMaster');
-    if (pkgMasterSel) {
-      const opt = pkgMasterSel.options[pkgMasterSel.selectedIndex];
-      packageName = opt ? (opt.textContent || '').split('—')[0].trim() : '';
-      packagePrice = opt && opt.dataset && opt.dataset.price
-        ? parseFloat(opt.dataset.price)
-        : 0;
-    } else {
-      packageName = (panel.querySelector('.event-packageSelectedManual')?.value || '').trim();
-      packagePrice = parseFloat(panel.querySelector('.event-packageManualPrice')?.value || 0) || 0;
-    }
+  // time parts (hour, minute, period)
+  const hour = panel.querySelector('.event-eventHour')?.value ?? '';
+  const minute = panel.querySelector('.event-eventMinute')?.value ?? '';
+  const period = panel.querySelector('.event-eventPeriod')?.value ?? '';
 
-    // --- Add-on details (same as quotation) ---
-    let addonDetails = '';
-    const addonDisplay = panel.querySelector('.event-addon-display');
-    const addonManual  = panel.querySelector('.event-addon-manual');
+  // package (detect by element presence)
+  let packageName = '';
+  let packagePrice = 0;
+  const pkgMasterSel = panel.querySelector('.event-packageMaster');
+  if (pkgMasterSel) {
+    const opt = pkgMasterSel.options[pkgMasterSel.selectedIndex];
+    packageName = opt ? (opt.textContent || '').split('—')[0].trim() : '';
+    packagePrice = opt && opt.dataset && opt.dataset.price
+      ? parseFloat(opt.dataset.price)
+      : 0;
+  } else {
+    packageName = (panel.querySelector('.event-packageSelectedManual')?.value || '').trim();
+    packagePrice = parseFloat(panel.querySelector('.event-packageManualPrice')?.value || 0) || 0;
+  }
 
-    if (
-      addonDisplay &&
-      addonDisplay.textContent &&
-      addonDisplay.textContent.trim() &&
-      !/Enter \(Text\)/i.test(addonDisplay.textContent) &&
-      !/No items selected/i.test(addonDisplay.textContent)
-    ) {
-      addonDetails = addonDisplay.textContent.trim();
-    } else if (addonManual && addonManual.value.trim()) {
-      addonDetails = addonManual.value.trim();
-    }
+  // --- Add-on details (same as quotation) ---
+  let addonDetails = '';
+  const addonDisplay = panel.querySelector('.event-addon-display');
+  const addonManual  = panel.querySelector('.event-addon-manual');
 
-    const addOnPrice = parseFloat(panel.querySelector('.event-addOnPrice')?.value || 0) || 0;
-    const transportPrice = parseFloat(panel.querySelector('.event-transportPrice')?.value || 0) || 0;
-    const notes = (panel.querySelector('.event-notes')?.value || '').trim();
+  if (
+    addonDisplay &&
+    addonDisplay.textContent &&
+    addonDisplay.textContent.trim() &&
+    !/Enter \(Text\)/i.test(addonDisplay.textContent) &&
+    !/No items selected/i.test(addonDisplay.textContent)
+  ) {
+    addonDetails = addonDisplay.textContent.trim();
+  } else if (addonManual && addonManual.value.trim()) {
+    addonDetails = addonManual.value.trim();
+  }
 
-    return {
-      name,
-      date,
-      packageName,
-      packagePrice,
-      addonDetails,
-      addOnPrice,
-      transportPrice,
-      notes
-    };
-  });
+  const addOnPrice = parseFloat(panel.querySelector('.event-addOnPrice')?.value || 0) || 0;
+  const transportRaw = panel.querySelector('.event-transportPrice')?.value;
+  const transportPrice = transportRaw === undefined || transportRaw === null || transportRaw === ''
+    ? NaN
+    : parseFloat(transportRaw);
+
+  const notes = (panel.querySelector('.event-notes')?.value || '').trim();
+
+  // ---- location ----
+  const locationVal = panel.querySelector('.event-eventLocationManual')?.value?.trim() || '';
+
+  // ---- eventId (preserve existing if panel was loaded with one) ----
+  const existingId = panel.dataset.eventId;
+  const eventId = existingId || (typeof uid === 'function' ? uid('ev') : ('ev_' + Date.now()));
+
+  // compose time string exactly like quotation code uses
+  const time = `${hour || ''}:${minute || ''} ${period || ''}`.trim();
+
+  return {
+    eventId,
+    name: name.trim(),
+    date,
+    time,
+    packageName,
+    packagePrice,
+    addonDetails,
+    addOnPrice,
+    transportPrice: isNaN(transportPrice) ? undefined : transportPrice,
+    location: locationVal,
+    notes
+  };
+});
+
 
   // totals
   const actual = events.reduce(
