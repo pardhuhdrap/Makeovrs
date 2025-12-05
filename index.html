@@ -9224,15 +9224,64 @@ function collectEventsFromPanels(){
     let packageName = '';
     let packagePrice = 0;
 
-    if (panel.querySelector('.event-packageMaster')) {
-      const sel = panel.querySelector('.event-packageMaster');
-      const opt = sel && sel.options ? sel.options[sel.selectedIndex] : null;
+    const pkgMasterEl = panel.querySelector('.event-packageMaster');
+    if (pkgMasterEl) {
+      const opt = pkgMasterEl.options[pkgMasterEl.selectedIndex];
       const optText = opt ? (opt.textContent || '') : '';
-      packageName = optText.split('—')[0].trim(); // keep existing em-dash split logic
-      packagePrice = parseFloat(opt?.dataset?.price ?? '0') || 0;
+      packageName = optText.split('—')[0].trim();
+      packagePrice = parseFloat(opt?.dataset?.price ?? (opt?.getAttribute('data-price') ?? '0')) || 0;
     } else {
-      packageName = (panel.querySelector('.event-packageSelectedManual')?.value || '').trim();
-      packagePrice = parseFloat(panel.querySelector('.event-packageManualPrice')?.value ?? '0') || 0;
+      // Try several possible manual selectors (defensive)
+      const manualNameSelectors = [
+        '.event-packageSelectedManual',
+        '.packageManualName',
+        '.package-manual-name',
+        'input[name="packageName"]'
+      ];
+      const manualPriceSelectors = [
+        '.event-packageManualPrice',
+        '.packageManualPrice',
+        '.package-manual-price',
+        'input[name="packagePrice"]'
+      ];
+
+      // find manual name
+      for (const s of manualNameSelectors) {
+        const el = panel.querySelector(s);
+        if (el && (el.value || el.textContent)) {
+          packageName = (el.value || el.textContent || '').trim();
+          break;
+        }
+      }
+
+      // find manual price
+      for (const s of manualPriceSelectors) {
+        const el = panel.querySelector(s);
+        if (el) {
+          // if it's an input, read .value; otherwise try textContent
+          const val = (el.value ?? el.textContent ?? '').toString().trim();
+          if (val !== '') {
+            packagePrice = parseFloat(val.replace(/[^\d.-]/g, '')) || 0;
+            break;
+          }
+        }
+      }
+
+      // If still zero, attempt reading a sibling element (some templates have a different layout)
+      if (!packagePrice) {
+        const alt = panel.querySelector('input[type="number"], input[type="text"]');
+        if (alt && alt !== null) {
+          const val = (alt.value ?? '').toString().trim();
+          if (val) packagePrice = parseFloat(val.replace(/[^\d.-]/g, '')) || 0;
+        }
+      }
+
+      if (!packagePrice && packageName) {
+        console.warn('collectEventsFromPanels: manual package name found but price missing for:', packageName);
+      }
+      if (!packageName && packagePrice) {
+        console.warn('collectEventsFromPanels: manual package price found but name missing (price=' + packagePrice + ')', panel);
+      }
     }
 
     const addOnPrice = parseFloat(panel.querySelector('.event-addOnPrice')?.value ?? '0') || 0;
@@ -9250,6 +9299,7 @@ function collectEventsFromPanels(){
     };
   });
 }
+
 
 
 function updateSummaryUI(){
