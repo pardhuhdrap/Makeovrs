@@ -9216,17 +9216,41 @@ if (nameInput) nameInput.value = name;
 
 function collectEventsFromPanels(){
   const panels = Array.from(document.querySelectorAll('#eventsContainer > .event-panel'));
-  return panels.map(panel=>{
-    const name = panel.querySelector('.event-eventNameMaster')?.value || panel.querySelector('.event-eventNameManual')?.value || '';
-    const date = panel.querySelector('.event-eventDate')?.value || '';
+  return panels.map(panel => {
+    const name = (panel.querySelector('.event-eventNameMaster')?.value || panel.querySelector('.event-eventNameManual')?.value || '').trim();
+    const date = (panel.querySelector('.event-eventDate')?.value || '').trim();
+
+    // package: return BOTH name and price
+    let packageName = '';
     let packagePrice = 0;
-    if(panel.querySelector('.event-packageMaster')){ const sel=panel.querySelector('.event-packageMaster'); const opt = sel && sel.options ? sel.options[sel.selectedIndex] : null; packagePrice = opt && opt.dataset && opt.dataset.price ? parseFloat(opt.dataset.price) : 0; } else packagePrice = parseFloat(panel.querySelector('.event-packageManualPrice')?.value || 0);
-    const addOnPrice = parseFloat(panel.querySelector('.event-addOnPrice')?.value) || 0;
-    const transportPrice = parseFloat(panel.querySelector('.event-transportPrice')?.value) || 0;
-    const notes = panel.querySelector('.event-notes')?.value || '';
-    return { name: name.trim(), date, packagePrice, addOnPrice, transportPrice, notes };
+
+    if (panel.querySelector('.event-packageMaster')) {
+      const sel = panel.querySelector('.event-packageMaster');
+      const opt = sel && sel.options ? sel.options[sel.selectedIndex] : null;
+      const optText = opt ? (opt.textContent || '') : '';
+      packageName = optText.split('—')[0].trim(); // keep existing em-dash split logic
+      packagePrice = parseFloat(opt?.dataset?.price ?? '0') || 0;
+    } else {
+      packageName = (panel.querySelector('.event-packageSelectedManual')?.value || '').trim();
+      packagePrice = parseFloat(panel.querySelector('.event-packageManualPrice')?.value ?? '0') || 0;
+    }
+
+    const addOnPrice = parseFloat(panel.querySelector('.event-addOnPrice')?.value ?? '0') || 0;
+    const transportPrice = parseFloat(panel.querySelector('.event-transportPrice')?.value ?? '0') || 0;
+    const notes = (panel.querySelector('.event-notes')?.value || '').trim();
+
+    return {
+      name,
+      date,
+      packageName,
+      packagePrice,
+      addOnPrice,
+      transportPrice,
+      notes
+    };
   });
 }
+
 
 function updateSummaryUI(){
   const events = collectEventsFromPanels();
@@ -9238,39 +9262,36 @@ function updateSummaryUI(){
 
 // ===== INVOICE SUMMARY HELPERS =====
 function collectInvoiceEventsFromPanels(){
-  const panels = Array.from(
-    document.querySelectorAll('#invoiceEventsContainer > .event-panel')
-  );
+  const panels = Array.from(document.querySelectorAll('#invoiceEventsContainer > .event-panel'));
   return panels.map(panel => {
-    // name/date not needed for total, but keep structure similar
+    // include packageName (master or manual) + price
+    let packageName = '';
     let packagePrice = 0;
 
     const pkgMasterSel = panel.querySelector('.event-packageMaster');
     if (pkgMasterSel) {
       const opt = pkgMasterSel.options[pkgMasterSel.selectedIndex];
-      if (opt && opt.dataset && opt.dataset.price) {
-        packagePrice = parseFloat(opt.dataset.price) || 0;
+      if (opt) {
+        packageName = (opt.textContent || '').split('—')[0].trim();
+        packagePrice = opt.dataset && opt.dataset.price ? parseFloat(opt.dataset.price) : 0;
       }
     } else {
-      packagePrice = parseFloat(
-        panel.querySelector('.event-packageManualPrice')?.value || 0
-      );
+      packageName = (panel.querySelector('.event-packageSelectedManual')?.value || '').trim();
+      packagePrice = parseFloat(panel.querySelector('.event-packageManualPrice')?.value || 0) || 0;
     }
 
-    const addOnPrice = parseFloat(
-      panel.querySelector('.event-addOnPrice')?.value || 0
-    );
-    const transportPrice = parseFloat(
-      panel.querySelector('.event-transportPrice')?.value || 0
-    );
+    const addOnPrice = parseFloat(panel.querySelector('.event-addOnPrice')?.value || 0);
+    const transportPrice = parseFloat(panel.querySelector('.event-transportPrice')?.value || 0);
 
     return {
+      packageName,
       packagePrice,
       addOnPrice,
       transportPrice
     };
   });
 }
+
 
 function updateInvoiceSummaryUI(){
   const events = collectInvoiceEventsFromPanels();
