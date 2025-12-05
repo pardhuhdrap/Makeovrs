@@ -10551,6 +10551,7 @@ document.getElementById('invoiceAddEventBtn')?.addEventListener('click', () => {
 });
 
 // Invoice save button
+// Invoice save button (REPLACEMENT - paste entire handler to replace old one)
 document.getElementById('generateInvoiceButton')?.addEventListener('click', async () => {
   const nameEl    = document.getElementById('invoiceClientNameInput');
   const contactEl = document.getElementById('invoiceClientContactInput');
@@ -10587,7 +10588,7 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', asyn
     return;
   }
 
-   // 🔒 NEW: apply same event restrictions used by the Update button
+  // Apply same event restrictions used by the Update button
   for (const panel of panels) {
     const res = validateEventPanel(panel);
     if (!res.valid) {
@@ -10599,7 +10600,7 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', asyn
     }
   }
 
-  // Build events from panels
+  // Build events from panels — use the same logic as quotation (detect by element presence)
   const events = panels.map(panel => {
     const name = (
       panel.querySelector('.event-eventNameMaster')?.value ||
@@ -10608,25 +10609,22 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', asyn
     ).trim();
     const date = (panel.querySelector('.event-eventDate')?.value || '').trim();
 
-    // package (detect by element presence, not a non-existent .event-packageMode)
+    // package (detect by element presence, not by a .event-packageMode)
     let packageName = '';
     let packagePrice = 0;
     const pkgMasterSel = panel.querySelector('.event-packageMaster');
     if (pkgMasterSel) {
-      // master package selected UI is present → read its selected option
       const opt = pkgMasterSel.options[pkgMasterSel.selectedIndex];
       packageName = opt ? (opt.textContent || '').split('—')[0].trim() : '';
       packagePrice = opt && opt.dataset && opt.dataset.price
         ? parseFloat(opt.dataset.price)
         : 0;
     } else {
-      // fallback = manual package inputs
       packageName = (panel.querySelector('.event-packageSelectedManual')?.value || '').trim();
-      // parseFloat might return NaN if empty — coerce to 0
       packagePrice = parseFloat(panel.querySelector('.event-packageManualPrice')?.value || 0) || 0;
     }
 
-    // --- Add-on details (using display/manual like quotation) ---
+    // --- Add-on details (same as quotation) ---
     let addonDetails = '';
     const addonDisplay = panel.querySelector('.event-addon-display');
     const addonManual  = panel.querySelector('.event-addon-manual');
@@ -10643,22 +10641,16 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', asyn
       addonDetails = addonManual.value.trim();
     }
 
-    const addOnPrice = parseFloat(
-      panel.querySelector('.event-addOnPrice')?.value || 0
-    );
-    const transportPrice = parseFloat(
-      panel.querySelector('.event-transportPrice')?.value || 0
-    );
-    const notes = (
-      panel.querySelector('.event-notes')?.value || ''
-    ).trim();
+    const addOnPrice = parseFloat(panel.querySelector('.event-addOnPrice')?.value || 0) || 0;
+    const transportPrice = parseFloat(panel.querySelector('.event-transportPrice')?.value || 0) || 0;
+    const notes = (panel.querySelector('.event-notes')?.value || '').trim();
 
     return {
       name,
       date,
       packageName,
       packagePrice,
-      addonDetails,   // ✅ now correctly defined and filled
+      addonDetails,
       addOnPrice,
       transportPrice,
       notes
@@ -10682,6 +10674,7 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', asyn
 
   const final = Math.max(0, actual - discount);
 
+  // update summary UI
   if (typeof updateInvoiceSummaryUI === 'function') {
     updateInvoiceSummaryUI();
   }
@@ -10689,133 +10682,70 @@ document.getElementById('generateInvoiceButton')?.addEventListener('click', asyn
   const base = { clientName, clientContact, events, actual, final };
   if (discount > 0) base.discount = Number(discount);
 
-  const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
+  // Save / dedupe logic (keeps parity with quotation flow)
+  const invoices = loadFromLS(SAVED_INVOICES_KEY, []) || [];
 
-  // (Optional) duplicate check – keep if you were using it before
-  const nameKey    = clientName.toLowerCase();
+  // Duplicate check similar to quotation
+  const nameKey = clientName.toLowerCase();
   const contactKey = clientContact.toLowerCase();
   const duplicateInvoice = invoices.find(inv => {
-    const n = (inv.clientName    || '').trim().toLowerCase();
+    const n = (inv.clientName || '').trim().toLowerCase();
     const c = (inv.clientContact || '').trim().toLowerCase();
-    const sameClient = n === nameKey && c === contactKey;
     if (CURRENT_EDIT_INVOICE_ID && (inv.invoiceId || inv.id) === CURRENT_EDIT_INVOICE_ID) {
       return false;
     }
-    return sameClient;
+    return n === nameKey && c === contactKey;
   });
 
   if (duplicateInvoice) {
-    appConfirm(
-      'Duplicate Invoice found for this Client name and Contact.\n\n' +
-      'Do you want to open & edit that Invoice?'
-    ).then(go => {
+    const go = await appConfirm(
+      'Duplicate Invoice found for this Client name and Contact.\n\nDo you want to open & edit that Invoice?'
+    );
     if (go) {
       localStorage.setItem('CURRENT_EDIT_INVOICE', JSON.stringify(duplicateInvoice));
-      navigate('invoice', { skipInit: false });
-    }
-  });
-    return;
-  }
-
-  // ==============================
-  // 🔴 Special handling for VOID invoices
-  // ==============================
-  // When editing an invoice that is currently status: 'void',
-  // ask whether to save as ORIGINAL (valid) or keep it VOID.
-  let forcedStatus   = null;  // 'valid' | 'void' | null
-  let forcedVoidedAt = null;
-
-  if (CURRENT_EDIT_INVOICE_ID) {
-    const editing = invoices.find(inv =>
-      (inv.invoiceId || inv.id) === CURRENT_EDIT_INVOICE_ID
-    );
-
-    if (editing && editing.status === 'void') {
-      const makeValid = await appConfirm(
-        "Invoice marked as MODIFIED.<br>" +
-        "<span style='color:green; font-weight:bold;'>Yes:</span> Mark it as ORIGINAL.<br>" +
-        "<span style='color:red; font-weight:bold;'>No:</span>Keep it as MODIFIED."
-      );
-
-      if (makeValid) {
-        // user wants to validate (will be shown orange as "valid-from-void")
-        forcedStatus   = 'valid';
-        forcedVoidedAt = null;
-      } else {
-        // keep it VOID
-        forcedStatus   = 'void';
-        forcedVoidedAt = editing.voidedAt || new Date().toISOString();
-      }
+      navigate('files', { skipInit: false });
+      return;
     }
   }
 
-  let savedInvoice;
-
+  // Build target invoice object (new or update)
+  let targetInvoice;
+  const nowIso = new Date().toISOString();
   if (CURRENT_EDIT_INVOICE_ID) {
-    const idx = invoices.findIndex(inv =>
-      (inv.invoiceId || inv.id) === CURRENT_EDIT_INVOICE_ID
-    );
-    if (idx !== -1) {
-      const old = invoices[idx];
-
-      // start with old status info
-      let status   = old.status;
-      let voidedAt = old.voidedAt;
-
-      // apply forced choice (only when it was a void invoice we edited)
-      if (forcedStatus === 'valid') {
-        // mark as "validated from void" → will show orange in list
-        status   = 'valid-from-void';
-        voidedAt = undefined;
-      } else if (forcedStatus === 'void') {
-        status   = 'void';
-        voidedAt = forcedVoidedAt || new Date().toISOString();
-      }
-
-      savedInvoice = {
-        ...old,
-        ...base,
-        invoiceId: old.invoiceId || CURRENT_EDIT_INVOICE_ID,
-        createdAt: old.createdAt || new Date().toISOString()
-      };
-
-      // apply status fields
-      if (status !== undefined) savedInvoice.status = status;
-      else delete savedInvoice.status;
-
-      if (voidedAt !== undefined) savedInvoice.voidedAt = voidedAt;
-      else delete savedInvoice.voidedAt;
-
-      invoices[idx] = savedInvoice;
+    // update existing
+    const idx = invoices.findIndex(inv => (inv.invoiceId || inv.id) === String(CURRENT_EDIT_INVOICE_ID));
+    if (idx >= 0) {
+      targetInvoice = Object.assign({}, invoices[idx], base);
+      targetInvoice.updatedAt = nowIso;
+      invoices[idx] = targetInvoice;
     } else {
-      // safety: editing id not found, treat as new
-      savedInvoice = {
-        ...base,
-        invoiceId: 'inv_' + Date.now(),
-        createdAt: new Date().toISOString()
-      };
-      invoices.push(savedInvoice);
+      targetInvoice = Object.assign({ invoiceId: 'inv_' + Date.now(), createdAt: nowIso }, base);
+      invoices.push(targetInvoice);
     }
   } else {
-    // brand-new invoice
-    savedInvoice = {
-      ...base,
-      invoiceId: 'inv_' + Date.now(),
-      createdAt: new Date().toISOString()
-    };
-    invoices.push(savedInvoice);
+    // new invoice
+    targetInvoice = Object.assign({ invoiceId: 'inv_' + Date.now(), createdAt: nowIso }, base);
+    invoices.push(targetInvoice);
   }
 
   saveToLS(SAVED_INVOICES_KEY, invoices);
-  CURRENT_EDIT_INVOICE_ID = null;
-  showMessage('Invoice saved to Files → Invoices', 'Saved');
-  switchFilesTab('invoices');
-  renderFilesList();
 
-  // 🔁 Auto-save to Drive (if signed in)
-  if (typeof autoSaveDrive === 'function') {
-    autoSaveDrive('invoice saved from invoice screen');
-  }
+  // Set current viewed context
+  window.CURRENT_VIEWED_INVOICE = {
+    id: targetInvoice.invoiceId || targetInvoice.id,
+    actual,
+    discount,
+    final,
+    invoice: targetInvoice
+  };
+
+  renderFilesList();
+  if (typeof autoSaveDrive === 'function') autoSaveDrive('invoice saved from invoice screen');
+
+  showMessage('Invoice saved.', 'Invoice');
+
+  // optional: navigate to files list or open the saved invoice view
+    navigate('files'); // uncomment if you want to jump to Files
 });
 
 
