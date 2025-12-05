@@ -2152,17 +2152,6 @@ function migrateEventIds(){
     }
   });
   if(changed) saveToLS(SAVED_QUOTATIONS_KEY, all);
-
-  // 🔄 Refresh calendar immediately so event-date changes reflect
-  try {
-    if (typeof renderCalendar === 'function') renderCalendar();
-    if (typeof updateDashboardUpcomingEvents === 'function') updateDashboardUpcomingEvents();
-  } catch (e) {
-    console.warn('Calendar refresh after quotation save failed:', e);
-  }
-
-  // Optional Drive auto-save
-  try { scheduleAutoSave && scheduleAutoSave('quotation saved'); } catch(e){}
 }
 
 
@@ -3756,6 +3745,17 @@ try {
 
     // persist quotations
     saveToLS(SAVED_QUOTATIONS_KEY, existing);
+
+    // refresh calendar & dashboard immediately
+try {
+  if (typeof renderCalendar === 'function') renderCalendar();
+  if (typeof updateDashboardUpcomingEvents === 'function') updateDashboardUpcomingEvents();
+} catch (e) {
+  console.warn('Calendar refresh failed after quotation save:', e);
+}
+
+// optional: schedule Drive auto-save
+try { scheduleAutoSave && scheduleAutoSave('quotation saved'); } catch(e){}
 
     // ensure no booking entries for events we just saved (they are enquiries)
     const bookings = loadFromLS(BOOKED_EVENTS_KEY, {});
