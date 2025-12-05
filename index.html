@@ -7901,6 +7901,12 @@ function createEventPanel(prefill = {}) {
   `;
   cont.appendChild(panel);
 
+  const modeHidden = document.createElement('input');
+  modeHidden.type = 'hidden';
+  modeHidden.className = 'event-packageMode';
+  modeHidden.value = 'master'; // default to master until user toggles
+  panel.appendChild(modeHidden);
+
   // Apply A–Z + auto-capitalize rules on manual text fields
   attachAlphaOnlyCapitalize(panel.querySelector('.event-eventNameManual'));
   attachAlphaOnlyCapitalize(panel.querySelector('.event-eventLocationManual'));
@@ -7954,53 +7960,68 @@ function createEventPanel(prefill = {}) {
   });
 
   panel.querySelector('.eventFetchPackage')?.addEventListener('change', (ev) => {
-    const area = panel.querySelector('.event-package-area');
-    if (ev.target.checked) {
-      const wrapper = document.createElement('div');
-      wrapper.innerHTML = `
-        <select class="event-packageMaster block w-full border-gray-300 rounded p-2 text-sm">
-          <option value="">-- Select Package --</option>
-        </select>
-        <input type="number" step="1000"
-               class="event-packagePrice block w-full border-gray-300 rounded p-2 text-sm mt-2"
-               readonly value="0.00" />
-      `;
-      area.innerHTML = '';
-      area.appendChild(wrapper);
-      const sel = panel.querySelector('.event-packageMaster');
-      masterPackages.forEach((p) => {
-        const opt = document.createElement('option');
-        opt.value = p.id;
-        opt.textContent = `${p.name} — ₹${p.price}`;
-        opt.dataset.price = p.price;
-        sel.appendChild(opt);
-      });
-      sel.onchange = () => {
-        const opt = sel.options[sel.selectedIndex];
-        const price =
-          opt && opt.dataset ? parseFloat(opt.dataset.price) || 0 : 0;
-        const priceInp = panel.querySelector('.event-packagePrice');
-        if (priceInp) priceInp.value = price;
-        updateSummaryUI();
-        if (typeof updateInvoiceSummaryUI === 'function') {
-          updateInvoiceSummaryUI();
-        }
-      };
-    } else {
-      area.innerHTML = `
-        <input type="text"
-               class="event-packageSelectedManual block w-full border-gray-300 rounded p-2 text-sm"
-               placeholder="Manually enter package name" />
-        <input type="number" step="1000"
-               class="event-packageManualPrice block w-full border-gray-300 rounded p-2 text-sm mt-2"
-               placeholder="Manual price (₹)" value="0.00" />
-      `;
-       attachAlphaOnlyCapitalize(area.querySelector(".event-packageSelectedManual"));
-      panel
-        .querySelector('.event-packageManualPrice')
-        ?.addEventListener('input', updateSummaryUI);
-    }
-  });
+  const area = panel.querySelector('.event-package-area');
+
+  // Ensure the hidden mode input exists
+  let modeInput = panel.querySelector('.event-packageMode');
+  if (!modeInput) {
+    modeInput = document.createElement('input');
+    modeInput.type = 'hidden';
+    modeInput.className = 'event-packageMode';
+    modeInput.value = 'master';
+    panel.appendChild(modeInput);
+  }
+
+  if (ev.target.checked) {
+    // MASTER mode
+    modeInput.value = 'master';
+
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `
+      <select class="event-packageMaster block w-full border-gray-300 rounded p-2 text-sm">
+        <option value="">-- Select Package --</option>
+      </select>
+      <input type="number" step="1000"
+             class="event-packagePrice block w-full border-gray-300 rounded p-2 text-sm mt-2"
+             readonly value="0.00" />
+    `;
+    area.innerHTML = '';
+    area.appendChild(wrapper);
+    const sel = panel.querySelector('.event-packageMaster');
+    masterPackages.forEach((p) => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `${p.name} — ₹${p.price}`;
+      opt.dataset.price = p.price;
+      sel.appendChild(opt);
+    });
+    sel.onchange = () => {
+      const opt = sel.options[sel.selectedIndex];
+      const price = opt && opt.dataset ? parseFloat(opt.dataset.price) || 0 : 0;
+      const priceInp = panel.querySelector('.event-packagePrice');
+      if (priceInp) priceInp.value = price;
+      updateSummaryUI();
+      if (typeof updateInvoiceSummaryUI === 'function') {
+        updateInvoiceSummaryUI();
+      }
+    };
+
+  } else {
+    // MANUAL mode
+    modeInput.value = 'manual';
+    area.innerHTML = `
+      <input type="text"
+             class="event-packageSelectedManual block w-full border-gray-300 rounded p-2 text-sm"
+             placeholder="Manually enter package name" />
+      <input type="number" step="1000"
+             class="event-packageManualPrice block w-full border-gray-300 rounded p-2 text-sm mt-2"
+             placeholder="Manual price (₹)" value="0.00" />
+    `;
+    attachAlphaOnlyCapitalize(area.querySelector(".event-packageSelectedManual"));
+    panel.querySelector('.event-packageManualPrice')?.addEventListener('input', updateSummaryUI);
+  }
+});
+
 
   // addons toggle
   panel.querySelector('.eventFetchAddOn')?.addEventListener('change', (ev) => {
