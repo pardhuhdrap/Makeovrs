@@ -1706,6 +1706,12 @@ header {
 
 <!-- Inserted settings-related script blocks from New.html -->
 <script>
+
+// ARCHIVE WebApp config - replace with your real values
+const ARCHIVE_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbymTSXTaQyIB1_b9nP8Cp5pRb3KEEQsQ9MBaDTqaoRWUhL-jeth4MGlbhdPBV6a1S-r/exec';
+const ARCHIVE_SECRET_TOKEN = 'd93KsL0pqA72nMx1FbZ82PpR91';
+
+
 /* -------------------------
    Helpers & storage keys
    ------------------------- */
@@ -2111,6 +2117,53 @@ const MASTER_DEFAULT_RATE_KEY = 'master_default_rate';
 function uid(prefix='id'){ return prefix + '_' + Date.now() + '_' + Math.floor(Math.random()*9000); }
 function loadFromLS(k, fallback){ try{ const v = localStorage.getItem(k); if(!v) return fallback; return JSON.parse(v); }catch(e){ return fallback; } }
 function saveToLS(k, v){ localStorage.setItem(k, JSON.stringify(v)); }
+
+// Archive helper: archive a sheet row with ownerId check
+async function archiveSheetRow({ webappUrl, secretToken, rowIndex, ownerId }) {
+  if (!webappUrl || !secretToken) {
+    console.warn('archiveSheetRow: missing webappUrl or secretToken');
+    return { ok:false, message:'missing config' };
+  }
+  if (!rowIndex || !ownerId) {
+    console.warn('archiveSheetRow: missing rowIndex or ownerId', { rowIndex, ownerId });
+    return { ok:false, message:'missing rowIndex or ownerId' };
+  }
+
+  if (!confirm('This will archive this request in Google Sheets (archive copy kept). Proceed?')) {
+    return { ok:false, message:'cancelled' };
+  }
+
+  try {
+    const res = await fetch(webappUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: secretToken, rowIndex: Number(rowIndex), ownerId: String(ownerId) })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      console.error('Archive failed', data);
+      alert('Archive failed: ' + (data && data.message ? data.message : 'Unknown'));
+      return { ok:false, data };
+    }
+
+    // on success, refresh client-requests UI (best-effort)
+    try {
+      if (typeof refreshClientRequestsUI === 'function') refreshClientRequestsUI();
+      else if (typeof fetchAndRenderClientRequests === 'function') fetchAndRenderClientRequests();
+      else if (typeof renderFilesList === 'function') renderFilesList();
+    } catch (e) {
+      console.warn('archive: UI refresh failed', e);
+    }
+
+    return { ok:true, data };
+  } catch (err) {
+    console.error('Archive request error', err);
+    alert('Archive request failed: ' + String(err));
+    return { ok:false, message:String(err) };
+  }
+}
+
 
 // === Auto-save to Google Drive (simple debounce) ===
 let autoSaveDriveTimer = null;
@@ -3745,6 +3798,50 @@ try {
 
     // persist quotations
     saveToLS(SAVED_QUOTATIONS_KEY, existing);
+
+// ----------------- START: archive original sheet row (AUTO) -----------------
+try {
+  const inferredRowIndex =
+    (typeof clientReq !== 'undefined' && clientReq?.rowIndex) ||
+    (typeof req !== 'undefined' && req?.rowIndex) ||
+    (typeof row !== 'undefined' && row?.rowIndex) ||
+    (typeof importedRow !== 'undefined' && importedRow?.rowIndex) ||
+    (typeof panel !== 'undefined' && panel?.dataset && panel.dataset.rowIndex) ||
+    (typeof savedQuotation !== 'undefined' && savedQuotation?.rowIndex) ||
+    null;
+
+  const inferredOwnerId =
+    (typeof clientReq !== 'undefined' && (clientReq?.ownerId || clientReq?.owner)) ||
+    (typeof req !== 'undefined' && (req?.ownerId || req?.owner)) ||
+    (typeof row !== 'undefined' && (row?.ownerId || row?.owner)) ||
+    (typeof importedRow !== 'undefined' && (importedRow?.ownerId || importedRow?.owner)) ||
+    (typeof panel !== 'undefined' && panel?.dataset && panel.dataset.ownerId) ||
+    (typeof savedQuotation !== 'undefined' && (savedQuotation?.ownerId || savedQuotation?.owner)) ||
+    null;
+
+  if (inferredRowIndex && inferredOwnerId) {
+    archiveSheetRow({
+      webappUrl: ARCHIVE_WEBAPP_URL,
+      secretToken: ARCHIVE_SECRET_TOKEN,
+      rowIndex: Number(inferredRowIndex),
+      ownerId: String(inferredOwnerId)
+    })
+    .then(() => {
+      // optional: console.log('archived');
+    })
+.catch(e => {
+  console.warn('archive attempt failed', e);
+});
+  }
+} catch (e) {
+  console.warn('archive attempt failed', e);
+}
+// ------------------ END: archive original sheet row (AUTO) ------------------
+
+// (your original code continues here…)
+showMessage("Quotation saved");
+renderFilesList();
+
 
     // refresh calendar & dashboard immediately
 try {
@@ -8475,16 +8572,15 @@ async function refreshClientRequestsUI() {
       const userList   = loadFromLS(RECYCLE_USER_KEY, [])   || [];
 
       const removedSet = new Set(
-      [systemList, userList]
-        .flat()
-        .filter(
-          (entry) =>
-            entry &&
-            (entry.type === 'client-request' || entry.kind === 'client-request') &&
-            entry.rowIndex != null
-        )
-        .map((entry) => String(entry.rowIndex))
-    );
+        [...systemList, ...userList]
+          .filter(
+            (entry) =>
+              entry &&
+              entry.type === 'client-request' &&
+              entry.rowIndex != null
+          )
+          .map((entry) => String(entry.rowIndex))
+      );
 
       items = items.filter(
         (row) => !removedSet.has(String(row.rowIndex))
