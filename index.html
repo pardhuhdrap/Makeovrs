@@ -2152,6 +2152,17 @@ function migrateEventIds(){
     }
   });
   if(changed) saveToLS(SAVED_QUOTATIONS_KEY, all);
+
+  // 🔄 Refresh calendar immediately so event-date changes reflect
+  try {
+    if (typeof renderCalendar === 'function') renderCalendar();
+    if (typeof updateDashboardUpcomingEvents === 'function') updateDashboardUpcomingEvents();
+  } catch (e) {
+    console.warn('Calendar refresh after quotation save failed:', e);
+  }
+
+  // Optional Drive auto-save
+  try { scheduleAutoSave && scheduleAutoSave('quotation saved'); } catch(e){}
 }
 
 
