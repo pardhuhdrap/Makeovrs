@@ -8813,8 +8813,8 @@ async function markClientRequestImported(ctx) {
         rowIndex: Number(rowIdx),
         ownerId: String(owner || getClientReqOwnerId() || '')
       })
-      .then(r => console.debug('archive (from markClientRequestImported):', r && r.data ? r.data : r))
-      .catch(err => console.warn('archive (from markClientRequestImported) failed', err));
+      .then(r => console.debug('archive (from markClientRequestImported):', r))
+.catch(err => console.warn('archive (from markClientRequestImported) failed', err));
     } else {
       console.warn('archive (from markClientRequestImported): missing rowIdx, skipping');
     }
