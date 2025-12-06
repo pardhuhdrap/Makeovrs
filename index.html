@@ -3799,54 +3799,6 @@ try {
     // persist quotations
     saveToLS(SAVED_QUOTATIONS_KEY, existing);
 
-// ----------------- START: robust archive original sheet row (AUTO) -----------------
-try {
-  // prefer explicit modal context if present
-  const ctx = (typeof window !== 'undefined' && window.CURRENT_CLIENT_REQ_CTX) ? window.CURRENT_CLIENT_REQ_CTX : null;
-  // savedQuotation.original may hold original request data in some flows
-  const savedOrig = (typeof savedQuotation !== 'undefined' && savedQuotation && savedQuotation.original) ? savedQuotation.original : null;
-
-  const inferredRowIndex =
-    (ctx && ctx.rowIndex) ||
-    (savedOrig && savedOrig.rowIndex) ||
-    (typeof savedQuotation !== 'undefined' && savedQuotation && (savedQuotation.rowIndex || savedQuotation.originalRowIndex)) ||
-    (typeof clientReq !== 'undefined' && clientReq && clientReq.rowIndex) ||
-    (typeof req !== 'undefined' && req && req.rowIndex) ||
-    (typeof row !== 'undefined' && row && row.rowIndex) ||
-    null;
-
-  const inferredOwnerId =
-    (ctx && (ctx.ownerId || ctx.owner)) ||
-    (savedOrig && (savedOrig.ownerId || savedOrig.owner)) ||
-    (typeof savedQuotation !== 'undefined' && savedQuotation && (savedQuotation.ownerId || savedQuotation.owner)) ||
-    (typeof clientReq !== 'undefined' && (clientReq.ownerId || clientReq.owner)) ||
-    (typeof req !== 'undefined' && (req.ownerId || req.owner)) ||
-    (typeof row !== 'undefined' && (row.ownerId || row.owner)) ||
-    getClientReqOwnerId() ||
-    null;
-
-  console.debug('archive: inferredRowIndex, inferredOwnerId =', inferredRowIndex, inferredOwnerId);
-
-  if (!inferredRowIndex || !inferredOwnerId) {
-    console.warn('archive: missing rowIndex or ownerId; skipping archive', { inferredRowIndex, inferredOwnerId, ctx, savedOrig, savedQuotation });
-  } else if (!ARCHIVE_WEBAPP_URL || !ARCHIVE_SECRET_TOKEN) {
-    console.warn('archive: ARCHIVE_WEBAPP_URL or ARCHIVE_SECRET_TOKEN not configured', { ARCHIVE_WEBAPP_URL, ARCHIVE_SECRET_TOKEN: typeof ARCHIVE_SECRET_TOKEN !== 'undefined' });
-  } else {
-    // call archive helper (non-await style so it works in non-async functions)
-    archiveSheetRow({
-      webappUrl: ARCHIVE_WEBAPP_URL,
-      secretToken: ARCHIVE_SECRET_TOKEN,
-      rowIndex: Number(inferredRowIndex),
-      ownerId: String(inferredOwnerId)
-    })
-    .then(res => { console.debug('archive: result', res && res.data ? res.data : res); })
-    .catch(e => { console.warn('archive attempt failed', e); });
-  }
-} catch (e) {
-  console.warn('archive attempt failed', e);
-}
-// ------------------ END: robust archive original sheet row (AUTO) ------------------
-
 
 // (your original code continues here…)
 showMessage("Quotation saved");
