@@ -2129,7 +2129,22 @@ async function archiveSheetRow({ webappUrl, secretToken, rowIndex, ownerId }) {
     return { ok:false, message:'missing rowIndex or ownerId' };
   }
 
-  if (!confirm('This will archive this request in Google Sheets (archive copy kept). Proceed?')) {
+    // Use appConfirm if available (integrates with app's custom modal)
+  let userConfirmed = false;
+  try {
+    if (typeof appConfirm === 'function') {
+      // appConfirm usually returns a Promise<boolean>
+      userConfirmed = await appConfirm('This will archive this request in Google Sheets (archive copy kept). Proceed?');
+    } else {
+      // fallback to native confirm if appConfirm not found
+      userConfirmed = confirm('This will archive this request in Google Sheets (archive copy kept). Proceed?');
+    }
+  } catch (e) {
+    console.warn('appConfirm failed, falling back to native confirm', e);
+    userConfirmed = confirm('This will archive this request in Google Sheets (archive copy kept). Proceed?');
+  }
+
+  if (!userConfirmed) {
     return { ok:false, message:'cancelled' };
   }
 
