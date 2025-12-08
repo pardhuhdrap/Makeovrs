@@ -1957,6 +1957,85 @@ function parseINR(value) {
   return isNaN(n) ? 0 : n;
 }
 
+// === INR helpers for manual price inputs (Package / AddOn / Transport) ===
+function formatINRInput(inputEl) {
+  if (!inputEl) return;
+
+  const raw = inputEl.value;
+  if (raw == null || raw === '') {
+    inputEl.value = '';
+    return;
+  }
+
+  const num = parseINR(raw);
+  if (!num) {
+    inputEl.value = '';
+    return;
+  }
+
+  inputEl.value = num.toLocaleString('en-IN', {
+    maximumFractionDigits: 0
+  });
+}
+
+function attachINRFormatters(panel) {
+  if (!panel) return;
+
+  const hook = (selector) => {
+    const inp = panel.querySelector(selector);
+    if (!inp) return;
+
+    // Make sure browser allows commas
+    try {
+      if (inp.type === 'number') {
+        inp.type = 'text';
+        inp.setAttribute('inputmode', 'numeric');
+      }
+    } catch (e) {}
+
+    inp.addEventListener('input', () => {
+      const prev = inp.value;
+      const num = parseINR(prev);
+
+      if (prev === '') {
+        if (typeof updateSummaryUI === 'function') updateSummaryUI();
+        if (typeof updateInvoiceSummaryUI === 'function') updateInvoiceSummaryUI();
+        return;
+      }
+
+      // Format as 10,000 style
+      const formatted = num.toLocaleString('en-IN', {
+        maximumFractionDigits: 0
+      });
+      inp.value = formatted;
+
+      // Put cursor at end (simple + safe behaviour)
+      try {
+        inp.setSelectionRange(inp.value.length, inp.value.length);
+      } catch (e) {}
+
+      if (typeof updateSummaryUI === 'function') updateSummaryUI();
+      if (typeof updateInvoiceSummaryUI === 'function') updateInvoiceSummaryUI();
+    });
+
+    // Initial format if there is already a value
+    if (inp.value) {
+      formatINRInput(inp);
+    }
+  };
+
+  hook('.event-packageManualPrice');
+  hook('.event-addOnPrice');
+  hook('.event-transportPrice');
+}
+
+// Safe reader for "10,000" / "₹ 10,000" → 10000
+function readINRValue(inputEl) {
+  if (!inputEl) return 0;
+  return parseINR(inputEl.value);
+}
+
+
 // Convert a data: URL (base64) into a File for Web Share
 function dataURLToFile(dataUrl, filename) {
   const parts = dataUrl.split(',');
@@ -7943,7 +8022,7 @@ function createEventPanel(prefill = {}) {
                  placeholder="Manually enter destination" />
         </div>
         <label class="text-xs text-gray-700">Transport Price (₹)</label>
-        <input type="number" step="100"
+        <input type="text" inputmode="numeric"  step="100"
                class="event-transportPrice block w-full border-gray-300 rounded p-2 text-sm"
                value="0.00" />
       </div>
@@ -7989,7 +8068,7 @@ function createEventPanel(prefill = {}) {
           <pre class="event-addon-display mt-2 p-2 bg-gray-50 rounded text-sm text-gray-700 min-h-[3rem]"></pre>
         </div>
         <label class="text-xs text-gray-700 mt-2">AddOn Price (₹)</label>
-        <input type="number" step="100"
+        <input type="text" step="100" inputmode="numeric"
                class="event-addOnPrice block w-full border-gray-300 rounded p-2 text-sm"
                value="0.00" />
       </div>
@@ -8125,9 +8204,10 @@ function createEventPanel(prefill = {}) {
       <input type="text"
              class="event-packageSelectedManual block w-full border-gray-300 rounded p-2 text-sm"
              placeholder="Manually enter package name" />
-      <input type="number" step="1000"
+      <input type="text"
+             inputmode="numeric"
              class="event-packageManualPrice block w-full border-gray-300 rounded p-2 text-sm mt-2"
-             placeholder="Manual price (₹)" value="0.00" />
+             placeholder="Manual price (₹)" value="0" />
     `;
     attachAlphaOnlyCapitalize(area.querySelector(".event-packageSelectedManual"));
     panel.querySelector('.event-packageManualPrice')?.addEventListener('input', updateSummaryUI);
