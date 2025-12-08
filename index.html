@@ -778,7 +778,7 @@ header {
               <input id="quotationDiscount" type="number" min="0" step="500" value="0" class="mt-1 block border-gray-300 rounded p-2 text-sm" style="width:140px">
             </div>
           </div>
-           </div>
+          <div class="summary-row"><span>Final Price</span><strong id="summaryFinal">₹0.00</strong></div>
         </div>
 
         <div>
@@ -1941,61 +1941,11 @@ function formatINR(num) {
   if (num === null || num === undefined || num === '') return '';
   const n = parseFloat(num);
   if (isNaN(n)) return num;
-  return n.toLocaleString('en-IN', {
+  return '₹' + n.toLocaleString('en-IN', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0
   });
 }
-
-function formatINRInput(input) {
-  if (!input) return;
-  let raw = (input.value || '').replace(/,/g, '').trim();
-
-  if (raw === '' || isNaN(raw)) {
-    // if empty or not a number, just keep cleaned value
-    input.value = raw;
-    return;
-  }
-
-  input.value = Number(raw).toLocaleString('en-IN', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-  });
-}
-
-function attachINRFormatters(panel) {
-  if (!panel) return;
-
-  const selectors = [
-    '.event-packagePrice',
-    '.event-packageManualPrice',
-    '.event-addOnPrice',
-    '.event-transportPrice'
-  ];
-
-  selectors.forEach((sel) => {
-    const input = panel.querySelector(sel);
-    if (!input) return;
-
-    // On focus: remove commas for easy typing
-    input.addEventListener('focus', () => {
-      input.value = (input.value || '').replace(/,/g, '');
-    });
-
-    // On blur: apply 10,000 style + refresh totals
-    input.addEventListener('blur', () => {
-      formatINRInput(input);
-      if (typeof updateSummaryUI === 'function') {
-        updateSummaryUI();
-      }
-      if (typeof updateInvoiceSummaryUI === 'function') {
-        updateInvoiceSummaryUI();
-      }
-    });
-  });
-}
-
-
 
 // Helper to safely read numbers even if they have ₹ or commas
 function parseINR(value) {
@@ -7994,7 +7944,7 @@ function createEventPanel(prefill = {}) {
         <label class="text-xs text-gray-700">Transport Price (₹)</label>
         <input type="number" step="100"
                class="event-transportPrice block w-full border-gray-300 rounded p-2 text-sm"
-               value="0" />
+               value="0.00" />
       </div>
 
       <div class="mb-3">
@@ -8010,7 +7960,7 @@ function createEventPanel(prefill = {}) {
                  placeholder="Manually enter package name" />
           <input type="number" step="1000"
                  class="event-packageManualPrice block w-full border-gray-300 rounded p-2 text-sm mt-2"
-                 placeholder="Manual price (₹)" value="0" />
+                 placeholder="Manual price (₹)" value="0.00" />
         </div>
       </div>
 
@@ -8040,7 +7990,7 @@ function createEventPanel(prefill = {}) {
         <label class="text-xs text-gray-700 mt-2">AddOn Price (₹)</label>
         <input type="number" step="100"
                class="event-addOnPrice block w-full border-gray-300 rounded p-2 text-sm"
-               value="0" />
+               value="0.00" />
       </div>
 
       <div class="mb-3">
@@ -8061,8 +8011,6 @@ function createEventPanel(prefill = {}) {
     </div>
   `;
   cont.appendChild(panel);
-
-   attachINRFormatters(panel);
 
   const modeHidden = document.createElement('input');
   modeHidden.type = 'hidden';
@@ -8146,7 +8094,7 @@ function createEventPanel(prefill = {}) {
       </select>
       <input type="number" step="1000"
              class="event-packagePrice block w-full border-gray-300 rounded p-2 text-sm mt-2"
-             readonly value="0" />
+             readonly value="0.00" />
     `;
     area.innerHTML = '';
     area.appendChild(wrapper);
@@ -8178,14 +8126,10 @@ function createEventPanel(prefill = {}) {
              placeholder="Manually enter package name" />
       <input type="number" step="1000"
              class="event-packageManualPrice block w-full border-gray-300 rounded p-2 text-sm mt-2"
-             placeholder="Manual price (₹)" value="0" />
+             placeholder="Manual price (₹)" value="0.00" />
     `;
-    attachAlphaOnlyCapitalize(
-      area.querySelector(".event-packageSelectedManual")
-    );
-
-    // make sure the new manual price also has INR commas
-    attachINRFormatters(panel);
+    attachAlphaOnlyCapitalize(area.querySelector(".event-packageSelectedManual"));
+    panel.querySelector('.event-packageManualPrice')?.addEventListener('input', updateSummaryUI);
   }
 });
 
@@ -8416,17 +8360,6 @@ if (typeof attachAlphaOnlyCapitalize === 'function' && manualLoc) {
   } else {
     panel.dataset.dirty = 'true';
   }
-
-   // Format price fields once initially so 10000 → 10,000
-  ['.event-packagePrice',
-   '.event-packageManualPrice',
-   '.event-addOnPrice',
-   '.event-transportPrice'
-  ].forEach((sel) => {
-    const input = panel.querySelector(sel);
-    if (input) formatINRInput(input);
-  });
-
   recomputeAddEventState();
 
   updateSummaryUI();
@@ -9644,27 +9577,13 @@ function collectEventsFromPanels(){
 
 
 
-function updateSummaryUI() {
+function updateSummaryUI(){
   const events = collectEventsFromPanels();
-  const actual = events.reduce(
-    (s, e) =>
-      s +
-      Number(e.packagePrice || 0) +
-      Number(e.addOnPrice || 0) +
-      Number(e.transportPrice || 0),
-    0
-  );
-
-  const discountInput = document.getElementById('quotationDiscount');
-  let discount = parseFloat(discountInput?.value) || 0;
-  if (discount < 0) discount = 0;
-
+  const actual = events.reduce((s,e)=> s + Number(e.packagePrice||0) + Number(e.addOnPrice||0) + Number(e.transportPrice||0), 0);
+  const discountInput = document.getElementById('quotationDiscount'); let discount = parseFloat(discountInput?.value) || 0; if(discount < 0) discount = 0;
   const finalPrice = Math.max(0, actual - discount);
-
-  document.getElementById('summaryActual').textContent = formatINR(actual);
-  document.getElementById('summaryFinal').textContent = formatINR(finalPrice);
-}
-
+  document.getElementById('summaryActual').textContent = `₹${actual}`; document.getElementById('summaryFinal').textContent = `₹${finalPrice}`;
+}   // <-- keep this
 
 // ===== INVOICE SUMMARY HELPERS =====
 function collectInvoiceEventsFromPanels(){
@@ -9698,6 +9617,25 @@ function collectInvoiceEventsFromPanels(){
   });
 }
 
+
+function updateInvoiceSummaryUI(){
+  const events = collectInvoiceEventsFromPanels();
+  const actual = events.reduce(
+    (s,e)=> s + Number(e.packagePrice||0) + Number(e.addOnPrice||0) + Number(e.transportPrice||0),
+    0
+  );
+
+  let discount = parseFloat(document.getElementById('invoiceDiscount')?.value || 0);
+  if (isNaN(discount) || discount < 0) discount = 0;
+
+  const final = Math.max(0, actual - discount);
+
+  const actualEl = document.getElementById('invoiceSummaryActual');
+  const finalEl  = document.getElementById('invoiceSummaryFinal');
+
+  if (actualEl) actualEl.textContent = `₹${actual}`;
+  if (finalEl)  finalEl.textContent  = `₹${final}`;
+}
 
 //⬇️ NOW PASTE THIS WHOLE FUNCTION HERE
 function updateInvoiceSummaryUI() {
@@ -9746,8 +9684,8 @@ function updateInvoiceSummaryUI() {
   const actualEl = document.getElementById('invoiceSummaryActual');
   const finalEl  = document.getElementById('invoiceSummaryFinal');
 
-  if (actualEl) actualEl.textContent = formatINR(actual);
-  if (finalEl)  finalEl.textContent  = formatINR(final);
+  if (actualEl) actualEl.textContent = `₹${actual}`;
+  if (finalEl)  finalEl.textContent  = `₹${final}`;
 }
 
 /* clear red fields after input */
