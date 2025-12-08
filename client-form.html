@@ -749,80 +749,58 @@ const OWNER_ID =
       });
 
             form.addEventListener("submit", async (e) => {
-        e.preventDefault();
+  e.preventDefault();
 
-        if (!submitBtn) {
-          alert("Submit button not found.");
-          return;
-        }
+  if (!submitBtn) {
+    alert("Submit button not found.");
+    return;
+  }
 
-        // Small UI feedback
-        showToast("Sending your requirement...");
-        submitBtn.disabled = true;
-        submitBtn.textContent = "Sending your requirement...";
+  // Small UI feedback
+  showToast("Sending your requirement...");
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Sending your requirement...";
 
-        const payload = collectFormData();
+  const payload = collectFormData();
 
-        if (!validateForm(payload)) {
-          // Restore button state if validation fails
-          submitBtn.disabled = false;
-          submitBtn.textContent = "Submit Request";
-          return;
-        }
+  if (!validateForm(payload)) {
+    // Restore button state if validation fails
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Submit Request";
+    return;
+  }
 
-        try {
-          const res = await fetch(CLIENT_REQ_API_URL, {
-            method: "POST",
-            body: JSON.stringify(payload) // simple POST, no extra headers
-          });
+  try {
+    // 🔹 Important: mode: "no-cors" and we do NOT read res.text()
+    await fetch(CLIENT_REQ_API_URL, {
+      method: "POST",
+      mode: "no-cors",
+      body: JSON.stringify(payload)
+    });
 
-          const rawText = await res.text();
-          console.log("Raw server response:", rawText);
+    // If we reached here, request was sent – treat as success
+    alert("Thank you! Your details have been submitted.");
 
-          if (!res.ok) {
-            alert("Server error. Please try again later.");
-            return;
-          }
+    // Reset form and rebuild first event
+    form.reset();
+    if (eventsContainer) {
+      eventsContainer.innerHTML = "";
+      const first = createEventPanel(true);
+      eventsContainer.appendChild(first);
+      renumberEvents();
+      createLucide();
+      setAddEventEnabled(false);
+    }
+  } catch (err) {
+    console.error("Network / fetch error:", err);
+    alert("Network error. Please check your internet and try again later.");
+  } finally {
+    // Always restore button state
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Submit Request";
+  }
+});
 
-          let data = null;
-          try {
-            data = JSON.parse(rawText);
-          } catch (parseErr) {
-            console.warn("Response was not JSON, treating plain text as success if it starts with OK", parseErr);
-
-            // If your Apps Script just returns "OK", treat that as success
-            if (!rawText.trim().toUpperCase().startsWith("OK")) {
-              alert("Unexpected response from server. Please contact admin.");
-              return;
-            }
-          }
-
-          if (data && data.ok === false) {
-            alert(data.message || "Something went wrong while saving. Please try again.");
-            return;
-          }
-
-          alert("Thank you! Your details have been submitted.");
-
-          // Reset form and rebuild first event
-          form.reset();
-          if (eventsContainer) {
-            eventsContainer.innerHTML = "";
-            const first = createEventPanel(true);
-            eventsContainer.appendChild(first);
-            renumberEvents();
-            createLucide();
-            setAddEventEnabled(false);
-          }
-        } catch (err) {
-          console.error("Network / fetch error:", err);
-          alert("Network error. Please check your internet and try again later.");
-        } finally {
-          // Always restore button state
-          submitBtn.disabled = false;
-          submitBtn.textContent = "Submit Request";
-        }
-      });
     });
   </script>
 </body>
