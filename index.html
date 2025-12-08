@@ -2119,6 +2119,7 @@ function loadFromLS(k, fallback){ try{ const v = localStorage.getItem(k); if(!v)
 function saveToLS(k, v){ localStorage.setItem(k, JSON.stringify(v)); }
 
 // Archive helper: archive a sheet row with ownerId check
+// Archive helper: archive a sheet row with ownerId check
 async function archiveSheetRow({ webappUrl, secretToken, rowIndex, ownerId }) {
   if (!webappUrl || !secretToken) {
     console.warn('archiveSheetRow: missing webappUrl or secretToken');
@@ -2129,69 +2130,64 @@ async function archiveSheetRow({ webappUrl, secretToken, rowIndex, ownerId }) {
     return { ok:false, message:'missing rowIndex or ownerId' };
   }
 
-    // Use appConfirm if available (integrates with app's custom modal)
   let userConfirmed = false;
   try {
     if (typeof appConfirm === 'function') {
-      // appConfirm usually returns a Promise<boolean>
-      userConfirmed = await appConfirm('This will archive this request in Google Sheets (archive copy kept). Proceed?');
+      userConfirmed = await appConfirm(
+        'This will archive this request in Google Sheets (archive copy kept). Proceed?'
+      );
     } else {
-      // fallback to native confirm if appConfirm not found
-      userConfirmed = confirm('This will archive this request in Google Sheets (archive copy kept). Proceed?');
+      userConfirmed = confirm(
+        'This will archive this request in Google Sheets (archive copy kept). Proceed?'
+      );
     }
   } catch (e) {
     console.warn('appConfirm failed, falling back to native confirm', e);
-    userConfirmed = confirm('This will archive this request in Google Sheets (archive copy kept). Proceed?');
+    userConfirmed = confirm(
+      'This will archive this request in Google Sheets (archive copy kept). Proceed?'
+    );
   }
 
   if (!userConfirmed) {
     return { ok:false, message:'cancelled' };
   }
 
+  // Simple POST → avoids preflight, but we use no-cors so response is opaque
+  const form = new URLSearchParams();
+  form.append('token',   String(secretToken));
+  form.append('rowIndex', String(rowIndex));
+  form.append('ownerId', String(ownerId));
+
   try {
-    // send as application/x-www-form-urlencoded (simple POST -> avoids CORS preflight)
-// build form body
-const form = new URLSearchParams();
-form.append('token', secretToken);
-form.append('rowIndex', String(rowIndex));
-form.append('ownerId', String(ownerId));
+    await fetch(webappUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      body: form
+    });
 
-try {
-  // Fire-and-forget: use no-cors so browser won't block on CORS
-  await fetch(webappUrl, {
-    method: 'POST',
-    mode: 'no-cors',   // 👈 important
-    body: form
-  });
+    console.log(
+      'Archive request sent (no-cors). Response is opaque but server should have processed it.'
+    );
 
-  console.log('Archive request sent (no-cors). Response is opaque but server should have processed it.');
-  return { ok: true };
-} catch (err) {
-  console.warn('Archive request network error', err);
-  // don't spam user with alerts for CORS, just log
-  return { ok: false, message: String(err) };
-}
-
-
-
-    // on success, refresh client-requests UI (best-effort)
+    // Best-effort UI refresh
     try {
-      if (typeof refreshClientRequestsUI === 'function') refreshClientRequestsUI();
-      else if (typeof fetchAndRenderClientRequests === 'function') fetchAndRenderClientRequests();
-      else if (typeof renderFilesList === 'function') renderFilesList();
+      if (typeof refreshClientRequestsUI === 'function') {
+        refreshClientRequestsUI();
+      } else if (typeof fetchAndRenderClientRequests === 'function') {
+        fetchAndRenderClientRequests();
+      } else if (typeof renderFilesList === 'function') {
+        renderFilesList();
+      }
     } catch (e) {
       console.warn('archive: UI refresh failed', e);
     }
 
-    return { ok:true, data };
+    return { ok:true };
   } catch (err) {
-    console.error('Archive request error', err);
-    alert('Archive request failed: ' + String(err));
+    console.warn('Archive request network error', err);
     return { ok:false, message:String(err) };
   }
 }
-
-
 // === Auto-save to Google Drive (simple debounce) ===
 let autoSaveDriveTimer = null;
 
