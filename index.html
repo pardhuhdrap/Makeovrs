@@ -778,7 +778,7 @@ header {
               <input id="quotationDiscount" type="number" min="0" step="500" value="0" class="mt-1 block border-gray-300 rounded p-2 text-sm" style="width:140px">
             </div>
           </div>
-          <div class="summary-row"><span>Final Price</span><strong id="summaryFinal">₹0.00</strong></div>
+           </div>
         </div>
 
         <div>
@@ -9644,13 +9644,27 @@ function collectEventsFromPanels(){
 
 
 
-function updateSummaryUI(){
+function updateSummaryUI() {
   const events = collectEventsFromPanels();
-  const actual = events.reduce((s,e)=> s + Number(e.packagePrice||0) + Number(e.addOnPrice||0) + Number(e.transportPrice||0), 0);
-  const discountInput = document.getElementById('quotationDiscount'); let discount = parseFloat(discountInput?.value) || 0; if(discount < 0) discount = 0;
+  const actual = events.reduce(
+    (s, e) =>
+      s +
+      Number(e.packagePrice || 0) +
+      Number(e.addOnPrice || 0) +
+      Number(e.transportPrice || 0),
+    0
+  );
+
+  const discountInput = document.getElementById('quotationDiscount');
+  let discount = parseFloat(discountInput?.value) || 0;
+  if (discount < 0) discount = 0;
+
   const finalPrice = Math.max(0, actual - discount);
-  document.getElementById('summaryActual').textContent = formatINR(actual); document.getElementById('summaryFinal').textContent = formatINR(final);
-}   // <-- keep this
+
+  document.getElementById('summaryActual').textContent = formatINR(actual);
+  document.getElementById('summaryFinal').textContent = formatINR(finalPrice);
+}
+
 
 // ===== INVOICE SUMMARY HELPERS =====
 function collectInvoiceEventsFromPanels(){
