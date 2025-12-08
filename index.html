@@ -5176,8 +5176,10 @@ async function restoreRecycleItem(recycleId, kind) {
       if (duplicate) {
         if (typeof appConfirm === 'function') {
           const goEdit = await appConfirm(
-            'An invoice already exists in Files for this client & contact.\n\n' +
-            'Open the existing invoice instead of restoring this deleted copy?'
+            'An invoice already exists in Files? for this client & contact.<br><br>' +
+            '<span style="background:#e1ffe1; color:#0a7a0a; padding:4px 8px; border-radius:4px;">Yes</span> Open existing invoice<br>' +
+            '<span style="background:#ff0000; color:#ffffff; padding:4px 8px; border-radius:4px;">No</span> Dont restore.'
+
           );
 
           if (goEdit) {
@@ -5238,8 +5240,9 @@ async function restoreRecycleItem(recycleId, kind) {
       if (duplicateQ) {
         if (typeof appConfirm === 'function') {
           const go = await appConfirm(
-            'Duplicate Quotation found for this Client name and Contact.\n\n' +
-            'Do you want to open & edit that Quotation instead of restoring this deleted copy?'
+            'Duplicate Quotation found..!<br><br>' +
+            '<span style="background:#e1ffe1; color:#0a7a0a; padding:4px 8px; border-radius:4px;">Yes</span> = Open & Edit the original Quotation<br>' +
+            '<span style="background:#ff0000; color:#ffffff; padding:4px 8px; border-radius:4px;">No</span> = Change Quotation name'
           );
 
           if (go) {
@@ -11080,7 +11083,9 @@ const events = panels.map(panel => {
 
   if (duplicateInvoice) {
     const go = await appConfirm(
-      'Duplicate Invoice found for this Client name and Contact.\n\nDo you want to open & edit that Invoice?'
+      'Duplicate Invoice found..!<br><br>' +
+      '<span style="background:#e1ffe1; color:#0a7a0a; padding:4px 8px; border-radius:4px;">Yes</span> = Open & Edit the original invoice<br>' +
+      '<span style="background:#ff0000; color:#ffffff; padding:4px 8px; border-radius:4px;">No</span> = Change invoice name'
     );
     if (go) {
       localStorage.setItem('CURRENT_EDIT_INVOICE', JSON.stringify(duplicateInvoice));
