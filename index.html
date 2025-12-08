@@ -11086,6 +11086,13 @@ const events = panels.map(panel => {
       localStorage.setItem('CURRENT_EDIT_INVOICE', JSON.stringify(duplicateInvoice));
       navigate('files', { skipInit: false });
       return;
+    }else {
+      // ❌ NO → do NOT create a new invoice, stay on invoice screen
+      showMessage(
+        'Invoice not saved. An invoice already exists in Files for this client & contact.',
+        'Invoice'
+      );
+      return;
     }
   }
 
