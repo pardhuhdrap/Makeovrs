@@ -9797,37 +9797,57 @@ function validateEventPanel(panel){
   }
 
   // --- Add-on consistency checks (Option C) ---
-  const addonDetailsInput =
-    panel.querySelector('.event-addon-display') ||
-    panel.querySelector('.event-addon-manual');
+    // --- Add-on consistency checks ---
+  const addonDisplay = panel.querySelector('.event-addon-display');
+  const addonManual  = panel.querySelector('.event-addon-manual');
 
-  const addonDetails = (addonDetailsInput?.value || addonDetailsInput?.textContent || "").trim();
+  let addonDetails = '';
+
+  // Same filtering logic as save: ignore placeholders
+  if (
+    addonDisplay &&
+    addonDisplay.textContent &&
+    addonDisplay.textContent.trim() &&
+    !/Enter \(Text\)/i.test(addonDisplay.textContent) &&
+    !/No items selected/i.test(addonDisplay.textContent)
+  ) {
+    addonDetails = addonDisplay.textContent.trim();
+  } else if (addonManual && addonManual.value.trim()) {
+    addonDetails = addonManual.value.trim();
+  }
 
   const addonPriceInput = panel.querySelector('.event-addOnPrice');
-  const addonPriceRaw = addonPriceInput?.value;
-  const addonPrice = addonPriceRaw === '' || addonPriceRaw == null ? 0 : parseFloat(addonPriceRaw);
+  const addonPriceRaw   = addonPriceInput?.value;
+  const addonPrice =
+    addonPriceRaw === '' || addonPriceRaw == null || isNaN(parseFloat(addonPriceRaw))
+      ? 0
+      : parseFloat(addonPriceRaw);
 
-  // Case 1: details present but price invalid
+  // choose a field to highlight when details are missing
+  const addonDetailsErrorField = addonManual || addonDisplay;
+
+  // Case 1: details present but price invalid / missing
   if (addonDetails && addonPrice <= 0) {
     if (addonPriceInput) addonPriceInput.classList.add('field-error-red');
     attachFieldClearOnInput(panel);
     return {
-      valid:false,
-      message:'Add-on price is required for entered add-on details'
+      valid: false,
+      message: 'Add-on price is required for entered add-on details'
     };
   }
 
   // Case 2: price present but no details
   if (addonPrice > 0 && !addonDetails) {
-    if (addonDetailsInput) addonDetailsInput.classList.add('field-error-red');
+    if (addonDetailsErrorField)
+      addonDetailsErrorField.classList.add('field-error-red');
     attachFieldClearOnInput(panel);
     return {
-      valid:false,
-      message:'Add-on details are required when add-on price is entered'
+      valid: false,
+      message: 'Add-on details are required when add-on price is entered'
     };
   }
-
-  return { valid:true };
+   // ✅ all good
+  return { valid: true, message: '' };
 }
 
 
