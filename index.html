@@ -1938,14 +1938,15 @@ function updateDashboardForSignIn() {
 
 
 function formatINR(num) {
-  if (num === null || num === undefined || num === '') return '';
-  const n = parseFloat(num);
-  if (isNaN(n)) return num;
+  if (num === null || num === undefined || num === '') return '₹0';
+  let n = Number(num);
+  if (!Number.isFinite(n)) n = 0;
   return '₹' + n.toLocaleString('en-IN', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0
   });
 }
+
 
 // Helper to safely read numbers even if they have ₹ or commas
 function parseINR(value) {
@@ -9506,41 +9507,41 @@ function collectEventsFromPanels(){
       packageName = optText.split('—')[0].trim();
       packagePrice = parseFloat(opt?.dataset?.price ?? (opt?.getAttribute('data-price') ?? '0')) || 0;
     } else {
-      // Try several possible manual selectors (defensive)
-      const manualNameSelectors = [
-        '.event-packageSelectedManual',
-        '.packageManualName',
-        '.package-manual-name',
-        'input[name="packageName"]'
-      ];
-      const manualPriceSelectors = [
-        '.event-packageManualPrice',
-        '.packageManualPrice',
-        '.package-manual-price',
-        'input[name="packagePrice"]'
-      ];
+      // MANUAL mode (no master package selected)
+    const manualNameSelectors = [
+      '.event-packageSelectedManual',
+      '.packageManualName',
+      '.package-manual-name',
+      'input[name="packageName"]'
+    ];
+    const manualPriceSelectors = [
+      '.event-packageManualPrice',
+      '.packageManualPrice',
+      '.package-manual-price',
+      'input[name="packagePrice"]'
+    ];
 
-      // find manual name
-      for (const s of manualNameSelectors) {
-        const el = panel.querySelector(s);
-        if (el && (el.value || el.textContent)) {
-          packageName = (el.value || el.textContent || '').trim();
+    // --- find manual name ---
+    for (const s of manualNameSelectors) {
+      const el = panel.querySelector(s);
+      if (el && (el.value || el.textContent)) {
+        packageName = (el.value || el.textContent || '').trim();
+        break;
+      }
+    }
+
+    // --- find manual price (supports 10,000 while typing) ---
+    for (const s of manualPriceSelectors) {
+      const el = panel.querySelector(s);
+      if (el) {
+        // use a common INR reader so commas / ₹ etc are handled
+        const val = (el.value ?? el.textContent ?? '').toString().trim();
+        if (val !== '') {
+          packagePrice = readINRValue(el);   // <— important change
           break;
         }
       }
-
-      // find manual price
-      for (const s of manualPriceSelectors) {
-        const el = panel.querySelector(s);
-        if (el) {
-          // if it's an input, read .value; otherwise try textContent
-          const val = (el.value ?? el.textContent ?? '').toString().trim();
-          if (val !== '') {
-            packagePrice = parseFloat(val.replace(/[^\d.-]/g, '')) || 0;
-            break;
-          }
-        }
-      }
+    }
 
       // If still zero, attempt reading a sibling element (some templates have a different layout)
       if (!packagePrice) {
@@ -9698,6 +9699,8 @@ function attachFieldClearOnInput(panel) {
     }, { once: true });
   });
 }
+
+
 
 // Restrict manual text fields to A–Z + spaces, and auto-capitalize words
 function attachAlphaOnlyCapitalize(inputEl) {
