@@ -9559,8 +9559,9 @@ function collectEventsFromPanels(){
       }
     }
 
-    const addOnPrice = parseFloat(panel.querySelector('.event-addOnPrice')?.value ?? '0') || 0;
-    const transportPrice = parseFloat(panel.querySelector('.event-transportPrice')?.value ?? '0') || 0;
+        const addOnPrice = readINRValue(panel.querySelector('.event-addOnPrice'));
+    const transportPrice = readINRValue(panel.querySelector('.event-transportPrice'));
+
     const notes = (panel.querySelector('.event-notes')?.value || '').trim();
 
     return {
@@ -9605,8 +9606,9 @@ function collectInvoiceEventsFromPanels(){
       packagePrice = parseFloat(panel.querySelector('.event-packageManualPrice')?.value || 0) || 0;
     }
 
-    const addOnPrice = parseFloat(panel.querySelector('.event-addOnPrice')?.value || 0);
-    const transportPrice = parseFloat(panel.querySelector('.event-transportPrice')?.value || 0);
+    const addOnPrice = readINRValue(panel.querySelector('.event-addOnPrice'));
+const transportPrice = readINRValue(panel.querySelector('.event-transportPrice'));
+
 
     return {
       packageName,
@@ -9746,6 +9748,51 @@ function attachNumbersOnly(inputEl) {
   });
 }
 
+// ---------- INR helpers for price inputs (manual mode) ----------
+
+// Format a text input as en-IN (10000 → 10,000) while typing
+function formatINRInput(inputEl) {
+  if (!inputEl) return;
+
+  // allow commas by treating it as text
+  try { inputEl.type = 'text'; } catch (e) {}
+
+  // format initial value if any (e.g. 10000 → 10,000)
+  const initial = (inputEl.value || '').toString().trim();
+  if (initial && /[0-9]/.test(initial)) {
+    const n0 = parseInt(initial.replace(/[^\d]/g, ''), 10);
+    if (!isNaN(n0)) {
+      inputEl.value = n0.toLocaleString('en-IN', {
+        maximumFractionDigits: 0
+      });
+    }
+  }
+
+  inputEl.addEventListener('input', () => {
+    const digits = (inputEl.value || '').replace(/[^\d]/g, '');
+    if (!digits) {
+      inputEl.value = '';
+      return;
+    }
+    const n = parseInt(digits, 10);
+    if (isNaN(n)) {
+      inputEl.value = '';
+      return;
+    }
+    inputEl.value = n.toLocaleString('en-IN', {
+      maximumFractionDigits: 0
+    });
+  });
+}
+
+// Read a price from an input that may contain ₹, commas, spaces, etc.
+function readINRValue(inputEl) {
+  if (!inputEl) return 0;
+  const raw = (inputEl.value || '').toString();
+  const cleaned = raw.replace(/[^\d.-]/g, '');
+  const n = parseFloat(cleaned);
+  return isNaN(n) ? 0 : n;
+}
 
 
 /* simple validate for update button */
@@ -10921,11 +10968,12 @@ const events = panels.map(panel => {
     addonDetails = addonManual.value.trim();
   }
 
-  const addOnPrice = parseFloat(panel.querySelector('.event-addOnPrice')?.value || 0) || 0;
-  const transportRaw = panel.querySelector('.event-transportPrice')?.value;
-  const transportPrice = transportRaw === undefined || transportRaw === null || transportRaw === ''
-    ? NaN
-    : parseFloat(transportRaw);
+  const addOnPrice = readINRValue(panel.querySelector('.event-addOnPrice'));
+
+const transportPrice = readINRValue(
+  panel.querySelector('.event-transportPrice')
+);
+
 
   const notes = (panel.querySelector('.event-notes')?.value || '').trim();
 
