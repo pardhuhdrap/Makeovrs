@@ -2491,7 +2491,41 @@ function addMasterEvent(e){ e.preventDefault(); const v=document.getElementById(
 function addMasterPackage(e){ e.preventDefault(); const n=document.getElementById('masterPackageName')?.value?.trim(); const p=parseFloat(document.getElementById('masterPackagePrice')?.value); if(!n||isNaN(p)||p<0) return showMessage('Fill valid name & price.'); masterPackages.push({id:Date.now(), name:n, price:p}); saveMasterPackages(); document.getElementById('masterPackageForm').reset(); renderMasterPackageList(); refreshPanelsMasterData(); }
 function addMasterAddOn(e){ e.preventDefault(); const n=document.getElementById('masterAddOnName')?.value?.trim(); const p=parseFloat(document.getElementById('masterAddOnPrice')?.value); if(!n||isNaN(p)||p<0) return showMessage('Fill valid name & price.'); masterAddOns.push({id:Date.now(), name:n, price:p}); saveMasterAddOns(); document.getElementById('masterAddOnForm').reset(); renderMasterAddOnList(); refreshPanelsMasterData(); }
 
-function renderMasterEventList(){ const el=document.getElementById('masterEventList'); if(!el) return; el.innerHTML = masterEventNames.length===0?'<p class="text-sm text-gray-500 text-center p-2">No event names added yet.</p>': masterEventNames.map(n=>`<div class="flex justify-between items-center p-2 border-b bg-white rounded-md"><p class="font-semibold app-color-text">${n}</p><button onclick="deleteMasterEvent(${JSON.stringify(n)})" class="text-red-500 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>`).join(''); createLucide(); }
+function renderMasterEventList() {
+  const el = document.getElementById('masterEventList');
+  if (!el) return;
+
+  if (masterEventNames.length === 0) {
+    el.innerHTML =
+      '<p class="text-sm text-gray-500 text-center p-2">No event names added yet.</p>';
+  } else {
+    el.innerHTML = masterEventNames
+      .map(
+        (n) => `
+      <div class="flex justify-between items-center p-2 border-b bg-white rounded-md">
+        <p class="font-semibold app-color-text">${n}</p>
+        <button type="button"
+                class="text-red-500 p-1 master-event-del"
+                data-name="${encodeURIComponent(n)}">
+          <i data-lucide="trash-2" class="w-4 h-4"></i>
+        </button>
+      </div>`
+      )
+      .join('');
+  }
+
+  createLucide();
+
+  // attach delete handlers safely
+  el.querySelectorAll('.master-event-del').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const encoded = btn.dataset.name || '';
+      const name = decodeURIComponent(encoded);
+      deleteMasterEvent(name);
+    });
+  });
+}
+
 function renderMasterPackageList(){ const el=document.getElementById('masterPackageList'); if(!el) return; el.innerHTML = masterPackages.length===0?'<p class="text-sm text-gray-500 text-center p-2">No packages added yet.</p>': masterPackages.map(p=>`<div class="flex justify-between items-center p-3 border-b bg-white"><div><p class="font-semibold app-color-text">${p.name}</p></div><div class="flex items-center"><p class="font-bold text-green-600 mr-2">₹${p.price}</p><button onclick="deleteMasterPackage(${p.id})" class="text-red-500 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></div>`).join(''); createLucide(); }
 function renderMasterAddOnList(){ const el=document.getElementById('masterAddOnList'); if(!el) return; el.innerHTML = masterAddOns.length===0?'<p class="text-sm text-gray-500 text-center p-2">No addons added yet.</p>': masterAddOns.map(a=>`<div class="flex justify-between items-center p-3 border-b bg-white"><div><p class="font-semibold app-color-text">${a.name}</p></div><div class="flex items-center"><p class="font-bold text-green-600 mr-2">₹${a.price}</p><button onclick="deleteMasterAddOn(${a.id})" class="text-red-500 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></div>`).join(''); createLucide(); }
 function deleteMasterEvent(name){ masterEventNames = masterEventNames.filter(x=>x!==name); saveMasterEvents(); renderMasterEventList(); refreshPanelsMasterData(); }
