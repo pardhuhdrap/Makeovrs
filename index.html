@@ -659,6 +659,13 @@ header {
         </div>
         <div id="map-confirm-row" class="mt-2 hidden">
           <button id="mapConfirmBtn" type="button" class="w-full py-2 rounded bg-green-600 text-white" onclick="confirmMapPrice()">OK — Use this price</button>
+           <button
+    type="button"
+    class="w-1/2 py-2 rounded bg-gray-200 text-gray-800"
+    onclick="cancelMapPrice()"
+  >
+    Cancel
+  </button>
         </div>
         <div id="calculationResult" class="p-4 border-2 app-color-border rounded-lg bg-gray-50 text-sm">
           <div class="flex justify-between font-bold text-gray-700 border-b pb-1 mb-1"><span>Cost Breakdown</span><span>Amount</span></div>
@@ -9173,6 +9180,36 @@ function createQuotationFromClientRequestPayload(payload) {
   // This will call populateQuotationFields() internally
   navigate('quotation');
 }
+
+function cancelMapPrice() {
+  // Do NOT create extra history, and do NOT re-run init on return screen
+  const navOpts = { pushHistory: false, skipInit: true };
+
+  const raw = localStorage.getItem('map_return_screen');
+
+  // Always hide the confirm row
+  document.getElementById('map-confirm-row')?.classList.add('hidden');
+
+  // If for some reason nothing stored, just fall back to quotation
+  if (!raw) {
+    navigate('quotation', navOpts);
+    return;
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    const targetScreen =
+      parsed && parsed.screen === 'invoice' ? 'invoice' : 'quotation';
+
+    // ❗ IMPORTANT: don't touch transport price or location,
+    // just return back to the same screen.
+    navigate(targetScreen, navOpts);
+  } catch (e) {
+    console.warn('cancelMapPrice parse error', e);
+    navigate('quotation', navOpts);
+  }
+}
+
 
 // call this from navigation logic when maps screen is shown (maps initialization will be done by navigate('maps') handler)
 function confirmMapPrice() {
