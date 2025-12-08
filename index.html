@@ -8752,144 +8752,168 @@ async function shareClientRequestSnapshot(payload) {
 
 // === Mark a client request as imported & move it to System recycle ===
 // === Mark a client request as imported & move it to System recycle ===
-async function markClientRequestImported(ctx) {
-  if (!ctx || !ctx.rowIndex) return;
+async function refreshClientRequestsUI() {
+  const listEl  = document.getElementById('clientReqList');
+  const emptyEl = document.getElementById('clientReqEmpty');
+  if (!listEl || !emptyEl) return;
 
-  const rowIndex = Number(ctx.rowIndex || 0);
-  if (!rowIndex) return;
+  listEl.innerHTML =
+    '<div class="text-[11px] text-gray-400 py-2">Loading…</div>';
+  emptyEl.classList.add('hidden');
 
-  const payload = ctx.payload || null;
-
-  // 1) Best-effort: notify central Sheet that this row is imported.
-  //    We avoid custom headers so the request stays a "simple" POST (no CORS preflight).
-  try {
-    await fetch(CLIENT_REQ_API_URL, {
-      method: 'POST',
-      body: JSON.stringify({
-        _action: 'markImported',
-        rowIndex
-      })
-    });
-  } catch (e) {
-    console.warn(
-      'Could not notify Google Sheet that client request is imported (likely CORS / offline).',
-      e
-    );
-  }
-
-  // 2) Move into System Recycle Bin (local only, using RECYCLE_SYSTEM_KEY)
-  try {
-    const systemList = loadFromLS(RECYCLE_SYSTEM_KEY, []) || [];
-    const nowIso = new Date().toISOString();
-
-    systemList.push({
-      recycleId: uid('recycle'),
-      type: 'client-request',
-      kind: 'client-request',
-      rowIndex: String(rowIndex),
-      label: (payload && payload.clientName) || 'Client request',
-      clientName: payload && payload.clientName,
-      clientContact: payload && payload.clientContact,
-      removedBy: 'system',
-      removedAt: nowIso,
-      reason: 'Client request imported to quotation',
-      payload: payload || {}
-    });
-
-    saveToLS(RECYCLE_SYSTEM_KEY, systemList);
-  } catch (e) {
-    console.warn('Failed to store client request into System recycle bin', e);
-  }
-
-    // --- AUTO-ARCHIVE: try to archive the original sheet row when marking as imported ---
-  try {
-    const rowIdx = rowIndex; // already computed above
-    const owner = (payload && (payload.ownerId || payload.owner || payload.owner_email)) || getClientReqOwnerId();
-
-    if (rowIdx) {
-      archiveSheetRow({
-        webappUrl: ARCHIVE_WEBAPP_URL,
-        secretToken: ARCHIVE_SECRET_TOKEN,
-        rowIndex: Number(rowIdx),
-        ownerId: String(owner || getClientReqOwnerId() || '')
-      })
-      .then(r => console.debug('archive (from markClientRequestImported):', r))
-.catch(err => console.warn('archive (from markClientRequestImported) failed', err));
-    } else {
-      console.warn('archive (from markClientRequestImported): missing rowIdx, skipping');
+  const ownerId = getClientReqOwnerId();
+  if (!ownerId) {
+    listEl.innerHTML =
+      '<div class="text-[11px] text-red-500 py-2">Please sign in first.</div>';
+    if (typeof updateClientReqBadge === 'function') {
+      updateClientReqBadge(0);
     }
-  } catch (e) {
-    console.warn('archive (from markClientRequestImported) error', e);
+    return;
   }
+
+  // ✅ Use JSONP instead of fetch (to avoid CORS)
+  return new Promise((resolve, reject) => {
+    const callbackName = 'clientReqCb_' + Date.now();
+
+    // Define global callback – called by Apps Script
+    window[callbackName] = function (data) {
+      try {
+        if (!data || data.ok === false) {
+          console.error('Client-requests error:', data && data.message);
+          listEl.innerHTML =
+            '<div class="text-[11px] text-red-500">Failed to load.</div>';
+          if (typeof updateClientReqBadge === 'function') {
+            updateClientReqBadge(0);
+          }
+          reject(data);
+          return;
+        }
+
+        // 👇 same logic as before, just using data from JSONP
+        let items = data.items || [];
+
+        // 🔹 Filter: remove items already in recycle bins
+        try {
+          const systemList = loadFromLS(RECYCLE_SYSTEM_KEY, []) || [];
+          const userList   = loadFromLS(RECYCLE_USER_KEY, [])   || [];
+
+          const removedSet = new Set(
+            [...systemList, ...userList]
+              .filter(
+                (entry) =>
+                  entry &&
+                  entry.type === 'client-request' &&
+                  entry.rowIndex != null
+              )
+              .map((entry) => String(entry.rowIndex))
+          );
+
+          items = items.filter(
+            (row) => !removedSet.has(String(row.rowIndex))
+          );
+        } catch (e) {
+          console.warn(
+            'Client-requests filter by recycle bins failed:',
+            e
+          );
+        }
+
+        // ✅ SORT: latest first (higher rowIndex = newer)
+        items.sort((a, b) => {
+          const ra = Number(a.rowIndex || 0);
+          const rb = Number(b.rowIndex || 0);
+          return rb - ra; // descending
+        });
+
+        listEl.innerHTML = '';
+
+        if (!items.length) {
+          emptyEl.classList.remove('hidden');
+          if (typeof updateClientReqBadge === 'function') {
+            updateClientReqBadge(0);
+          }
+          resolve([]);
+          return;
+        }
+
+        items.forEach((row) => {
+          // We already got parsed data from backend
+          const clientName = row.clientName || '--';
+          const contact    = row.clientContact || '';
+
+          // Keep payloadJson for your existing "View" popup logic
+          const payloadJson =
+            row.payloadJson ||
+            JSON.stringify({
+              clientName: row.clientName || '',
+              clientContact: row.clientContact || '',
+              events: row.events || []
+            });
+
+          const card = document.createElement('div');
+          card.className = 'border border-gray-200 rounded-lg p-2 bg-white shadow-sm';
+          card.dataset.payloadJson = payloadJson;
+          card.dataset.rowIndex = row.rowIndex || '';
+
+          card.innerHTML = `
+            <div class="flex justify-between items-start gap-2">
+              <div>
+                <div class="text-[13px] font-semibold text-gray-800">${clientName}</div>
+                <div class="text-[11px] text-gray-500">${contact}</div>
+              </div>
+              <div class="flex flex-col items-end gap-1">
+                <button
+                  class="clientReqViewBtn text-[11px] px-2 py-1 rounded-full border border-gray-200 bg-white hover:bg-gray-50"
+                >
+                  View
+                </button>
+              </div>
+            </div>
+          `;
+
+          listEl.appendChild(card);
+        });
+
+        const count = items.length;
+        if (typeof updateClientReqBadge === 'function') {
+          updateClientReqBadge(count);
+        }
+
+        resolve(items);
+      } finally {
+        // Cleanup: remove callback + script tag
+        delete window[callbackName];
+        if (script && script.parentNode) {
+          script.parentNode.removeChild(script);
+        }
+      }
+    };
+
+    // Create <script> tag for JSONP call
+    const script = document.createElement('script');
+    script.src =
+      CLIENT_REQ_API_URL +
+      '?ownerId=' + encodeURIComponent(ownerId) +
+      '&callback=' + encodeURIComponent(callbackName);
+
+    script.onerror = function (err) {
+      delete window[callbackName];
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+      console.error('Client-requests JSONP error:', err);
+      listEl.innerHTML =
+        '<div class="text-[11px] text-red-500">Failed to load.</div>';
+      if (typeof updateClientReqBadge === 'function') {
+        updateClientReqBadge(0);
+      }
+      reject(err);
+    };
+
+    document.body.appendChild(script);
+  });
 }
 
-// === Mark a client request as DECLINED & move it to User recycle ===
-async function markClientRequestDeclined(ctx) {
-  if (!ctx || !ctx.rowIndex) return;
-
-  const rowIndex = Number(ctx.rowIndex || 0);
-  if (!rowIndex) return;
-
-  const payload = ctx.payload || null;
-
-  // 1) Best-effort: notify central Sheet that this row is declined.
-  //    (Your Apps Script can handle _action: 'markDeclined' if you want.)
-  try {
-    await fetch(CLIENT_REQ_API_URL, {
-      method: 'POST',
-      body: JSON.stringify({
-        _action: 'markDeclined',
-        rowIndex
-      })
-    });
-  } catch (e) {
-    console.warn(
-      'Could not notify Google Sheet that client request is declined (likely CORS / offline).',
-      e
-    );
-  }
-
-  // 2) Move into User Recycle Bin (RECYCLE_USER_KEY)
-  try {
-    const userList = loadFromLS(RECYCLE_USER_KEY, []) || [];
-    const nowIso = new Date().toISOString();
-
-    userList.push({
-      recycleId: uid('recycle'),
-      type: 'client-request',
-      kind: 'client-request',
-      rowIndex: String(rowIndex),
-      label: (payload && payload.clientName) || 'Client request',
-      clientName: payload && payload.clientName,
-      clientContact: payload && payload.clientContact,
-      removedBy: 'user',
-      removedAt: nowIso,
-      reason: 'Client request declined from floating panel',
-      payload: payload || {}
-    });
-
-    saveToLS(RECYCLE_USER_KEY, userList);
-  } catch (e) {
-    console.warn('Failed to store client request into User recycle bin', e);
-  }
-
-  // 3) Refresh Recycle & floating client-requests UI (best-effort)
-  try {
-    if (typeof renderRecycleList === 'function') {
-      renderRecycleList('user');
-    }
-  } catch (e) {
-    console.warn('Failed to refresh user recycle list', e);
-  }
-
-  try {
-    if (typeof refreshClientRequestsUI === 'function') {
-      refreshClientRequestsUI();
-    }
-  } catch (e) {
-    console.warn('Failed to refresh client-requests UI', e);
-  }
-}
 
 
 // === View popup for a client request (Accept / Decline / Close) ===
