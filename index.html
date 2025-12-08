@@ -1947,6 +1947,55 @@ function formatINR(num) {
   });
 }
 
+function formatINRInput(input) {
+  if (!input) return;
+  let raw = (input.value || '').replace(/,/g, '').trim();
+
+  if (raw === '' || isNaN(raw)) {
+    // if empty or not a number, just keep cleaned value
+    input.value = raw;
+    return;
+  }
+
+  input.value = Number(raw).toLocaleString('en-IN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  });
+}
+
+function attachINRFormatters(panel) {
+  if (!panel) return;
+
+  const selectors = [
+    '.event-packagePrice',
+    '.event-packageManualPrice',
+    '.event-addOnPrice',
+    '.event-transportPrice'
+  ];
+
+  selectors.forEach((sel) => {
+    const input = panel.querySelector(sel);
+    if (!input) return;
+
+    // On focus: remove commas for easy typing
+    input.addEventListener('focus', () => {
+      input.value = (input.value || '').replace(/,/g, '');
+    });
+
+    // On blur: apply 10,000 style + refresh totals
+    input.addEventListener('blur', () => {
+      formatINRInput(input);
+      if (typeof updateSummaryUI === 'function') {
+        updateSummaryUI();
+      }
+      if (typeof updateInvoiceSummaryUI === 'function') {
+        updateInvoiceSummaryUI();
+      }
+    });
+  });
+}
+
+
 
 // Helper to safely read numbers even if they have ₹ or commas
 function parseINR(value) {
@@ -8013,6 +8062,8 @@ function createEventPanel(prefill = {}) {
   `;
   cont.appendChild(panel);
 
+   attachINRFormatters(panel);
+
   const modeHidden = document.createElement('input');
   modeHidden.type = 'hidden';
   modeHidden.className = 'event-packageMode';
@@ -8129,8 +8180,12 @@ function createEventPanel(prefill = {}) {
              class="event-packageManualPrice block w-full border-gray-300 rounded p-2 text-sm mt-2"
              placeholder="Manual price (₹)" value="0" />
     `;
-    attachAlphaOnlyCapitalize(area.querySelector(".event-packageSelectedManual"));
-    panel.querySelector('.event-packageManualPrice')?.addEventListener('input', updateSummaryUI);
+    attachAlphaOnlyCapitalize(
+      area.querySelector(".event-packageSelectedManual")
+    );
+
+    // make sure the new manual price also has INR commas
+    attachINRFormatters(panel);
   }
 });
 
@@ -8361,6 +8416,17 @@ if (typeof attachAlphaOnlyCapitalize === 'function' && manualLoc) {
   } else {
     panel.dataset.dirty = 'true';
   }
+
+   // Format price fields once initially so 10000 → 10,000
+  ['.event-packagePrice',
+   '.event-packageManualPrice',
+   '.event-addOnPrice',
+   '.event-transportPrice'
+  ].forEach((sel) => {
+    const input = panel.querySelector(sel);
+    if (input) formatINRInput(input);
+  });
+
   recomputeAddEventState();
 
   updateSummaryUI();
