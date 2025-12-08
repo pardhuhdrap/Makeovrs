@@ -1941,11 +1941,12 @@ function formatINR(num) {
   if (num === null || num === undefined || num === '') return '';
   const n = parseFloat(num);
   if (isNaN(n)) return num;
-  return '₹' + n.toLocaleString('en-IN', {
+  return n.toLocaleString('en-IN', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0
   });
 }
+
 
 // Helper to safely read numbers even if they have ₹ or commas
 function parseINR(value) {
@@ -7944,7 +7945,7 @@ function createEventPanel(prefill = {}) {
         <label class="text-xs text-gray-700">Transport Price (₹)</label>
         <input type="number" step="100"
                class="event-transportPrice block w-full border-gray-300 rounded p-2 text-sm"
-               value="0.00" />
+               value="0" />
       </div>
 
       <div class="mb-3">
@@ -7960,7 +7961,7 @@ function createEventPanel(prefill = {}) {
                  placeholder="Manually enter package name" />
           <input type="number" step="1000"
                  class="event-packageManualPrice block w-full border-gray-300 rounded p-2 text-sm mt-2"
-                 placeholder="Manual price (₹)" value="0.00" />
+                 placeholder="Manual price (₹)" value="0" />
         </div>
       </div>
 
@@ -7990,7 +7991,7 @@ function createEventPanel(prefill = {}) {
         <label class="text-xs text-gray-700 mt-2">AddOn Price (₹)</label>
         <input type="number" step="100"
                class="event-addOnPrice block w-full border-gray-300 rounded p-2 text-sm"
-               value="0.00" />
+               value="0" />
       </div>
 
       <div class="mb-3">
@@ -8094,7 +8095,7 @@ function createEventPanel(prefill = {}) {
       </select>
       <input type="number" step="1000"
              class="event-packagePrice block w-full border-gray-300 rounded p-2 text-sm mt-2"
-             readonly value="0.00" />
+             readonly value="0" />
     `;
     area.innerHTML = '';
     area.appendChild(wrapper);
@@ -8126,7 +8127,7 @@ function createEventPanel(prefill = {}) {
              placeholder="Manually enter package name" />
       <input type="number" step="1000"
              class="event-packageManualPrice block w-full border-gray-300 rounded p-2 text-sm mt-2"
-             placeholder="Manual price (₹)" value="0.00" />
+             placeholder="Manual price (₹)" value="0" />
     `;
     attachAlphaOnlyCapitalize(area.querySelector(".event-packageSelectedManual"));
     panel.querySelector('.event-packageManualPrice')?.addEventListener('input', updateSummaryUI);
@@ -9582,7 +9583,7 @@ function updateSummaryUI(){
   const actual = events.reduce((s,e)=> s + Number(e.packagePrice||0) + Number(e.addOnPrice||0) + Number(e.transportPrice||0), 0);
   const discountInput = document.getElementById('quotationDiscount'); let discount = parseFloat(discountInput?.value) || 0; if(discount < 0) discount = 0;
   const finalPrice = Math.max(0, actual - discount);
-  document.getElementById('summaryActual').textContent = `₹${actual}`; document.getElementById('summaryFinal').textContent = `₹${finalPrice}`;
+  document.getElementById('summaryActual').textContent = formatINR(actual); document.getElementById('summaryFinal').textContent = formatINR(final);
 }   // <-- keep this
 
 // ===== INVOICE SUMMARY HELPERS =====
@@ -9617,25 +9618,6 @@ function collectInvoiceEventsFromPanels(){
   });
 }
 
-
-function updateInvoiceSummaryUI(){
-  const events = collectInvoiceEventsFromPanels();
-  const actual = events.reduce(
-    (s,e)=> s + Number(e.packagePrice||0) + Number(e.addOnPrice||0) + Number(e.transportPrice||0),
-    0
-  );
-
-  let discount = parseFloat(document.getElementById('invoiceDiscount')?.value || 0);
-  if (isNaN(discount) || discount < 0) discount = 0;
-
-  const final = Math.max(0, actual - discount);
-
-  const actualEl = document.getElementById('invoiceSummaryActual');
-  const finalEl  = document.getElementById('invoiceSummaryFinal');
-
-  if (actualEl) actualEl.textContent = `₹${actual}`;
-  if (finalEl)  finalEl.textContent  = `₹${final}`;
-}
 
 //⬇️ NOW PASTE THIS WHOLE FUNCTION HERE
 function updateInvoiceSummaryUI() {
@@ -9684,8 +9666,8 @@ function updateInvoiceSummaryUI() {
   const actualEl = document.getElementById('invoiceSummaryActual');
   const finalEl  = document.getElementById('invoiceSummaryFinal');
 
-  if (actualEl) actualEl.textContent = `₹${actual}`;
-  if (finalEl)  finalEl.textContent  = `₹${final}`;
+  if (actualEl) actualEl.textContent = formatINR(actual);
+  if (finalEl)  finalEl.textContent  = formatINR(final);
 }
 
 /* clear red fields after input */
