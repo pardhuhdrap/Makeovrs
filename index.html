@@ -9046,6 +9046,77 @@ if (shareBtn) {
   }
 }
 
+// ⭐ Mark a client request as imported & move it to System recycle
+async function markClientRequestImported(ctx) {
+  try {
+    if (!ctx) {
+      console.warn('markClientRequestImported: no ctx', ctx);
+      return;
+    }
+
+    const rowIndex = Number(ctx.rowIndex || 0);
+    const payload  = ctx.payload || {};
+    const ownerId  = ctx.ownerId || (typeof getClientReqOwnerId === 'function'
+      ? getClientReqOwnerId()
+      : null);
+
+    if (!rowIndex) {
+      console.warn('markClientRequestImported: invalid rowIndex', ctx.rowIndex);
+      return;
+    }
+
+    // 1️⃣ Tell Google Sheet to set status = "imported"
+    try {
+      const body = {
+        _action: 'markImported',
+        rowIndex: rowIndex
+      };
+      if (ownerId) body.ownerId = ownerId;
+
+      await fetch(CLIENT_REQ_API_URL, {
+        method: 'POST',
+        mode: 'no-cors',           // avoid CORS noise, fire-and-forget
+        body: JSON.stringify(body) // Apps Script parses JSON from postData
+      });
+
+      console.log('markClientRequestImported: request sent for row', rowIndex);
+    } catch (e) {
+      console.warn(
+        'markClientRequestImported: sheet update may have CORS/network issues, but request was sent:',
+        e
+      );
+    }
+
+    // 2️⃣ Move this request into Recycle → System list
+    try {
+      const systemList = loadFromLS(RECYCLE_SYSTEM_KEY, []) || [];
+      const nowIso     = new Date().toISOString();
+
+      systemList.push({
+        recycleId: 'recycle_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+        type: 'client-request',
+        kind: 'client-request',
+        label: payload.clientName || 'Client Request',
+        clientName: payload.clientName,
+        clientContact: payload.clientContact,
+        rowIndex: rowIndex,
+        payload: payload,
+        removedAt: nowIso,
+        reason: 'Imported into quotation'
+      });
+
+      saveToLS(RECYCLE_SYSTEM_KEY, systemList);
+
+      // Refresh Recycle → System tab + floating client-requests list
+      try { renderRecycleList && renderRecycleList('system'); } catch (e) {}
+      try { refreshClientRequestsUI && refreshClientRequestsUI(); } catch (e) {}
+    } catch (e) {
+      console.warn('markClientRequestImported: recycle move failed', e);
+    }
+  } catch (e) {
+    console.error('markClientRequestImported fatal error', e);
+  }
+}
 
 
 
