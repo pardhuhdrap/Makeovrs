@@ -9178,19 +9178,14 @@ async function markClientRequestImported(ctx) {
   }
 }
 
-async function markClientRequestDeclined({ rowIndex }) {
-  const res = await fetch(CLIENT_REQ_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      _action: 'markImported',
-      rowIndex: rowIndex
-    })
-  });
-
-  const data = await res.json();
-  if (!data || !data.ok) {
-    throw new Error(data?.message || 'Failed to mark request as imported');
+// ✅ Decline = mark as imported using EXISTING working flow
+async function markClientRequestDeclined(ctx) {
+  try {
+    // Reuse the SAME logic as "Generate Quotation"
+    await markClientRequestImported(ctx);
+  } catch (e) {
+    console.warn('markClientRequestDeclined failed', e);
+    throw e;
   }
 }
 
