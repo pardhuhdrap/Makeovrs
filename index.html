@@ -8440,7 +8440,15 @@ if (typeof attachAlphaOnlyCapitalize === 'function' && manualLoc) {
           });
         }
       }
-    }
+    }else {
+  // ✅ NEW EVENT → keep time EMPTY
+  const hEl = panel.querySelector('.event-eventHour');
+  const mEl = panel.querySelector('.event-eventMinute');
+  const pEl = panel.querySelector('.event-eventPeriod');
+  if (hEl) hEl.value = '';
+  if (mEl) mEl.value = '';
+  if (pEl) pEl.value = '';
+}
 
     // Location
     if (prefill.location) {
