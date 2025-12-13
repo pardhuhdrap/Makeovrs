@@ -3873,6 +3873,7 @@ for (const panel of qPanels) {
   panel.classList.add('collapsed');
 }
 
+
   const payload = getCleanQuotationPayloadWithEventIds();
   if ((payload.events || []).length === 0) {
     showMessage('Add at least one event with date & name.');
@@ -8434,6 +8435,9 @@ if (typeof attachAlphaOnlyCapitalize === 'function' && manualLoc) {
       updateEventPanelSummary(panel.id);
       markPanelClean(panel);           // ✅ this panel is now "saved"
       showUpdateToast('Event updated');
+
+      // ✅ auto-collapse this event panel
+    panel.classList.add('collapsed');
     }
   });
 
