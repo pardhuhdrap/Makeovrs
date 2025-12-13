@@ -3041,14 +3041,51 @@ function renderCalendar(y=curYear, m=curMonth){
     else if (bookedCount === 3) { bgColor = '#ef4444'; circleClass = 'colored'; }
     else if (bookedCount > 3) { bgColor = '#000000'; circleClass = 'colored'; }
   }
-      const bookedTotal = eventsOnDay.reduce((sum, e) => {
-  if (!e.booked) return sum;
-  return sum
-    + Number(e.packagePrice   || 0)
-    + Number(e.addOnPrice     || 0)
-    + Number(e.transportPrice || 0);
-}, 0);
+      // --- calendar day total (quotation-aware discount logic) ---
 
+const bookedEvents = eventsOnDay.filter(e => e.booked);
+
+// group by quotation / invoice id (already present in your data)
+const byQuote = {};
+bookedEvents.forEach(e => {
+  const qid = e.quoteId || e.invoiceId || e.quotationId;
+  if (!byQuote[qid]) byQuote[qid] = [];
+  byQuote[qid].push(e);
+});
+
+let bookedTotal = 0;
+
+Object.values(byQuote).forEach(events => {
+  // compute actual totals per event
+  const totals = events.map(e => ({
+    event: e,
+    total:
+      Number(e.packagePrice   || 0) +
+      Number(e.addOnPrice     || 0) +
+      Number(e.transportPrice || 0)
+  }));
+
+  const quotationActualTotal = totals.reduce((s, x) => s + x.total, 0);
+
+  // highest event of THIS quotation
+  let highest = totals[0];
+  totals.forEach(t => {
+    if (t.total > highest.total) highest = t;
+  });
+
+  // discount exists once per quotation
+  const discount = Number(
+    events.find(e => Number(e.discount || 0) > 0)?.discount || 0
+  );
+
+  // apply discount ONLY if highest event is on this calendar date
+  const adjustedTotal =
+    highest.event.date === calendarDateKey
+      ? quotationActualTotal - Math.min(discount, highest.total)
+      : quotationActualTotal;
+
+  bookedTotal += adjustedTotal;
+});
 
     const today =
     d === now.getDate() && m === now.getMonth() && y === now.getFullYear();
