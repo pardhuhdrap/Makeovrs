@@ -139,6 +139,30 @@ header {
 .tab { padding:0.5rem 0.75rem; border-radius:0.5rem; cursor:pointer; }
 .tab.active { background:var(--app-color); color:#fff; }
 
+/* ===============================
+   Global input visibility styles
+   =============================== */
+
+/* Default state – light border always visible */
+input,
+select,
+textarea {
+  border: 1px solid rgba(0, 0, 0, 0.35); /* light black */
+  border-radius: 6px;
+  padding: 6px 8px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Focus state – thicker & darker (current behavior, enhanced) */
+input:focus,
+select:focus,
+textarea:focus {
+  border-width: 2px;
+  border-color: rgba(0, 0, 0, 0.75);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+}
+
 /* ================================
    GOOGLE MAPS AUTOCOMPLETE FIXES
    ================================ */
