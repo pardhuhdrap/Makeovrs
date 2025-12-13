@@ -1729,7 +1729,6 @@ header {
 const ARCHIVE_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbx4eMxlcbszBznqHvUuWa-slfdQjMiXxbYN4ip7GXh_rtvMmBVAspZ1VLB0l9uTijRwmw/exec';
 const ARCHIVE_SECRET_TOKEN = 'd93KsL0pqA72nMx1FbZ82PpR91';
 
-
 /* -------------------------
    Helpers & storage keys
    ------------------------- */
@@ -11230,6 +11229,12 @@ const name = (() => {
 
       // Re-apply immediately
       if (typeof applySettings === 'function') applySettings();
+
+      // ✅ AUTO SAVE ALL SETTINGS TO DRIVE
+      if (typeof saveToDrive === 'function') {
+        Promise.resolve(saveToDrive())
+          .catch(err => console.error('Auto Save to Drive failed', err));
+      }
 
       // feedback
       const msg = document.getElementById('settings-message');
