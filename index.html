@@ -3812,6 +3812,11 @@ function saveQuotationMultiEvent() {
     return;
   }
 
+  // 🔧 Normalize client contact (handles +91, spaces, paste)
+clientContact = (clientContact || '')
+  .replace(/\D/g, '')   // remove non-digits
+  .slice(-10);          // keep LAST 10 digits
+
   // 🔢 Extra validation: phone must be exactly 10 digits
   if (!/^\d{10}$/.test(clientContact)) {
     showMessage('Client contact must be exactly 10 digits.');
