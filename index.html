@@ -2527,9 +2527,46 @@ function renderMasterEventList() {
 
 function renderMasterPackageList(){ const el=document.getElementById('masterPackageList'); if(!el) return; el.innerHTML = masterPackages.length===0?'<p class="text-sm text-gray-500 text-center p-2">No packages added yet.</p>': masterPackages.map(p=>`<div class="flex justify-between items-center p-3 border-b bg-white"><div><p class="font-semibold app-color-text">${p.name}</p></div><div class="flex items-center"><p class="font-bold text-green-600 mr-2">₹${p.price}</p><button onclick="deleteMasterPackage(${p.id})" class="text-red-500 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></div>`).join(''); createLucide(); }
 function renderMasterAddOnList(){ const el=document.getElementById('masterAddOnList'); if(!el) return; el.innerHTML = masterAddOns.length===0?'<p class="text-sm text-gray-500 text-center p-2">No addons added yet.</p>': masterAddOns.map(a=>`<div class="flex justify-between items-center p-3 border-b bg-white"><div><p class="font-semibold app-color-text">${a.name}</p></div><div class="flex items-center"><p class="font-bold text-green-600 mr-2">₹${a.price}</p><button onclick="deleteMasterAddOn(${a.id})" class="text-red-500 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div></div>`).join(''); createLucide(); }
-function deleteMasterEvent(name){ masterEventNames = masterEventNames.filter(x=>x!==name); saveMasterEvents(); renderMasterEventList(); refreshPanelsMasterData(); }
-function deleteMasterPackage(id){ masterPackages = masterPackages.filter(x=>x.id!==id); saveMasterPackages(); renderMasterPackageList(); refreshPanelsMasterData(); }
-function deleteMasterAddOn(id){ masterAddOns = masterAddOns.filter(x=>x.id!==id); saveMasterAddOns(); renderMasterAddOnList(); refreshPanelsMasterData(); }
+async function deleteMasterEvent(name){
+  const ok = await appConfirm(
+    'Do you want to delete this event?<br><br>' +
+    '<span style="color:#16a34a;font-weight:600">Yes</span> = Delete<br>' +
+    '<span style="color:#dc2626;font-weight:600">No</span> = Cancel'
+  );
+  if (!ok) return;
+
+  masterEventNames = masterEventNames.filter(x => x !== name);
+  saveMasterEvents();
+  renderMasterEventList();
+  refreshPanelsMasterData();
+}
+async function deleteMasterPackage(id){
+  const ok = await appConfirm(
+    'Do you want to delete this package?<br><br>' +
+    '<span style="color:#16a34a;font-weight:600">Yes</span> = Delete<br>' +
+    '<span style="color:#dc2626;font-weight:600">No</span> = Cancel'
+  );
+  if (!ok) return;
+
+  masterPackages = masterPackages.filter(x => x.id !== id);
+  saveMasterPackages();
+  renderMasterPackageList();
+  refreshPanelsMasterData();
+}
+async function deleteMasterAddOn(id){
+  const ok = await appConfirm(
+    'Do you want to delete this add-on?<br><br>' +
+    '<span style="color:#16a34a;font-weight:600">Yes</span> = Delete<br>' +
+    '<span style="color:#dc2626;font-weight:600">No</span> = Cancel'
+  );
+  if (!ok) return;
+
+  masterAddOns = masterAddOns.filter(x => x.id !== id);
+  saveMasterAddOns();
+  renderMasterAddOnList();
+  refreshPanelsMasterData();
+}
+
 
 /* refresh UI selects inside event panels */
 function refreshPanelsMasterData(){
