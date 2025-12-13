@@ -3868,6 +3868,11 @@ clientContact = clientContact.replace(/\D/g, '').slice(-10);
     }
   }
 
+  // ✅ All panels are valid at this point — auto-collapse them
+for (const panel of qPanels) {
+  panel.classList.add('collapsed');
+}
+
   const payload = getCleanQuotationPayloadWithEventIds();
   if ((payload.events || []).length === 0) {
     showMessage('Add at least one event with date & name.');
