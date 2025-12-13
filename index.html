@@ -3043,49 +3043,69 @@ function renderCalendar(y=curYear, m=curMonth){
   }
       // --- calendar day total (quotation-aware discount logic) ---
 
+// --- calendar day total (quotation-aware discount logic) ---
+
 const bookedEvents = eventsOnDay.filter(e => e.booked);
 
-// group by quotation / invoice id (already present in your data)
+// group by quotation id
 const byQuote = {};
 bookedEvents.forEach(e => {
-  const qid = e.quoteId || e.invoiceId || e.quotationId;
+  const qid = e.quotationId || e.invoiceId || e.quoteId;
   if (!byQuote[qid]) byQuote[qid] = [];
   byQuote[qid].push(e);
 });
 
 let bookedTotal = 0;
 
-Object.values(byQuote).forEach(events => {
-  // compute actual totals per event
-  const totals = events.map(e => ({
-    event: e,
-    total:
-      Number(e.packagePrice   || 0) +
-      Number(e.addOnPrice     || 0) +
+Object.entries(byQuote).forEach(([qid, dayEvents]) => {
+  // 🔹 load full quotation to find highest event across ALL dates
+  const quotations = loadFromLS(SAVED_QUOTATIONS_KEY, []);
+  const q = quotations.find(x => x.id === qid);
+
+  if (!q || !Array.isArray(q.events)) {
+    // fallback: just sum today’s events
+    bookedTotal += dayEvents.reduce((s, e) =>
+      s +
+      Number(e.packagePrice || 0) +
+      Number(e.addOnPrice || 0) +
       Number(e.transportPrice || 0)
-  }));
+    , 0);
+    return;
+  }
 
-  const quotationActualTotal = totals.reduce((s, x) => s + x.total, 0);
+  // find highest event in THIS quotation (all dates)
+  let highestEvent = null;
+  let highestTotal = 0;
 
-  // highest event of THIS quotation
-  let highest = totals[0];
-  totals.forEach(t => {
-    if (t.total > highest.total) highest = t;
+  q.events.forEach(ev => {
+    const t =
+      Number(ev.packagePrice || 0) +
+      Number(ev.addOnPrice || 0) +
+      Number(ev.transportPrice || 0);
+    if (t > highestTotal) {
+      highestTotal = t;
+      highestEvent = ev;
+    }
   });
 
-  // discount exists once per quotation
-  const discount = Number(
-    events.find(e => Number(e.discount || 0) > 0)?.discount || 0
-  );
+  const discount = Number(q.discount || 0);
 
-  // apply discount ONLY if highest event is on this calendar date
-  const adjustedTotal =
-    highest.event.date === calendarDateKey
-      ? quotationActualTotal - Math.min(discount, highest.total)
-      : quotationActualTotal;
+  // sum events of THIS DAY
+  const dayActualTotal = dayEvents.reduce((s, e) =>
+    s +
+    Number(e.packagePrice || 0) +
+    Number(e.addOnPrice || 0) +
+    Number(e.transportPrice || 0)
+  , 0);
 
-  bookedTotal += adjustedTotal;
+  // apply discount ONLY if highest event falls on this date
+  if (highestEvent && highestEvent.date === dateISO) {
+    bookedTotal += Math.max(0, dayActualTotal - Math.min(discount, highestTotal));
+  } else {
+    bookedTotal += dayActualTotal;
+  }
 });
+
 
     const today =
     d === now.getDate() && m === now.getMonth() && y === now.getFullYear();
