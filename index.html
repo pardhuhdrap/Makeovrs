@@ -3788,7 +3788,9 @@ const eventId = existingId || uid('ev');
 
 function getCleanQuotationPayloadWithEventIds(){
   const clientName = (document.getElementById('clientNameInput')?.value || '').trim();
-  const clientContact = (document.getElementById('clientContactInput')?.value || '').trim();
+  let clientContact = (document.getElementById('clientContactInput')?.value || '').trim();
+// 🔧 normalize pasted number (handles +91, spaces, WhatsApp)
+clientContact = clientContact.replace(/\D/g, '').slice(-10);  
   const events = collectEventsFromPanelsForSave().filter(ev => ev.name && ev.date);
   const actual = events.reduce(
     (s,e)=> s + Number(e.packagePrice||0) + Number(e.addOnPrice||0) + Number(e.transportPrice||0),
@@ -3804,18 +3806,14 @@ function getCleanQuotationPayloadWithEventIds(){
 
 function saveQuotationMultiEvent() {
   const clientName = (document.getElementById('clientNameInput')?.value || '').trim();
-  const clientContact = (document.getElementById('clientContactInput')?.value || '').trim();
-
+  let clientContact = (document.getElementById('clientContactInput')?.value || '').trim();
+// 🔧 normalize pasted number (handles +91, spaces, WhatsApp)
+clientContact = clientContact.replace(/\D/g, '').slice(-10);
   // ❌ basic validation → stay on quotation screen
   if (!clientName || !clientContact) {
     showMessage('Client name and contact are required.');
     return;
   }
-
-  // 🔧 Normalize client contact (handles +91, spaces, paste)
-clientContact = (clientContact || '')
-  .replace(/\D/g, '')   // remove non-digits
-  .slice(-10);          // keep LAST 10 digits
 
   // 🔢 Extra validation: phone must be exactly 10 digits
   if (!/^\d{10}$/.test(clientContact)) {
