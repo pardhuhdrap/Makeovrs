@@ -9178,6 +9178,18 @@ async function markClientRequestImported(ctx) {
   }
 }
 
+async function markClientRequestDeclined({ rowIndex }) {
+  try {
+    // Reuse SAME logic as "imported"
+    await updateClientRequestStatus({
+      rowIndex,
+      status: 'imported'
+    });
+  } catch (err) {
+    console.error('Failed to mark request as declined/imported', err);
+    throw err;
+  }
+}
 
 
 function cleanupOldClientRequestSystemRemoved() {
