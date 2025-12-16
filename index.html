@@ -7353,27 +7353,6 @@ function recalcPaymentPending() {
   }
 }
 
-function handlePendingDiscountToggle() {
-  const chk = document.getElementById('markPendingAsDiscount');
-  const pendingInput = document.getElementById('paymentPending');
-
-  if (!pendingInput) return;
-
-  if (chk.checked) {
-    // Pending treated as discount
-    pendingInput.classList.remove('bg-gray-100');
-    pendingInput.classList.add('bg-yellow-100');
-  } else {
-    // Normal pending
-    pendingInput.classList.remove('bg-yellow-100');
-    pendingInput.classList.add('bg-gray-100');
-  }
-
-  // keep profit & revenue in sync
-  if (typeof recalcProfit === 'function') {
-    recalcProfit();
-  }
-}
 
 
 function handlePaymentSave(markCompleted = false) {
