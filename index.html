@@ -6346,6 +6346,19 @@ async function handleFileAction(id, action) {
     return;
   }
 
+  // 🔒 BLOCK quotation edit if linked invoice is PAID
+if (action === "edit") {
+  const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
+  const linkedInvoice = invoices.find(inv => inv.quotationId === q.id);
+
+  if (linkedInvoice && linkedInvoice.paymentStatus === "completed") {
+    showMessage(
+      "This quotation cannot be edited because its invoice is fully paid."
+    );
+    return;
+  }
+}
+
   if (action === "download") {
 
     exportQuotationPDF(q);
@@ -6470,8 +6483,7 @@ async function handleInvoiceAction(invoiceId, action) {
   // 🔒 Block edit if invoice is fully paid
 if (action === "edit" && inv.paymentStatus === "completed") {
   showMessage(
-    "This invoice is fully paid and cannot be edited.",
-    "Edit disabled"
+    "This invoice is fully paid and cannot be edited."
   );
   return;
 }
@@ -6671,6 +6683,25 @@ msg += `</div>`;
       handleFileAction(quoteId, 'generate_invoice');
     };
   }
+if (editBtn) {
+
+  // 🔒 BLOCK quotation edit if linked invoice is PAID
+  const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
+  const linkedInvoice = invoices.find(inv => inv.quotationId === quoteId);
+
+  if (linkedInvoice && linkedInvoice.paymentStatus === 'completed') {
+    editBtn.disabled = true;
+    editBtn.classList.add('opacity-50', 'cursor-not-allowed');
+  } else {
+    editBtn.disabled = false;
+    editBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+
+    editBtn.onclick = () => {
+      closeMessage();
+      handleFileAction(quoteId, 'edit');
+    };
+  }
+}
 
   if (editBtn) {
     editBtn.classList.remove('hidden');
