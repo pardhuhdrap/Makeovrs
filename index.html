@@ -6467,6 +6467,16 @@ async function handleInvoiceAction(invoiceId, action) {
   const inv = invoices.find(x => (x.invoiceId === invoiceId) || (x.id === invoiceId));
   if (!inv) { showMessage("Invoice not found."); return; }
 
+  // 🔒 Block edit if invoice is fully paid
+if (action === "edit" && inv.paymentStatus === "completed") {
+  showMessage(
+    "This invoice is fully paid and cannot be edited.",
+    "Edit disabled"
+  );
+  return;
+}
+
+
   if (action === "download") {
 
     exportQuotationPDF(inv);
@@ -7271,6 +7281,20 @@ function updateEditButtonsByPaymentStatus(inv) {
     quotationEditBtn.classList.toggle('opacity-50', isPaid);
     quotationEditBtn.classList.toggle('cursor-not-allowed', isPaid);
   }
+
+  if (editBtn) {
+  if (inv.paymentStatus === 'completed') {
+    editBtn.disabled = true;
+    editBtn.classList.add('opacity-50', 'cursor-not-allowed');
+  } else {
+    editBtn.disabled = false;
+    editBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    editBtn.onclick = () => {
+      closeMessage();
+      handleInvoiceAction(safeInvId, 'edit');
+    };
+  }
+}
 }
 
 // Enable/disable Revised Amount field
