@@ -7266,6 +7266,7 @@ function recalcProfit() {
 
 // Core math for Pending + button enabling
 function recalcPaymentPending() {
+  const discountChk = document.getElementById('markPendingAsDiscount');
   const billedInput  = document.getElementById('paymentBilledAmount');
   const revisedInput = document.getElementById('paymentRevisedAmount');
   const revisedChk   = document.getElementById('paymentRevisedEnable');
