@@ -3267,9 +3267,18 @@ function openCalendarDatePopup(dateISO){
       const checkboxId = 'cb_' + (ev.eventId || Math.random().toString(36).slice(2,8));
       const bookChecked = ev.booked ? 'checked' : '';
       controls.innerHTML = `<div style="margin-bottom:6px">
-        <label style="display:flex;align-items:center;gap:8px">
-          <input id="${checkboxId}" type="checkbox" class="calendar-book-checkbox" data-eventid="${ev.eventId||''}" ${bookChecked} /> Booked</label>
-          </div>
+        <label class="toggle-wrap">
+      <input
+        id="${checkboxId}"
+        type="checkbox"
+        class="calendar-book-checkbox"
+        data-eventid="${ev.eventId || ''}"
+        ${bookChecked}
+      />
+      <span class="toggle-slider"></span>
+      <span class="toggle-label">Booked</span>
+    </label>
+  </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;"><button class="py-1 px-2 rounded border text-sm" onclick="openQuotationFromCalendar('${ev.quotationId}')">View Quotation</button></div>`;
       row.appendChild(meta); row.appendChild(controls);
       popup.appendChild(row);
