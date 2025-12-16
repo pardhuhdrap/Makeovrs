@@ -7307,8 +7307,8 @@ function recalcPaymentPending() {
   }
 
   // Pending = Base - FinalTotal
-  const rawPending = base - finalTotal;
-  const displayPending = Math.abs(rawPending);
+  let rawPending = base - finalTotal;
+  let displayPending = Math.abs(rawPending);
 
    /* =========================================
      NEW: Mark Pending as Discount (NON-DESTRUCTIVE)
