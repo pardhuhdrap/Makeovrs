@@ -1630,31 +1630,22 @@ textarea:focus {
         </div>
       </div>
 
-      <!-- Row 3: Pending + Final Paid (both auto-calc) -->
+<!-- Row 3: Pending + Final Paid (both auto-calc) -->
       <div class="grid grid-cols-2 gap-3">
         <div>
   <div class="flex items-center justify-between mb-1">
     <label class="block text-xs text-gray-700">Pending</label>
 
-    <label class="toggle-wrap text-xs text-gray-600">
-      <input
+    <label class="flex items-center gap-2 cursor-pointer select-none">
+            <!-- Toggle -->
+      <div class="relative">
+        <input
           type="checkbox"
           id="markPendingAsDiscount"
           class="sr-only peer"
           onchange="recalcPaymentPending()"
         />
-      <span class="toggle-slider"></span>
-            <span class="toggle-label">Mark as Discount</span>
-          </label>
-        
-        </div>
-            <input
-    id="paymentPending"
-    type="number"
-    class="w-full border rounded p-2 bg-gray-100"
-    readonly
-  />
-          </div>
+        <span class="text-[11px] text-gray-600">Mark as Discount</span>
         <div
           class="w-8 h-4 bg-gray-300 rounded-full peer-checked:bg-green-500 transition"
         ></div>
@@ -1668,8 +1659,13 @@ textarea:focus {
   </div>
 
   <!-- 🔴 THIS WAS MISSING -->
-
-
+  <input
+    id="paymentPending"
+    type="number"
+    class="w-full border rounded p-2 bg-gray-100"
+    readonly
+  />
+</div>
 
         <!-- Final Paid (auto-calculated, read-only) -->
         <div>
