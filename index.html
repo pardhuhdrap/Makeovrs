@@ -1587,15 +1587,29 @@ textarea:focus {
       <!-- Row 3: Pending + Final Paid (both auto-calc) -->
       <div class="grid grid-cols-2 gap-3">
         <!-- Pending -->
-        <div>
-          <label class="block text-xs text-gray-700 mb-1">Pending</label>
-          <input
-            id="paymentPending"
-            type="number"
-            class="w-full border rounded p-2 bg-gray-100"
-            readonly
-          />
-        </div>
+<div>
+  <div class="flex items-center justify-between mb-1">
+    <label class="block text-xs text-gray-700">Pending</label>
+
+    <label class="flex items-center gap-1 text-[11px] cursor-pointer select-none">
+      <input
+        type="checkbox"
+        id="markPendingAsDiscount"
+        class="h-3 w-3"
+        onchange="recalcPaymentPending()"
+      />
+      <span class="text-gray-600">Discount</span>
+    </label>
+  </div>
+
+  <input
+    id="paymentPending"
+    type="number"
+    class="w-full border rounded p-2 bg-gray-100"
+    readonly
+  />
+</div>
+
 
         <!-- Final Paid (auto-calculated, read-only) -->
         <div>
@@ -7294,6 +7308,29 @@ function recalcPaymentPending() {
   // Pending = Base - FinalTotal
   const rawPending = base - finalTotal;
   const displayPending = Math.abs(rawPending);
+
+   /* =========================================
+     NEW: Mark Pending as Discount (NON-DESTRUCTIVE)
+     ========================================= */
+  if (discountChk?.checked && displayPending > 0) {
+
+    // discount equals current pending
+    const discount = displayPending;
+
+    // revised = billed - discount
+    const revisedValue = billed - discount;
+
+    // force revised mode ON
+    if (revisedChk) revisedChk.checked = true;
+    if (revisedInput) {
+      revisedInput.disabled = false;
+      revisedInput.value = revisedValue.toFixed(2);
+    }
+
+    // no pending due after discount
+    rawPending = 0;
+    displayPending = 0;
+  }
 
   if (pendingInput) {
     pendingInput.value = displayPending.toFixed(2);
