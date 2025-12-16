@@ -7252,6 +7252,26 @@ function closePaymentInfoModal() {
   }
 }
 
+function updateEditButtonsByPaymentStatus(inv) {
+  if (!inv) return;
+
+  const isPaid = inv.paymentStatus === 'completed';
+
+  const invoiceEditBtn   = document.getElementById('invoiceEditBtn');
+  const quotationEditBtn = document.getElementById('quotationEditBtn');
+
+  if (invoiceEditBtn) {
+    invoiceEditBtn.disabled = isPaid;
+    invoiceEditBtn.classList.toggle('opacity-50', isPaid);
+    invoiceEditBtn.classList.toggle('cursor-not-allowed', isPaid);
+  }
+
+  if (quotationEditBtn) {
+    quotationEditBtn.disabled = isPaid;
+    quotationEditBtn.classList.toggle('opacity-50', isPaid);
+    quotationEditBtn.classList.toggle('cursor-not-allowed', isPaid);
+  }
+}
 
 // Enable/disable Revised Amount field
 function toggleRevisedAmount() {
@@ -7560,6 +7580,8 @@ inv.paymentProfit = Number.isFinite(profit) ? Number(profit) : 0;
   if (typeof renderFilesList === 'function') {
     renderFilesList();
   }
+
+  updateEditButtonsByPaymentStatus(inv);
 
   // 🔄 Auto-save to Drive (works for both Save + Paid)
   try {
