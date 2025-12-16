@@ -7357,6 +7357,8 @@ if (discountChk?.checked && displayPending > 0) {
 
     delete revisedInput.dataset.prevRevised;
     delete revisedInput.dataset.prevRevisedEnabled;
+
+    return recalcPaymentPending();
   }
 }
 
