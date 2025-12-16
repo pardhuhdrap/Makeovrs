@@ -7309,33 +7309,16 @@ function updateEditButtonsByPaymentStatus(inv) {
 
   const invoiceEditBtn   = document.getElementById('invoiceEditBtn');
   const quotationEditBtn = document.getElementById('quotationEditBtn');
+  const messageEditBtn   = document.getElementById('messageEditBtn');
 
-  if (invoiceEditBtn) {
-    invoiceEditBtn.disabled = isPaid;
-    invoiceEditBtn.classList.toggle('opacity-50', isPaid);
-    invoiceEditBtn.classList.toggle('cursor-not-allowed', isPaid);
-  }
-
-  if (quotationEditBtn) {
-    quotationEditBtn.disabled = isPaid;
-    quotationEditBtn.classList.toggle('opacity-50', isPaid);
-    quotationEditBtn.classList.toggle('cursor-not-allowed', isPaid);
-  }
-
-  if (editBtn) {
-  if (inv.paymentStatus === 'completed') {
-    editBtn.disabled = true;
-    editBtn.classList.add('opacity-50', 'cursor-not-allowed');
-  } else {
-    editBtn.disabled = false;
-    editBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-    editBtn.onclick = () => {
-      closeMessage();
-      handleInvoiceAction(safeInvId, 'edit');
-    };
-  }
+  [invoiceEditBtn, quotationEditBtn, messageEditBtn].forEach(btn => {
+    if (!btn) return;
+    btn.disabled = isPaid;
+    btn.classList.toggle('opacity-50', isPaid);
+    btn.classList.toggle('cursor-not-allowed', isPaid);
+  });
 }
-}
+
 
 // Enable/disable Revised Amount field
 function toggleRevisedAmount() {
