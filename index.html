@@ -7324,28 +7324,42 @@ function recalcPaymentPending() {
   let rawPending = base - finalTotal;
   let displayPending = Math.abs(rawPending);
 
-   /* =========================================
-     NEW: Mark Pending as Discount (NON-DESTRUCTIVE)
-     ========================================= */
-  if (discountChk?.checked && displayPending > 0) {
+  /* ===============================
+   Mark Pending as Discount
+   (WITH RESTORE SUPPORT)
+   =============================== */
+if (discountChk?.checked && displayPending > 0) {
 
-    // discount equals current pending
-    const discount = displayPending;
-
-    // revised = billed - discount
-    const revisedValue = billed - discount;
-
-    // force revised mode ON
-    if (revisedChk) revisedChk.checked = true;
-    if (revisedInput) {
-      revisedInput.disabled = false;
-      revisedInput.value = revisedValue.toFixed(2);
-    }
-
-    // no pending due after discount
-    rawPending = 0;
-    displayPending = 0;
+  // 🔒 Save previous state ONCE
+  if (!revisedInput.dataset.prevRevised) {
+    revisedInput.dataset.prevRevised = revisedInput.value || '';
+    revisedInput.dataset.prevRevisedEnabled = revisedChk.checked ? '1' : '0';
   }
+
+  const discount = displayPending;
+  const revisedValue = billed - discount;
+
+  revisedChk.checked = true;
+  revisedInput.disabled = false;
+  revisedInput.value = revisedValue.toFixed(2);
+
+  rawPending = 0;
+  displayPending = 0;
+
+} else if (!discountChk?.checked) {
+
+  // 🔓 Restore previous state
+  if (revisedInput.dataset.prevRevised != null) {
+
+    revisedInput.value = revisedInput.dataset.prevRevised;
+    revisedChk.checked = revisedInput.dataset.prevRevisedEnabled === '1';
+    revisedInput.disabled = !revisedChk.checked;
+
+    delete revisedInput.dataset.prevRevised;
+    delete revisedInput.dataset.prevRevisedEnabled;
+  }
+}
+
 
   if (pendingInput) {
     pendingInput.value = displayPending.toFixed(2);
