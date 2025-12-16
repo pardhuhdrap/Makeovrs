@@ -1571,14 +1571,16 @@ textarea:focus {
         <div>
           <div class="flex items-center justify-between mb-1">
             <label class="block text-xs text-gray-700">Revised Amount</label>
-            <label class="flex items-center gap-1 text-xs text-gray-600">
-              <input
-                id="paymentRevisedEnable"
-                type="checkbox"
-                onchange="toggleRevisedAmount()"
-              />
-              Enable
-            </label>
+            <label class="toggle-wrap text-xs text-gray-600">
+            <input
+              id="paymentRevisedEnable"
+              type="checkbox"
+              onchange="toggleRevisedAmount()"
+            />
+            <span class="toggle-slider"></span>
+            <span class="toggle-label">Enable</span>
+          </label>
+
           </div>
           <input
             id="paymentRevisedAmount"
@@ -7367,20 +7369,25 @@ function updateEditButtonsByPaymentStatus(inv) {
 
 // Enable/disable Revised Amount field
 function toggleRevisedAmount() {
-  const chk   = document.getElementById('paymentRevisedEnable');
-  const input = document.getElementById('paymentRevisedAmount');
-  if (!chk || !input) return;
+  const chk = document.getElementById('paymentRevisedEnable');
+  const revisedInput = document.getElementById('paymentRevisedAmount');
+
+  if (!chk || !revisedInput) return;
 
   if (chk.checked) {
-    input.disabled = false;
+    // ✅ Enable revised amount
+    revisedInput.disabled = false;
+    revisedInput.focus();
   } else {
-    input.disabled = true;
-    input.classList.remove('field-error-red');
-    // optional: keep or clear value
-    // input.value = '';
+    // ❌ Disable & clear revised amount
+    revisedInput.value = '';
+    revisedInput.disabled = true;
+
+    // 🔁 Recalculate pending / totals
+    recalcPaymentPending();
   }
-  recalcPaymentPending();
 }
+
 
 function recalcProfit() {
   const misc  = parseFloat(document.getElementById('paymentMiscAmount').value) || 0;
