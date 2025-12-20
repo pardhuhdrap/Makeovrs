@@ -8272,48 +8272,60 @@ function createEventPanel(prefill = {}) {
                  placeholder="Manually enter event name">
         </div>
       </div>
-          <!-- DATE / MULTI-DAY ROW -->
-          <div class="grid grid-cols-2 gap-3">
+          <!-- MULTI-DAY TOGGLE (ALWAYS VISIBLE) -->
+<div class="flex items-center justify-end mb-1">
+  <label class="toggle-wrap text-xs text-gray-600">
+    <input
+      type="checkbox"
+      class="eventMultiDayChk"
+      onchange="toggleMultiDay(this)"
+    />
+    <span class="toggle-slider"></span>
+    <span class="toggle-label">Multi-day</span>
+  </label>
+</div>
 
-            <!-- Single Day Date -->
-            <div class="singleDayBlock">
-              <div class="flex items-center justify-between">
-                <label class="text-xs text-gray-700">Event Date</label>
+<!-- DATE / TIME / RANGE -->
+<div class="grid grid-cols-2 gap-3">
 
-                <label class="flex items-center gap-1 text-[11px] text-gray-600 cursor-pointer">
-                  <input type="checkbox"
-                        class="eventMultiDayChk"
-                        onchange="toggleMultiDay(this)">
-                  Multi-day
-                </label>
-              </div>
+  <!-- Single day: Date -->
+  <div class="singleDayBlock">
+    <label class="text-xs text-gray-700">Event Date</label>
+    <input
+      type="date"
+      class="eventDate w-full border rounded p-2 text-sm"
+    />
+  </div>
 
-              <input type="date"
-                    class="eventDate w-full border rounded p-2 text-sm">
-            </div>
+  <!-- Single day: Time -->
+  <div class="singleDayBlock">
+    <label class="text-xs text-gray-700">Event Time</label>
+    <input
+      type="time"
+      class="eventTime w-full border rounded p-2 text-sm"
+    />
+  </div>
 
-            <!-- Event Time -->
-            <div class="singleDayBlock">
-              <label class="text-xs text-gray-700">Event Time</label>
-              <input type="time"
-                    class="eventTime w-full border rounded p-2 text-sm">
-            </div>
+  <!-- Multi day: From -->
+  <div class="multiDayBlock hidden">
+    <label class="text-xs text-gray-700">From Date</label>
+    <input
+      type="date"
+      class="eventFromDate w-full border rounded p-2 text-sm"
+    />
+  </div>
 
-            <!-- From Date (hidden by default) -->
-            <div class="multiDayBlock hidden">
-              <label class="text-xs text-gray-700">From Date</label>
-              <input type="date"
-                    class="eventFromDate w-full border rounded p-2 text-sm">
-            </div>
+  <!-- Multi day: To -->
+  <div class="multiDayBlock hidden">
+    <label class="text-xs text-gray-700">To Date</label>
+    <input
+      type="date"
+      class="eventToDate w-full border rounded p-2 text-sm"
+    />
+  </div>
 
-            <!-- To Date (hidden by default) -->
-            <div class="multiDayBlock hidden">
-              <label class="text-xs text-gray-700">To Date</label>
-              <input type="date"
-                    class="eventToDate w-full border rounded p-2 text-sm">
-            </div>
+</div>
 
-          </div>
 
 
       <div class="mb-3">
