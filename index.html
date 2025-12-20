@@ -3975,8 +3975,17 @@ for (const panel of qPanels) {
 
 
   const payload = getCleanQuotationPayloadWithEventIds();
-  if ((payload.events || []).length === 0) {
-    showMessage('Add at least one event with date & name.');
+  const events = payload.events || [];
+
+  const hasValidEvent = events.some(ev => {
+    if (ev.isMultiDay) {
+      return ev.fromDate && ev.toDate;
+    }
+    return ev.date;
+  });
+
+  if (!hasValidEvent) {
+    showMessage('Add at least one event with valid date.');
     return;
   }
 
