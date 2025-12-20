@@ -1956,22 +1956,6 @@ window.confirm = function (msg) {
   return false; // fallback if someone uses confirm synchronously
 };
 
-function toggleMultiDay(chk) {
-  const eventBlock = chk.closest('.event-panel, .event-row, .eventItem') || chk.closest('div');
-
-  const singleBlocks = eventBlock.querySelectorAll('.singleDayBlock');
-  const multiBlocks  = eventBlock.querySelectorAll('.multiDayBlock');
-
-  if (chk.checked) {
-    singleBlocks.forEach(el => el.classList.add('hidden'));
-    multiBlocks.forEach(el => el.classList.remove('hidden'));
-  } else {
-    singleBlocks.forEach(el => el.classList.remove('hidden'));
-    multiBlocks.forEach(el => el.classList.add('hidden'));
-  }
-}
-
-
 function navigate(id, opts = {}) {
   const screens = ['dashboard','settings','maps','master','quotation','calendar','invoice','files','recycle','revenue'];
 
@@ -3975,17 +3959,8 @@ for (const panel of qPanels) {
 
 
   const payload = getCleanQuotationPayloadWithEventIds();
-  const events = payload.events || [];
-
-  const hasValidEvent = events.some(ev => {
-    if (ev.isMultiDay) {
-      return ev.fromDate && ev.toDate;
-    }
-    return ev.date;
-  });
-
-  if (!hasValidEvent) {
-    showMessage('Add at least one event with valid date.');
+  if ((payload.events || []).length === 0) {
+    showMessage('Add at least one event with date & name.');
     return;
   }
 
@@ -8281,61 +8256,30 @@ function createEventPanel(prefill = {}) {
                  placeholder="Manually enter event name">
         </div>
       </div>
-          <!-- MULTI-DAY TOGGLE (ALWAYS VISIBLE) -->
-<div class="flex items-center justify-end mb-1">
-  <label class="toggle-wrap text-xs text-gray-600">
-    <input
-      type="checkbox"
-      class="eventMultiDayChk"
-      onchange="toggleMultiDay(this)"
-    />
-    <span class="toggle-slider"></span>
-    <span class="toggle-label">Multi-day</span>
-  </label>
-</div>
 
-<!-- DATE / TIME / RANGE -->
-<div class="grid grid-cols-2 gap-3">
+      <div class="mb-3">
+        <label class="block text-xs font-medium text-gray-700 mb-1">Event Date</label>
+        <input type="date"
+               class="event-eventDate border-gray-300 rounded p-2 text-sm w-full" />
+      </div>
 
-  <!-- Single day: Date -->
-  <div class="singleDayBlock">
-    <label class="text-xs text-gray-700">Event Date</label>
-    <input
-      type="date"
-      class="eventDate w-full border rounded p-2 text-sm"
-    />
-  </div>
-
-  <!-- Single day: Time -->
-  <div class="singleDayBlock">
-    <label class="text-xs text-gray-700">Event Time</label>
-    <input
-      type="time"
-      class="eventTime w-full border rounded p-2 text-sm"
-    />
-  </div>
-
-  <!-- Multi day: From -->
-  <div class="multiDayBlock hidden">
-    <label class="text-xs text-gray-700">From Date</label>
-    <input
-      type="date"
-      class="eventFromDate w-full border rounded p-2 text-sm"
-    />
-  </div>
-
-  <!-- Multi day: To -->
-  <div class="multiDayBlock hidden">
-    <label class="text-xs text-gray-700">To Date</label>
-    <input
-      type="date"
-      class="eventToDate w-full border rounded p-2 text-sm"
-    />
-  </div>
-
-</div>
-
-
+      <div class="mb-3">
+        <label class="block text-xs font-medium text-gray-700 mb-1">Event Time</label>
+        <div class="flex gap-2">
+          <input type="number"
+                 min="1" max="12"
+                 value="6"
+                 class="event-eventHour border-gray-300 rounded p-2 text-sm text-center w-20" />
+          <input type="number"
+                 min="0" max="59"
+                 value="30"
+                 class="event-eventMinute border-gray-300 rounded p-2 text-sm text-center w-20" />
+          <select class="event-eventPeriod border-gray-300 rounded p-2 text-sm w-20">
+            <option>AM</option>
+            <option selected>PM</option>
+          </select>
+        </div>
+      </div>
 
       <div class="mb-3">
         <div class="flex items-center justify-between mb-2">
@@ -10242,7 +10186,7 @@ function validateEventPanel(panel){
              || panel.querySelector('.event-eventNameManual')?.value 
              || '').trim();
 
-  const isMultiDay = panel.querySelector('.eventMultiDayChk')?.checked;
+  const date = panel.querySelector('.event-eventDate')?.value || '';
 
   const pkgPrice = panel.querySelector('.event-packagePrice')?.value 
                 || panel.querySelector('.event-packageManualPrice')?.value 
@@ -10255,34 +10199,12 @@ function validateEventPanel(panel){
     return { valid:false, message:'Event name required' };
   }
 
-  if (isMultiDay) {
-  const fromDate = panel.querySelector('.eventFromDate')?.value;
-  const toDate   = panel.querySelector('.eventToDate')?.value;
-
-  if (!fromDate || !toDate) {
-    return {
-      valid: false,
-      message: 'From date and To date are required for multi-day events'
-    };
+  if (!date)  {
+    const f = panel.querySelector('.event-eventDate');
+    if (f) f.classList.add('field-error-red');
+    attachFieldClearOnInput(panel);
+    return { valid:false, message:'Event date required' };
   }
-
-  if (new Date(toDate) < new Date(fromDate)) {
-    return {
-      valid: false,
-      message: 'To date cannot be earlier than From date'
-    };
-  }
-
-} else {
-  const eventDate = panel.querySelector('.eventDate')?.value;
-
-  if (!eventDate) {
-    return {
-      valid: false,
-      message: 'Event date is required'
-    };
-  }
-}
 
   if (!(parseFloat(pkgPrice) > 0)) {
     const f = panel.querySelector('.event-packagePrice') || panel.querySelector('.event-packageManualPrice');
