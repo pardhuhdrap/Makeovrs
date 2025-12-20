@@ -1956,6 +1956,22 @@ window.confirm = function (msg) {
   return false; // fallback if someone uses confirm synchronously
 };
 
+function toggleMultiDay(chk) {
+  const eventBlock = chk.closest('.event-panel, .event-row, .eventItem') || chk.closest('div');
+
+  const singleBlocks = eventBlock.querySelectorAll('.singleDayBlock');
+  const multiBlocks  = eventBlock.querySelectorAll('.multiDayBlock');
+
+  if (chk.checked) {
+    singleBlocks.forEach(el => el.classList.add('hidden'));
+    multiBlocks.forEach(el => el.classList.remove('hidden'));
+  } else {
+    singleBlocks.forEach(el => el.classList.remove('hidden'));
+    multiBlocks.forEach(el => el.classList.add('hidden'));
+  }
+}
+
+
 function navigate(id, opts = {}) {
   const screens = ['dashboard','settings','maps','master','quotation','calendar','invoice','files','recycle','revenue'];
 
@@ -8256,30 +8272,49 @@ function createEventPanel(prefill = {}) {
                  placeholder="Manually enter event name">
         </div>
       </div>
+          <!-- DATE / MULTI-DAY ROW -->
+          <div class="grid grid-cols-2 gap-3">
 
-      <div class="mb-3">
-        <label class="block text-xs font-medium text-gray-700 mb-1">Event Date</label>
-        <input type="date"
-               class="event-eventDate border-gray-300 rounded p-2 text-sm w-full" />
-      </div>
+            <!-- Single Day Date -->
+            <div class="singleDayBlock">
+              <div class="flex items-center justify-between">
+                <label class="text-xs text-gray-700">Event Date</label>
 
-      <div class="mb-3">
-        <label class="block text-xs font-medium text-gray-700 mb-1">Event Time</label>
-        <div class="flex gap-2">
-          <input type="number"
-                 min="1" max="12"
-                 value="6"
-                 class="event-eventHour border-gray-300 rounded p-2 text-sm text-center w-20" />
-          <input type="number"
-                 min="0" max="59"
-                 value="30"
-                 class="event-eventMinute border-gray-300 rounded p-2 text-sm text-center w-20" />
-          <select class="event-eventPeriod border-gray-300 rounded p-2 text-sm w-20">
-            <option>AM</option>
-            <option selected>PM</option>
-          </select>
-        </div>
-      </div>
+                <label class="flex items-center gap-1 text-[11px] text-gray-600 cursor-pointer">
+                  <input type="checkbox"
+                        class="eventMultiDayChk"
+                        onchange="toggleMultiDay(this)">
+                  Multi-day
+                </label>
+              </div>
+
+              <input type="date"
+                    class="eventDate w-full border rounded p-2 text-sm">
+            </div>
+
+            <!-- Event Time -->
+            <div class="singleDayBlock">
+              <label class="text-xs text-gray-700">Event Time</label>
+              <input type="time"
+                    class="eventTime w-full border rounded p-2 text-sm">
+            </div>
+
+            <!-- From Date (hidden by default) -->
+            <div class="multiDayBlock hidden">
+              <label class="text-xs text-gray-700">From Date</label>
+              <input type="date"
+                    class="eventFromDate w-full border rounded p-2 text-sm">
+            </div>
+
+            <!-- To Date (hidden by default) -->
+            <div class="multiDayBlock hidden">
+              <label class="text-xs text-gray-700">To Date</label>
+              <input type="date"
+                    class="eventToDate w-full border rounded p-2 text-sm">
+            </div>
+
+          </div>
+
 
       <div class="mb-3">
         <div class="flex items-center justify-between mb-2">
