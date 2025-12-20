@@ -10233,7 +10233,7 @@ function validateEventPanel(panel){
              || panel.querySelector('.event-eventNameManual')?.value 
              || '').trim();
 
-  const date = panel.querySelector('.event-eventDate')?.value || '';
+  const isMultiDay = panel.querySelector('.eventMultiDayChk')?.checked;
 
   const pkgPrice = panel.querySelector('.event-packagePrice')?.value 
                 || panel.querySelector('.event-packageManualPrice')?.value 
@@ -10246,12 +10246,34 @@ function validateEventPanel(panel){
     return { valid:false, message:'Event name required' };
   }
 
-  if (!date)  {
-    const f = panel.querySelector('.event-eventDate');
-    if (f) f.classList.add('field-error-red');
-    attachFieldClearOnInput(panel);
-    return { valid:false, message:'Event date required' };
+  if (isMultiDay) {
+  const fromDate = panel.querySelector('.eventFromDate')?.value;
+  const toDate   = panel.querySelector('.eventToDate')?.value;
+
+  if (!fromDate || !toDate) {
+    return {
+      valid: false,
+      message: 'From date and To date are required for multi-day events'
+    };
   }
+
+  if (new Date(toDate) < new Date(fromDate)) {
+    return {
+      valid: false,
+      message: 'To date cannot be earlier than From date'
+    };
+  }
+
+} else {
+  const eventDate = panel.querySelector('.eventDate')?.value;
+
+  if (!eventDate) {
+    return {
+      valid: false,
+      message: 'Event date is required'
+    };
+  }
+}
 
   if (!(parseFloat(pkgPrice) > 0)) {
     const f = panel.querySelector('.event-packagePrice') || panel.querySelector('.event-packageManualPrice');
