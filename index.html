@@ -4018,6 +4018,54 @@ for (const panel of qPanels) {
   delete savedQuotation.discount;
 }
         existing[idx] = savedQuotation;
+        // ================================
+// 🔁 Auto-sync unpaid invoice
+// ================================
+try {
+  const invoices = loadFromLS(SAVED_INVOICES_KEY, []);
+  const invIdx = invoices.findIndex(inv =>
+    inv.quotationId === savedQuotation.id &&
+    inv.paymentStatus !== 'completed'
+  );
+
+  if (invIdx !== -1) {
+    const q = savedQuotation;
+    const events = Array.isArray(q.events) ? q.events : [];
+
+    const actual = events.reduce(
+      (s, e) =>
+        s +
+        Number(e.packagePrice || 0) +
+        Number(e.addOnPrice || 0) +
+        Number(e.transportPrice || 0),
+      0
+    );
+
+    const discount = typeof q.discount === 'number' ? q.discount : 0;
+    const final = Math.max(0, actual - discount);
+
+    const syncedInvoice = {
+      ...invoices[invIdx],
+      events,
+      actual,
+      discount,
+      final,
+      syncedFromQuotation: true,
+      syncedAt: new Date().toISOString()
+    };
+
+    // 🔒 Clean discount if removed in quotation
+    if (!('discount' in q)) {
+      delete syncedInvoice.discount;
+    }
+
+    invoices[invIdx] = syncedInvoice;
+    saveToLS(SAVED_INVOICES_KEY, invoices);
+  }
+} catch (e) {
+  console.warn('Invoice auto-sync failed:', e);
+}
+
       } else {
         // fallback: treat as new if id not found
         savedQuotation = {
@@ -6826,7 +6874,24 @@ function openInvoiceViewerById(invId){
   msg += `<b style="color:#ba2121;">Discount</b> : <b>₹${discount}</b><br>`;
   msg += `<b style="color:#198754; font-size:15px;">Final Price</b> : <b>₹${final}</b><br><br>`;
   msg += `</div>`;
-
+  
+  // ⚠️ WARNING BADGE — invoice auto-synced from quotation
+if (inv.syncedFromQuotation) {
+  msg += `
+    <div style="
+      margin:8px 0;
+      padding:6px 10px;
+      background:#fff3cd;
+      color:#856404;
+      border:1px solid #ffeeba;
+      border-radius:6px;
+      font-size:12px;
+      font-weight:600;
+    ">
+      ⚠ Invoice updated from quotation
+    </div>
+  `;
+}
     // ---------- EVENTS ----------
   msg += `<b style="color:#6f42c1;">Events:</b><br>`;
 
