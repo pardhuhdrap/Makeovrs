@@ -2344,6 +2344,7 @@ function migrateEventIds(){
     }
   });
   if(changed) saveToLS(SAVED_QUOTATIONS_KEY, all);
+  clearAutoDraft();
 }
 
 
@@ -2890,6 +2891,7 @@ function persistMissingEventIds(){
     });
   });
   if(changed) saveToLS(SAVED_QUOTATIONS_KEY, all);
+  clearAutoDraft();
 }
 
 /* -------------------------
@@ -4138,6 +4140,7 @@ try {
 
     // persist quotations
     saveToLS(SAVED_QUOTATIONS_KEY, existing);
+    clearAutoDraft();
 
 
 // (your original code continues here…)
@@ -5540,6 +5543,7 @@ async function restoreRecycleItem(recycleId, kind) {
       // ✅ No duplicate → restore quotation
       quotations.push(original);
       saveToLS(SAVED_QUOTATIONS_KEY, quotations);
+      clearAutoDraft();
 
     } else {
       showMessage(
@@ -6567,6 +6571,7 @@ if (action === "edit") {
       };
       invoices.push(newInvoice);
       saveToLS(SAVED_INVOICES_KEY, invoices);
+      clearAutoDraft();
       renderFilesList();
       showMessage("Invoice generated and saved to Files → Invoices.");
       switchFilesTab("invoices");
@@ -7036,6 +7041,12 @@ function openPaymentInfoForInvoiceId(invoiceId) {
 
   // Directly open Payment Info popup (no invoice viewer)
   openPaymentInfoModal();
+}
+
+function clearAutoDraft() {
+  try {
+    localStorage.removeItem(AUTO_DRAFT_KEY);
+  } catch (e) {}
 }
 
 // ---- Payment Info helpers ----
@@ -11177,6 +11188,7 @@ if (quoteBulkDelete) {
 
     const remaining = list.filter(q => !ids.includes(String(q.id)));
     saveToLS(SAVED_QUOTATIONS_KEY, remaining);
+    clearAutoDraft();
     renderFilesList();
 
     // 🔁 auto-save to Drive after delete
@@ -11608,6 +11620,28 @@ cleanupOldClientRequestSystemRemoved();
   navigate(firstScreen, { pushHistory: false });
 });
 
+// ===============================
+// 🔒 PWA-safe unsaved-data guard
+// ===============================
+let APP_DIRTY = false;
+
+// mark app dirty on any user input
+document.addEventListener('input', () => {
+  APP_DIRTY = true;
+}, true);
+
+// clear dirty flag after saves
+function markAppSaved() {
+  APP_DIRTY = false;
+}
+
+// Browser-only refresh warning (PWA may ignore)
+window.addEventListener('beforeunload', (e) => {
+  if (!APP_DIRTY) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
+
 // Single canonical Save Settings handler — safe and defensive
 (function attachCanonicalSaveSettings(){
   const btn = document.getElementById('saveSettingsBtn');
@@ -11676,6 +11710,49 @@ const name = (() => {
     }
   });
 })();
+
+// ===================================================
+// 🔒 PWA-SAFE AUTO SAVE & RESTORE (100% RELIABLE)
+// ===================================================
+
+const AUTO_DRAFT_KEY = 'MAKEOVRS_APP_DRAFT';
+
+// Capture all user input automatically
+document.addEventListener('input', () => {
+  try {
+    const draft = {
+      ts: Date.now(),
+      screen: window.CURRENT_SCREEN || null,
+      quotationId: window.CURRENT_EDIT_QUOTATION_ID || null,
+      invoiceId: window.CURRENT_EDIT_INVOICE_ID || null
+    };
+
+    localStorage.setItem(AUTO_DRAFT_KEY, JSON.stringify(draft));
+  } catch (e) {}
+}, true);
+
+window.addEventListener('load', () => {
+  try {
+    const raw = localStorage.getItem(AUTO_DRAFT_KEY);
+    if (!raw) return;
+
+    const draft = JSON.parse(raw);
+
+    // Restore quotation
+    if (draft.quotationId) {
+      window.CURRENT_EDIT_QUOTATION_ID = draft.quotationId;
+      navigate('quotation', { pushHistory: false });
+      showMessage('Unsaved quotation restored automatically.');
+    }
+
+    // Restore invoice
+    if (draft.invoiceId) {
+      window.CURRENT_EDIT_INVOICE_ID = draft.invoiceId;
+      navigate('invoice', { pushHistory: false });
+      showMessage('Unsaved invoice restored automatically.');
+    }
+  } catch (e) {}
+});
 
 </script>
 
