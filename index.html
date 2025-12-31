@@ -4014,6 +4014,9 @@ for (const panel of qPanels) {
           id: CURRENT_EDIT_QUOTATION_ID,
           createdAt: new Date().toISOString()
         };
+        if (!('discount' in payload)) {
+  delete savedQuotation.discount;
+}
         existing[idx] = savedQuotation;
       } else {
         // fallback: treat as new if id not found
@@ -11462,6 +11465,9 @@ const events = panels.map(panel => {
     const idx = invoices.findIndex(inv => (inv.invoiceId || inv.id) === String(CURRENT_EDIT_INVOICE_ID));
     if (idx >= 0) {
       targetInvoice = Object.assign({}, invoices[idx], base);
+      if (!('discount' in base)) {
+  delete targetInvoice.discount;
+}
       targetInvoice.updatedAt = nowIso;
       invoices[idx] = targetInvoice;
     } else {
