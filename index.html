@@ -3908,7 +3908,11 @@ clientContact = clientContact.replace(/\D/g, '').slice(-10);
   if(isNaN(discount) || discount <= 0) discount = 0;
   const final = Math.max(0, actual - discount);
   const payload = { clientName, clientContact, events, actual, final };
-  if(discount > 0) payload.discount = Number(discount);
+  if (discount > 0) {
+  payload.discount = discount;
+} else {
+  delete payload.discount; // 🔑 THIS IS THE FIX
+}
   return payload;
 }
 
@@ -11409,7 +11413,11 @@ const events = panels.map(panel => {
   }
 
   const base = { clientName, clientContact, events, actual, final };
-  if (discount > 0) base.discount = Number(discount);
+  if (discount > 0) {
+  base.discount = Number(discount);
+} else {
+  delete base.discount; // 🔑 remove stale value
+}
 
   // Save / dedupe logic (keeps parity with quotation flow)
   const invoices = loadFromLS(SAVED_INVOICES_KEY, []) || [];
