@@ -43,6 +43,12 @@ header {
   padding: 0 16px;       /* no top/bottom padding, only left/right */
 }
 :root{--app-color:#3b82f6}
+
+/* 🔒 Prevent pull-to-refresh in PWA */
+html, body {
+  overscroll-behavior-y: contain;
+}
+
 .app-color-bg{background:var(--app-color)}
 .app-color-text{color:var(--app-color)}
 .app-color-border{border-color:var(--app-color)}
@@ -64,6 +70,7 @@ header {
   max-width: calc(33.333% - 1rem);
   height: 120px;
 }
+
 
 .app-icon:hover{box-shadow:0 20px 25px rgba(0,0,0,.08)}
 #screen-wrapper { position: absolute; left: 0; right: 0; top: var(--app-header-height, 30px); bottom: 0; overflow-y: auto; }
@@ -11682,14 +11689,19 @@ window.addEventListener("touchstart", function(e) {
 }, { passive: true });
 
 window.addEventListener("touchmove", function(e) {
-  let currentY = e.touches[0].clientY;
 
-  if (window.scrollY === 0 && currentY > startY + 80 && !warned) {
+  const currentY = e.touches[0].clientY;
+
+  // detect downward swipe
+  if (currentY - startY > 80 && !warned) {
+
     if (APP_DIRTY) {
       warned = true;
       alert("Refreshing may cause unsaved data loss.");
     }
+
   }
+
 }, { passive: true });
 
 // Single canonical Save Settings handler — safe and defensive
