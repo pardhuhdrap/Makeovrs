@@ -6809,7 +6809,7 @@ const deleteBtn = document.getElementById("messageDeleteBtn");
 if (deleteBtn) {
   deleteBtn.onclick = () => {
     if (confirm("Are you sure you want to delete this quotation?")) {
-      deleteQuotation(currentQuotationId);
+      deleteQuotation(q.id);
       closeMessage();
     }
   };
