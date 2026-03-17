@@ -1504,12 +1504,12 @@ textarea:focus {
         </button>
 
         <button
-          id="messageCloseBtn"
+          id="messageDeleteBtn"
           type="button"
-          onclick="closeMessage()"
+          onclick="deleteQuotation(currentQuotationId); closeMessage();"
           class="px-4 py-2 rounded bg-red-600 text-white text-sm"
         >
-          Close
+          Delete
         </button>
       </div>
     </div>
@@ -9520,8 +9520,7 @@ if (shareBtn) {
 
 // Map footer buttons
   const green = document.getElementById('messageGenerateInvoiceBtn'); // Create quotation
-  const black = document.getElementById('messageDownloadBtn');        // Delete (Decline)
-  const red   = document.getElementById('messageCloseBtn');           // Close
+  const black = document.getElementById('messageDeleteBtn');        // Delete (Decline)
 
   // 1️⃣ CREATE QUOTATION (GREEN)
   if (green) {
@@ -9546,13 +9545,6 @@ if (shareBtn) {
       closeMessage();
     };
   }
-
-  // 3️⃣ CLOSE (RED button text)
-  if (red) {
-    red.classList.remove('hidden');
-    red.textContent = 'Close';
-  }
-
   // Refresh icons (phone icon etc.)
   if (typeof createLucide === 'function') {
     createLucide();
