@@ -792,7 +792,7 @@ textarea:focus {
   <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
     <label class="flex flex-col">
       <span class="text-sm text-gray-600">Default Origin</span>
-      <input id="masterDefaultOrigin" type="text" class="border rounded p-2 text-sm" placeholder="e.g. Mumbai, India" />
+      <input id="masterDefaul/tOrigin" type="text" class="border rounded p-2 text-sm" placeholder="e.g. Mumbai, India" />
     </label>
 
     <label class="flex flex-col">
@@ -1957,6 +1957,18 @@ window.confirm = function (msg) {
 };
 
 function navigate(id, opts = {}) {
+
+ // 🔒 GLOBAL LOGIN GUARD
+  if (!currentUser || !currentUser.email) {
+
+    updateDashboardAccess(false);
+
+    alert("Please sign in with Google to continue.");
+
+    openProfileMenu?.(); // opens profile/login menu
+    return;
+  }
+  
   const screens = ['dashboard','settings','maps','master','quotation','calendar','invoice','files','recycle','revenue'];
 
   const pushHistory = (opts.pushHistory !== false);
