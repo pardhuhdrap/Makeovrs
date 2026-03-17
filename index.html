@@ -6809,11 +6809,50 @@ const deleteBtn = document.getElementById("messageDeleteBtn");
 if (deleteBtn) {
   deleteBtn.onclick = async () => {
 
-    const ok = await appConfirm("Are you sure you want to delete this quotation?");
+    const sure = await appConfirm("Delete this quotation?");
+    if (!sure) return;
 
-    if (!ok) return;
+    const list        = loadFromLS(SAVED_QUOTATIONS_KEY, []) || [];
+    const recycleUser = loadFromLS(RECYCLE_USER_KEY, []) || [];
+    const nowIso      = new Date().toISOString();
 
-    handleFileAction(q.id, 'remove');
+    const quoteId = q.id;
+
+    // Move to recycle bin
+    const target = list.find(item => String(item.id) === String(quoteId));
+
+    if (target) {
+      recycleUser.push({
+        recycleId: 'recycle_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+        type: 'quotation',
+        kind: 'quotation',
+        label: target.clientName || 'Quotation',
+        clientName: target.clientName,
+        clientContact: target.clientContact,
+        quotationId: target.id,
+        quotationNo: target.quotationNo,
+        removedAt: nowIso,
+        reason: 'Deleted from quotation viewer',
+        original: target
+      });
+
+      saveToLS(RECYCLE_USER_KEY, recycleUser);
+
+      const remaining = list.filter(item => String(item.id) !== String(quoteId));
+      saveToLS(SAVED_QUOTATIONS_KEY, remaining);
+
+      clearAutoDraft();
+      renderFilesList();
+
+      try {
+        if (typeof saveToDrive === 'function' && accessToken) {
+          saveToDrive();
+        }
+      } catch (e) {
+        console.warn('Auto-save to Drive after quotation delete failed:', e);
+      }
+    }
+
     closeMessage();
 
   };
