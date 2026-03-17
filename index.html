@@ -6813,7 +6813,7 @@ if (deleteBtn) {
 
     if (!ok) return;
 
-    deleteQuotation(q.id);
+    handleFileAction(q.id, 'delete');
     closeMessage();
 
   };
