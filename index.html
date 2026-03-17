@@ -6865,7 +6865,7 @@ if (deleteBtn) {
   const paidBtn      = document.getElementById('messagePaidBtn');
 
   // Hide all action buttons first
-  [downloadBtn, shareBtn, genInvBtn, editBtn, paidBtn].forEach(btn => {
+  [downloadBtn, shareBtn, genInvBtn, editBtn, paidBtn, deleteBtn].forEach(btn => {
     if (btn) btn.classList.add('hidden');
   });
 
@@ -7099,9 +7099,10 @@ if (deleteBtn) {
   const genInvBtn    = document.getElementById('messageGenerateInvoiceBtn');
   const editBtn      = document.getElementById('messageEditBtn');
   const paidBtn      = document.getElementById('messagePaidBtn');
+  
 
   // Hide all action buttons first
-  [downloadBtn, shareBtn, genInvBtn, editBtn, paidBtn].forEach(btn => {
+  [downloadBtn, shareBtn, genInvBtn, editBtn, paidBtn, deleteBtn].forEach(btn => {
     if (btn) btn.classList.add('hidden');
   });
 
