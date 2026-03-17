@@ -1443,9 +1443,18 @@ textarea:focus {
 
     <!-- message modal (used by showMessage) -->
   <div id="messageModal" class="message-modal" style="z-index:999">
-    <div class="message-modal-content">
-      <h3 id="messageTitle" class="text-xl font-bold text-red-600 mb-3">Input Error</h3>
-      <div
+  <div class="message-modal-content">
+
+    <div class="flex justify-between items-center mb-3">
+      <h3 id="messageTitle" class="text-xl font-bold text-red-600">Input Error</h3>
+
+      <button onclick="closeMessage()"
+        class="text-gray-500 hover:text-black text-2xl font-bold leading-none">
+        x
+      </button>
+    </div>
+
+    <div
       id="messageBody"
       class="text-gray-700 mb-4 text-sm"
       style="white-space:normal; max-height:60vh; overflow-y:auto;"
@@ -1917,7 +1926,6 @@ function showMessage(msg, title = 'Notice') {
   if (m) m.style.display = 'flex';
   createLucide();
 }
-
 
 function closeMessage(){
   const m = document.getElementById('messageModal');
