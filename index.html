@@ -11642,6 +11642,22 @@ window.addEventListener('beforeunload', (e) => {
   e.returnValue = '';
 });
 
+/* ---------- DASHBOARD ACCESS CONTROL ---------- */
+function updateDashboardAccess(isSignedIn) {
+
+  const dashboard = document.getElementById("dashboardSignedIn");
+  const signInMessage = document.getElementById("dashboardSignedOut");
+
+  if (isSignedIn) {
+    dashboard.classList.remove("hidden");
+    signInMessage.classList.add("hidden");
+  } else {
+    dashboard.classList.add("hidden");
+    signInMessage.classList.remove("hidden");
+  }
+
+}
+
 // Swipe refresh detection (mobile)
 let startY = 0;
 let warned = false;
