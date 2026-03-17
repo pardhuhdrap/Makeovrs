@@ -11642,6 +11642,26 @@ window.addEventListener('beforeunload', (e) => {
   e.returnValue = '';
 });
 
+// Swipe refresh detection (mobile)
+let startY = 0;
+let warned = false;
+
+window.addEventListener("touchstart", function(e) {
+  startY = e.touches[0].clientY;
+  warned = false;
+}, { passive: true });
+
+window.addEventListener("touchmove", function(e) {
+  let currentY = e.touches[0].clientY;
+
+  if (window.scrollY === 0 && currentY > startY + 80 && !warned) {
+    if (APP_DIRTY) {
+      warned = true;
+      alert("Refreshing may cause unsaved data loss.");
+    }
+  }
+}, { passive: true });
+
 // Single canonical Save Settings handler — safe and defensive
 (function attachCanonicalSaveSettings(){
   const btn = document.getElementById('saveSettingsBtn');
