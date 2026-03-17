@@ -9650,7 +9650,7 @@ if (shareBtn) {
   // 2️⃣ DECLINE / DELETE (BLACK button)
   if (black) {
     black.classList.remove('hidden');
-    black.textContent = 'Decline';
+    black.textContent = 'Delete';
     black.onclick = async () => {
       await markClientRequestDeclined({ rowIndex, payload });
       closeMessage();
