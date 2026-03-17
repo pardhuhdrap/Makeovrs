@@ -7050,43 +7050,43 @@ if (deleteBtn) {
 
     const invoiceId = inv.invoiceId || inv.id;
 
-    const target = list.find(item => {
-      const idForInvoice = item.invoiceId || item.id;
-      return String(idForInvoice) === String(invoiceId);
+    list.forEach(inv => {
+      const idForInvoice = inv.invoiceId || inv.id;
+
+      if (String(idForInvoice) === String(invoiceId)) {
+        recycleUser.push({
+          recycleId: 'recycle_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+          type: 'invoice',
+          kind: 'invoice',
+          label: inv.clientName || 'Invoice',
+          clientName: inv.clientName,
+          clientContact: inv.clientContact,
+          invoiceId: idForInvoice,
+          invoiceNo: inv.invoiceNo,
+          removedAt: nowIso,
+          reason: 'Deleted from invoice viewer',
+          original: inv
+        });
+      }
     });
 
-    if (target) {
-      recycleUser.push({
-        recycleId: 'recycle_' + Date.now() + '_' + Math.random().toString(36).slice(2),
-        type: 'invoice',
-        kind: 'invoice',
-        label: target.clientName || 'Invoice',
-        clientName: target.clientName,
-        clientContact: target.clientContact,
-        invoiceId: invoiceId,
-        invoiceNo: target.invoiceNo,
-        removedAt: nowIso,
-        reason: 'Deleted from invoice viewer',
-        original: target
-      });
+    saveToLS(RECYCLE_USER_KEY, recycleUser);
 
-      saveToLS(RECYCLE_USER_KEY, recycleUser);
+    const remaining = list.filter(inv => {
+      const idForInvoice = inv.invoiceId || inv.id;
+      return String(idForInvoice) !== String(invoiceId);
+    });
 
-      const remaining = list.filter(item => {
-        const idForInvoice = item.invoiceId || item.id;
-        return String(idForInvoice) !== String(invoiceId);
-      });
+    saveToLS(SAVED_INVOICES_KEY, remaining);
 
-      saveToLS(SAVED_INVOICES_KEY, remaining);
-      renderFilesList();
+    renderFilesList();
 
-      try {
-        if (typeof saveToDrive === 'function' && accessToken) {
-          saveToDrive();
-        }
-      } catch (e) {
-        console.warn('Auto-save to Drive after invoice delete failed:', e);
+    try {
+      if (typeof saveToDrive === 'function' && accessToken) {
+        saveToDrive();
       }
+    } catch (e) {
+      console.warn('Auto-save to Drive after invoice delete failed:', e);
     }
 
     closeMessage();
