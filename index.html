@@ -6808,7 +6808,8 @@ const deleteBtn = document.getElementById("messageDeleteBtn");
 
 if (deleteBtn) {
   deleteBtn.onclick = () => {
-    if (confirm("Are you sure you want to delete this quotation?")) {
+    if (confirm("Are you sure you want to delete this quotation?"));
+    if (ok) {
       deleteQuotation(q.id);
       closeMessage();
     }
