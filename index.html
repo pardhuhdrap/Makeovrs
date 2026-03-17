@@ -6807,15 +6807,17 @@ msg += `</div>`;
 const deleteBtn = document.getElementById("messageDeleteBtn");
 
 if (deleteBtn) {
-  deleteBtn.onclick = () => {
-    if (confirm("Are you sure you want to delete this quotation?"));
-    if (ok) {
-      deleteQuotation(q.id);
-      closeMessage();
-    }
+  deleteBtn.onclick = async () => {
+
+    const ok = await appConfirm("Are you sure you want to delete this quotation?");
+
+    if (!ok) return;
+
+    deleteQuotation(q.id);
+    closeMessage();
+
   };
 }
-
   // ----- Configure footer buttons for QUOTATION view -----
   const downloadBtn  = document.getElementById('messageDownloadBtn');
   const shareBtn     = document.getElementById('messageShareBtn');
