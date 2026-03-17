@@ -7036,6 +7036,63 @@ if (inv.syncedFromQuotation) {
   // open the standard popup
     showMessage(msg, `Invoice — ${inv.clientName || 'Unnamed'}`);
 
+    const deleteBtn = document.getElementById("messageDeleteBtn");
+
+if (deleteBtn) {
+  deleteBtn.onclick = async () => {
+
+    const sure = await appConfirm("Delete this invoice?");
+    if (!sure) return;
+
+    const list        = loadFromLS(SAVED_INVOICES_KEY, []) || [];
+    const recycleUser = loadFromLS(RECYCLE_USER_KEY, []) || [];
+    const nowIso      = new Date().toISOString();
+
+    const invoiceId = inv.invoiceId || inv.id;
+
+    const target = list.find(item => {
+      const idForInvoice = item.invoiceId || item.id;
+      return String(idForInvoice) === String(invoiceId);
+    });
+
+    if (target) {
+      recycleUser.push({
+        recycleId: 'recycle_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+        type: 'invoice',
+        kind: 'invoice',
+        label: target.clientName || 'Invoice',
+        clientName: target.clientName,
+        clientContact: target.clientContact,
+        invoiceId: invoiceId,
+        invoiceNo: target.invoiceNo,
+        removedAt: nowIso,
+        reason: 'Deleted from invoice viewer',
+        original: target
+      });
+
+      saveToLS(RECYCLE_USER_KEY, recycleUser);
+
+      const remaining = list.filter(item => {
+        const idForInvoice = item.invoiceId || item.id;
+        return String(idForInvoice) !== String(invoiceId);
+      });
+
+      saveToLS(SAVED_INVOICES_KEY, remaining);
+      renderFilesList();
+
+      try {
+        if (typeof saveToDrive === 'function' && accessToken) {
+          saveToDrive();
+        }
+      } catch (e) {
+        console.warn('Auto-save to Drive after invoice delete failed:', e);
+      }
+    }
+
+    closeMessage();
+  };
+}
+
   // ----- Configure footer buttons for INVOICE view -----
   const downloadBtn  = document.getElementById('messageDownloadBtn');
   const shareBtn     = document.getElementById('messageShareBtn');
