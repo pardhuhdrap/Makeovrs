@@ -1959,15 +1959,17 @@ window.confirm = function (msg) {
 function navigate(id, opts = {}) {
 
  // 🔒 GLOBAL LOGIN GUARD
-  if (!currentUser || !currentUser.email) {
+const status = document.getElementById("gdrive-user")?.textContent;
 
-    updateDashboardAccess(false);
+if (id !== 'dashboard' && status === "Not Signed In") {
 
-    alert("Please sign in with Google to continue.");
+  updateDashboardAccess(false);
 
-    openProfileMenu?.(); // opens profile/login menu
-    return;
-  }
+  alert("Please sign in with Google to continue.");
+
+  openProfileMenu?.();
+  return;
+}
   
   const screens = ['dashboard','settings','maps','master','quotation','calendar','invoice','files','recycle','revenue'];
 
