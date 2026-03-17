@@ -1968,7 +1968,7 @@ function navigate(id, opts = {}) {
  // 🔒 GLOBAL LOGIN GUARD
 const status = document.getElementById("gdrive-user")?.textContent;
 
-if (id !== 'dashboard' && status === "Not Signed In") {
+if (id !== 'dashboard' && status === "Not signed in") {
 
   updateDashboardAccess(false);
 
