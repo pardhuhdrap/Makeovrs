@@ -1978,6 +1978,28 @@ window.confirm = function (msg) {
   return false; // fallback if someone uses confirm synchronously
 };
 
+// ===============================
+// 🔐 RESTORE LOGIN (ADD HERE)
+// ===============================
+function restoreLogin() {
+  const userData = localStorage.getItem("gdrive_user");
+  const token = localStorage.getItem("gdrive_token");
+
+  if (userData && token) {
+    try {
+      currentUser = JSON.parse(userData);
+      accessToken = token;
+
+      updateDashboardAccess(true);
+    } catch (e) {
+      console.warn("Restore login failed", e);
+      updateDashboardAccess(false);
+    }
+  } else {
+    updateDashboardAccess(false);
+  }
+}
+
 function navigate(id, opts = {}) {
 
  // 🔒 GLOBAL LOGIN GUARD
@@ -10943,6 +10965,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   migrateEventIds(); persistMissingEventIds();
   applySettings();
   loadMasterData();
+  restoreLogin();
 
   document.getElementById('generateQuotationButton')?.addEventListener('click', saveQuotationMultiEvent);
   document.getElementById('quotationDiscount')?.addEventListener('input', updateSummaryUI);
@@ -11252,7 +11275,59 @@ document.getElementById("removeInvoiceLayoutBtn")?.addEventListener("click", () 
   });
 });
 
+function showUpdateToast(msg='Update successful'){ let t=document.getElementById('updateToast'); if(!t){ t=document.createElement('div'); t.id='updateToast'; t.className='update-toast'; document.body.appendChild(t); } t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 1600); }
 
+document.addEventListener('DOMContentLoaded', ()=>{
+  createLucide();
+  migrateEventIds(); persistMissingEventIds();
+  applySettings();
+  loadMasterData();
+  restoreLogin();
+
+  document.getElementById('generateQuotationButton')?.addEventListener('click', saveQuotationMultiEvent);
+  document.getElementById('quotationDiscount')?.addEventListener('input', updateSummaryUI);
+  document.getElementById('invoiceDiscount')?.addEventListener('input', updateInvoiceSummaryUI);
+
+  document.getElementById('addEventBtn')?.addEventListener('click', () => {
+  const addBtn = document.getElementById('addEventBtn');
+  if (addBtn && addBtn.disabled) return;   // 🔒 ignore click when greyed out
+
+  const container = document.getElementById('eventsContainer');
+
+  // 1) Collapse all existing event bodies
+  if (container) {
+    container
+      .querySelectorAll('.event-panel .body')
+      .forEach(body => body.classList.add('hidden'));
+  }
+
+  // 2) Create new event panel
+  const id = createEventPanel();
+  const newPanel = document.getElementById(id);
+
+  if (newPanel) {
+    const body = newPanel.querySelector('.body');
+    if (body) body.classList.remove('hidden');
+
+    // 3) Scroll INSIDE the QUOTATION screen (the correct scroll container)
+    const scrollContainer = document.getElementById('quotation');
+    if (scrollContainer) {
+      const offsetTop = newPanel.offsetTop - 16;   // small top margin
+      scrollContainer.scrollTo({
+        top: offsetTop < 0 ? 0 : offsetTop,
+        behavior: 'smooth'
+      });
+    }
+  }
+
+});
+
+// 🔄 FIX PWA RESUME LOGOUT
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    restoreLogin();
+  }
+});
 
   // Files search
   document.getElementById('filesSearch')?.addEventListener('input', renderFilesList);
@@ -11995,6 +12070,11 @@ function initGoogleTokenClient(){
         return;
       }
       accessToken = resp.access_token;
+      localStorage.setItem("gdrive_user", JSON.stringify({
+  email: document.getElementById("gdrive-user")?.textContent || "",
+}));
+
+localStorage.setItem("gdrive_token", accessToken);
       window.accessToken = accessToken;
       onSignedIn();
     }
