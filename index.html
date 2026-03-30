@@ -1894,14 +1894,22 @@ function showMessage(msg, title = 'Notice') {
   const genInvBtn    = document.getElementById('messageGenerateInvoiceBtn');
   const editBtn      = document.getElementById('messageEditBtn');
   const paidBtn      = document.getElementById('messagePaidBtn');
+  const deleteBtn    = document.getElementById('messageDeleteBtn');
 
   // Hide everything except Close
-  [downloadBtn, shareBtn, genInvBtn, editBtn, paidBtn].forEach(btn => {
+  [downloadBtn, shareBtn, genInvBtn, editBtn, paidBtn, deleteBtn].forEach(btn => {
     if (btn) {
       btn.classList.add('hidden');
       btn.onclick = null; // clear previous action
     }
   });
+
+  // ✅ Restore default Close button
+if (deleteBtn) {
+  deleteBtn.classList.remove('hidden');
+  deleteBtn.textContent = "Close";
+  deleteBtn.onclick = closeMessage;
+}
 
   // ---------------------------
   // 🔁 SET MESSAGE CONTENT
@@ -11792,27 +11800,28 @@ function updateDashboardAccess(isSignedIn) {
 
 // Swipe refresh detection (mobile)
 let startY = 0;
+let isAtTopStart = false;
 let warned = false;
 
 window.addEventListener("touchstart", function(e) {
   startY = e.touches[0].clientY;
+  isAtTopStart = window.scrollY === 0; // 👈 must start at top
   warned = false;
 }, { passive: true });
 
 window.addEventListener("touchmove", function(e) {
+  if (!isAtTopStart || warned) return;
 
   const currentY = e.touches[0].clientY;
+  const pullDistance = currentY - startY;
 
-  // detect downward swipe
-  if (currentY - startY > 80 && !warned) {
-
+  // 👇 stricter condition
+  if (pullDistance > 120) {
     if (APP_DIRTY) {
       warned = true;
       alert("Refreshing may cause unsaved data loss.");
     }
-
   }
-
 }, { passive: true });
 
 // Single canonical Save Settings handler — safe and defensive
