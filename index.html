@@ -6815,6 +6815,10 @@ msg += `</div>`;
 const deleteBtn = document.getElementById("messageDeleteBtn");
 
 if (deleteBtn) {
+
+   deleteBtn.classList.remove('hidden');     // show button
+  deleteBtn.textContent = "Delete";         // change text
+
   deleteBtn.onclick = async () => {
 
     const sure = await appConfirm("Delete this quotation?");
@@ -7047,6 +7051,8 @@ if (inv.syncedFromQuotation) {
     const deleteBtn = document.getElementById("messageDeleteBtn");
 
 if (deleteBtn) {
+  deleteBtn.classList.remove('hidden');
+  deleteBtn.textContent = "Delete";
   deleteBtn.onclick = async () => {
 
     const sure = await appConfirm("Delete this invoice?");
