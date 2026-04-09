@@ -11991,7 +11991,9 @@ function initGoogleTokenClient(){
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: (USE_APPDATA ? 'https://www.googleapis.com/auth/drive.appdata' : 'https://www.googleapis.com/auth/drive.file') + ' openid email profile',
+     prompt: "consent",
     callback: (resp) => {
+      console.log("TOKEN:", resp);
       if (resp.error) {
         console.error('Token error', resp);
         document.getElementById('gdrive-status').innerText = 'Sign-in required';
