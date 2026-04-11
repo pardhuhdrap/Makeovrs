@@ -11989,6 +11989,27 @@ let tokenClient = null;
 let accessToken = null;
 let userProfile = null;
 
+function getFreshToken() {
+  return new Promise((resolve, reject) => {
+    const originalCallback = tokenClient.callback;
+
+    tokenClient.callback = (resp) => {
+      // restore original callback
+      tokenClient.callback = originalCallback;
+
+      if (resp.error) {
+        reject(resp);
+        return;
+      }
+
+      accessToken = resp.access_token;
+      resolve(accessToken);
+    };
+
+    tokenClient.requestAccessToken({ prompt: '' });
+  });
+}
+
 function initGoogleTokenClient(){
   if (!window.google || !google.accounts || !google.accounts.oauth2) {
     setTimeout(initGoogleTokenClient, 500);
@@ -12338,23 +12359,6 @@ async function updateJsonFile(fileId, jsonObj){
 
 async function saveToDrive(){
 
-  if (!accessToken) {
-    console.warn("No valid token → requesting new one");
-
-    return new Promise((resolve) => {
-      tokenClient.callback = async (resp) => {
-        if (!resp.error) {
-          accessToken = resp.access_token;
-
-          await saveToDrive(); // retry
-        }
-        resolve();
-      };
-
-      tokenClient.requestAccessToken({ prompt: '' });
-    });
-  }
-
   if (!accessToken) { alert('Please sign in first'); return; }
   document.getElementById('gdrive-status').innerText = 'Preparing data...';
   const data = {};
@@ -12376,12 +12380,24 @@ async function saveToDrive(){
   } catch (e) {
   console.error("Drive upload failed:", e);
 
+  // 🔥 detect expired token
+  if (e?.message?.includes("401") || e?.message?.includes("403")) {
+    console.warn("Token expired → refreshing...");
+
+    try {
+      await getFreshToken();
+      return saveToDrive(); // retry once
+    } catch (err) {
+      showMessage("Session expired. Please sign in again.", "error");
+      return;
+    }
+  }
+
   showMessage("Upload failed! Please try again.", "error");
 
-  // Show the Contact Admin error bar
   const bar = document.getElementById("contactDevBar");
   if (bar) bar.style.display = "block";
- }
+}
 }
 
 let autoSaveTimer = null;
