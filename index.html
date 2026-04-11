@@ -12037,12 +12037,6 @@ function initGoogleTokenClient(){
       onSignedIn();
     }
   });
-  const isSigned = localStorage.getItem('gdrive_signed_in') === '1';
-
-  if (isSigned) {
-    console.log("Silent login after tokenClient ready");
-    tokenClient.requestAccessToken({ prompt: '' });
-  }
 }
 
 function signInWithGoogle(){
