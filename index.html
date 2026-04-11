@@ -12330,6 +12330,27 @@ async function updateJsonFile(fileId, jsonObj){
 }
 
 async function saveToDrive(){
+
+  const token = gapi.client.getToken();
+
+  if (!token || !token.access_token) {
+    console.warn("No valid token → requesting new one");
+
+    return new Promise((resolve) => {
+      tokenClient.callback = async (resp) => {
+        if (!resp.error) {
+          accessToken = resp.access_token;
+          gapi.client.setToken({ access_token: resp.access_token });
+
+          await saveToDrive(); // retry
+        }
+        resolve();
+      };
+
+      tokenClient.requestAccessToken({ prompt: '' });
+    });
+  }
+  
   if (!accessToken) { alert('Please sign in first'); return; }
   document.getElementById('gdrive-status').innerText = 'Preparing data...';
   const data = {};
