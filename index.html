@@ -1994,11 +1994,6 @@ function restoreLogin() {
 
       updateDashboardAccess(true);
 
-      // 🔥 Trigger silent login to get fresh token
-      if (tokenClient) {
-        tokenClient.requestAccessToken({ prompt: '' });
-      }
-
     } catch (e) {
       console.warn("Restore login failed", e);
       updateDashboardAccess(false);
@@ -12046,6 +12041,7 @@ function initGoogleTokenClient(){
 
 function signInWithGoogle(){
   if (!tokenClient) initGoogleTokenClient();
+  console.log("Manual login");
   tokenClient.requestAccessToken({ prompt: 'select_account' });
 }
 
