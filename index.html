@@ -8766,7 +8766,12 @@ function createEventPanel(prefill = {}) {
 
   // addons toggle
   panel.querySelector('.eventFetchAddOn')?.addEventListener('change', (ev) => {
+
+    console.log("Toggle ON:", ev.target.checked);
+  console.log("masterAddOns:", masterAddOns);
+
     const masterContainer = panel.querySelector('.event-addon-master');
+     console.log("masterContainer:", masterContainer);
     const manualTextarea = panel.querySelector('.event-addon-manual');
     const displayPre = panel.querySelector('.event-addon-display');
     const applyBtn = panel.querySelector('.event-apply-addon-master');
