@@ -3920,9 +3920,9 @@ function collectEventsFromPanelsForSave(){
     ) {
       addonDetails = Array.from(addonDisplay.querySelectorAll('div'))
   .map(el => el.textContent.trim())
-  .join('\n');
+  .join('||');
     } else if (addonManual && addonManual.value.trim()) {
-      addonDetails = addonManual.value.trim();
+      addonDetails = panel.querySelector('.event-addon-display')?.innerText.trim();
     }
 
     // --- location + transport ---
@@ -8978,7 +8978,7 @@ if (typeof attachAlphaOnlyCapitalize === 'function' && manualLoc) {
       if (addonDisplay) addonDisplay.innerHTML = prefill.addonDetails
   .split('\n')
   .map(line => `<div>${line}</div>`)
-  .join('');
+  .join('||');
       if (addonManual) addonManual.value = prefill.addonDetails;
     }
 
@@ -10507,7 +10507,7 @@ function validateEventPanel(panel){
   .map(el => el.textContent.trim())
   .join('\n');
   } else if (addonManual && addonManual.value.trim()) {
-    addonDetails = addonManual.value.trim();
+    addonDetails = panel.querySelector('.event-addon-display')?.innerText.trim();
   }
 
   const addonPriceInput = panel.querySelector('.event-addOnPrice');
@@ -11620,7 +11620,7 @@ const events = panels.map(panel => {
   ) {
     addonDetails = addonDisplay.textContent.trim();
   } else if (addonManual && addonManual.value.trim()) {
-    addonDetails = addonManual.value.trim();
+    addonDetails = panel.querySelector('.event-addon-display')?.innerText.trim();
   }
 
   const addOnPrice = parseFloat(panel.querySelector('.event-addOnPrice')?.value || 0) || 0;
