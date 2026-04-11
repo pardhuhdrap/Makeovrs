@@ -11988,6 +11988,7 @@ const APP_FILENAME = 'myapp-data.json';
 let tokenClient = null;
 let accessToken = null;
 let userProfile = null;
+let isRetryingSave = false;
 
 function getFreshToken() {
   return new Promise((resolve, reject) => {
@@ -12381,18 +12382,28 @@ async function saveToDrive(){
   console.error("Drive upload failed:", e);
 
   // 🔥 detect expired token
-  if (e?.message?.includes("401") || e?.message?.includes("403")) {
+  if ((e?.message?.includes("401") || e?.message?.includes("403")) &&
+    !isRetryingSave ) {
     console.warn("Token expired → refreshing...");
+
+     isRetryingSave = true;
 
     try {
       await getFreshToken();
-      return saveToDrive(); // retry once
+       console.log("Retrying save after token refresh...");
+      await saveToDrive();     // 🔁 retry SAME save
+
+      isRetryingSave = false;
+      return;
+
     } catch (err) {
+      isRetryingSave = false;
       showMessage("Session expired. Please sign in again.", "error");
       return;
     }
   }
 
+  // Normal error
   showMessage("Upload failed! Please try again.", "error");
 
   const bar = document.getElementById("contactDevBar");
