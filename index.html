@@ -9209,9 +9209,13 @@ async function refreshClientRequestsUI() {
     const res = await fetch(
       CLIENT_REQ_API_URL + '?ownerId=' + encodeURIComponent(ownerId)
     );
-    const data = await res.json();
 
-    if (!data.ok) throw new Error(data.message);
+    if (!res.ok) {
+  const errText = await res.text();
+  throw new Error(`HTTP ${res.status} — ${errText}`);
+}
+
+const data = await res.json();
 
     // 👇 change const → let
     let items = data.items || [];
