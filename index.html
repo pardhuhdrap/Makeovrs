@@ -3918,7 +3918,10 @@ function collectEventsFromPanelsForSave(){
       !/Enter \(Text\)/i.test(addonDisplay.textContent) &&
       !/No items selected/i.test(addonDisplay.textContent)
     ) {
-      addonDetails = addonDisplay.textContent.trim();
+      addonDetails = addonDisplay.innerHTML
+  .replace(/<div>/g, '')
+  .replace(/<\/div>/g, '\n')
+  .trim();
     } else if (addonManual && addonManual.value.trim()) {
       addonDetails = addonManual.value.trim();
     }
