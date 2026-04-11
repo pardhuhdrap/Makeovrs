@@ -11991,7 +11991,7 @@ function initGoogleTokenClient(){
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: (USE_APPDATA ? 'https://www.googleapis.com/auth/drive.appdata' : 'https://www.googleapis.com/auth/drive.file') + ' openid email profile',
-     prompt: "consent",
+     prompt: "",
     callback: (resp) => {
       console.log("TOKEN:", resp);
       if (resp.error) {
@@ -12333,7 +12333,7 @@ async function updateJsonFile(fileId, jsonObj){
 async function saveToDrive(){
 
   console.log("ACTIVE TOKEN:", gapi.client.getToken());
-  
+
   if (!accessToken) { alert('Please sign in first'); return; }
   document.getElementById('gdrive-status').innerText = 'Preparing data...';
   const data = {};
