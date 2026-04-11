@@ -1983,17 +1983,14 @@ window.confirm = function (msg) {
 // ===============================
 function restoreLogin() {
   const userData = localStorage.getItem("gdrive_user");
-  const isSigned = localStorage.getItem("gdrive_signed_in") === '1';
+  const token = localStorage.getItem("gdrive_token");
 
-  if (userData && isSigned) {
+  if (userData && token) {
     try {
       currentUser = JSON.parse(userData);
-
-      // ✅ DO NOT restore token
-      accessToken = null;
+      accessToken = token;
 
       updateDashboardAccess(true);
-
     } catch (e) {
       console.warn("Restore login failed", e);
       updateDashboardAccess(false);
@@ -11994,7 +11991,7 @@ function initGoogleTokenClient(){
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: (USE_APPDATA ? 'https://www.googleapis.com/auth/drive.appdata' : 'https://www.googleapis.com/auth/drive.file') + ' openid email profile',
-    prompt: "",
+     prompt: "consent",
     callback: (resp) => {
       console.log("TOKEN:", resp);
       if (resp.error) {
@@ -12004,7 +12001,7 @@ function initGoogleTokenClient(){
         accessToken = null;
         userProfile = null;
         try {
-          localStorage.re/moveItem('gdrive_signed_in');
+          localStorage.removeItem('gdrive_signed_in');
         } catch (e) {}
 
         // Reset UI similar to signOutFromGoogle
@@ -12029,10 +12026,11 @@ function initGoogleTokenClient(){
         return;
       }
       accessToken = resp.access_token;
-      gapi.client.setToken({ access_token: resp.access_token });
       localStorage.setItem("gdrive_user", JSON.stringify({
   email: document.getElementById("gdrive-user")?.textContent || "",
 }));
+
+localStorage.setItem("gdrive_token", accessToken);
       window.accessToken = accessToken;
       onSignedIn();
     }
@@ -12041,7 +12039,6 @@ function initGoogleTokenClient(){
 
 function signInWithGoogle(){
   if (!tokenClient) initGoogleTokenClient();
-  console.log("Manual login");
   tokenClient.requestAccessToken({ prompt: 'consent' });
 }
 
@@ -12513,7 +12510,20 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // --- silent token re-acquire if user was signed-in previously ---
-  
+  try {
+    const wasSigned = localStorage.getItem('gdrive_signed_in') === '1';
+    if (wasSigned) {
+      if (!tokenClient) initGoogleTokenClient();
+      try {
+        tokenClient.requestAccessToken({ prompt: '' });
+        console.log('Attempting silent token refresh.');
+      } catch (err) {
+        console.warn('Silent token request threw:', err);
+      }
+    }
+  } catch (e) {
+    console.warn('Silent refresh check failed:', e);
+  }
   // ... rest of init ...
    updateProfileIcon();  // keep avatar in sync on first load
 });
