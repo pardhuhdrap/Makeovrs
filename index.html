@@ -8763,7 +8763,8 @@ function createEventPanel(prefill = {}) {
   }
 });
 
-
+const toggleEl = panel.querySelector('.eventFetchAddOn');
+console.log("Toggle element:", toggleEl);
   // addons toggle
   panel.querySelector('.eventFetchAddOn')?.addEventListener('change', (ev) => {
 
