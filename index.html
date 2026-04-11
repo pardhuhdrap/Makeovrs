@@ -12026,6 +12026,7 @@ function initGoogleTokenClient(){
         return;
       }
       accessToken = resp.access_token;
+       gapi.client.setToken({ access_token: resp.access_token });
       localStorage.setItem("gdrive_user", JSON.stringify({
   email: document.getElementById("gdrive-user")?.textContent || "",
 }));
@@ -12330,6 +12331,9 @@ async function updateJsonFile(fileId, jsonObj){
 }
 
 async function saveToDrive(){
+
+  console.log("ACTIVE TOKEN:", gapi.client.getToken());
+  
   if (!accessToken) { alert('Please sign in first'); return; }
   document.getElementById('gdrive-status').innerText = 'Preparing data...';
   const data = {};
