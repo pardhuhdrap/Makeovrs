@@ -12042,7 +12042,7 @@ function initGoogleTokenClient(){
 function signInWithGoogle(){
   if (!tokenClient) initGoogleTokenClient();
   console.log("Manual login");
-  tokenClient.requestAccessToken({ prompt: 'select_account' });
+  tokenClient.requestAccessToken({ prompt: 'consent' });
 }
 
 function updateProfileIcon() {
