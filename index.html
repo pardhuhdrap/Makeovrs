@@ -3920,7 +3920,7 @@ function collectEventsFromPanelsForSave(){
     ) {
       addonDetails = Array.from(addonDisplay.querySelectorAll('div'))
   .map(el => el.textContent.trim())
-  .join('||');
+  .join(' || ');
     } else if (addonManual && addonManual.value.trim()) {
       addonDetails = panel.querySelector('.event-addon-display')?.innerText.trim();
     }
@@ -8830,7 +8830,7 @@ function createEventPanel(prefill = {}) {
     const matches = [...raw.matchAll(/\((.*?)\)/g)];
     const list = matches
       .map((m, i) => `<div>${i + 1}. ${m[1].trim()}</div>`)
-      .join('||');
+      .join(' || ');
     panel.querySelector('.event-addon-display').innerHTML =
       list ||
       (raw.trim()
@@ -8978,7 +8978,7 @@ if (typeof attachAlphaOnlyCapitalize === 'function' && manualLoc) {
       if (addonDisplay) addonDisplay.innerHTML = prefill.addonDetails
   .split('\n')
   .map(line => `<div>${line}</div>`)
-  .join('||');
+  .join(' || ');
       if (addonManual) addonManual.value = prefill.addonDetails;
     }
 
