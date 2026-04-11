@@ -11991,7 +11991,7 @@ function initGoogleTokenClient(){
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: (USE_APPDATA ? 'https://www.googleapis.com/auth/drive.appdata' : 'https://www.googleapis.com/auth/drive.file') + ' openid email profile',
-     prompt: "",
+    prompt: "",
     callback: (resp) => {
       console.log("TOKEN:", resp);
       if (resp.error) {
@@ -12026,7 +12026,6 @@ function initGoogleTokenClient(){
         return;
       }
       accessToken = resp.access_token;
-       gapi.client.setToken({ access_token: resp.access_token });
       localStorage.setItem("gdrive_user", JSON.stringify({
   email: document.getElementById("gdrive-user")?.textContent || "",
 }));
@@ -12040,7 +12039,7 @@ localStorage.setItem("gdrive_token", accessToken);
 
 function signInWithGoogle(){
   if (!tokenClient) initGoogleTokenClient();
-  tokenClient.requestAccessToken({ prompt: 'consent' });
+  tokenClient.requestAccessToken({ prompt: 'select_account' });
 }
 
 function updateProfileIcon() {
@@ -12331,9 +12330,6 @@ async function updateJsonFile(fileId, jsonObj){
 }
 
 async function saveToDrive(){
-
-  console.log("ACTIVE TOKEN:", gapi.client.getToken());
-
   if (!accessToken) { alert('Please sign in first'); return; }
   document.getElementById('gdrive-status').innerText = 'Preparing data...';
   const data = {};
