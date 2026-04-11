@@ -3920,7 +3920,7 @@ function collectEventsFromPanelsForSave(){
     ) {
       addonDetails = Array.from(addonDisplay.querySelectorAll('div'))
   .map(el => el.textContent.trim())
-  .join('');
+  .join('\n');
     } else if (addonManual && addonManual.value.trim()) {
       addonDetails = addonManual.value.trim();
     }
@@ -6315,10 +6315,8 @@ html += `
         <tr>
           <td style="${tdLabelStyle}">Add-ons</td>
           <td style="${tdValueStyle}">
-  <div style="line-height: 1.6;">
-    ${addonData}
-  </div>
-</td>
+            ${addonData.replace(/</g,"&lt;")}
+          </td>
           <td style="${tdPriceStyle}">
             ${fmtPriceForDetailRow(addOnPrice)}
           </td>
@@ -8616,7 +8614,7 @@ function createEventPanel(prefill = {}) {
               </button>
             </div>
           </div>
-         <div class="event-addon-display mt-2 p-2 bg-gray-50 rounded text-sm text-gray-700 min-h-[3rem]"></div>
+          <pre class="event-addon-display mt-2 p-2 bg-gray-50 rounded text-sm text-gray-700 min-h-[3rem]"></pre>
         </div>
         <label class="text-xs text-gray-700 mt-2">AddOn Price (₹)</label>
         <input type="number" step="100"
@@ -8818,8 +8816,8 @@ function createEventPanel(prefill = {}) {
       (s, cb) => s + Number(cb.dataset.price || 0),
       0
     );
-    panel.querySelector('.event-addon-display').innerHTML  =
-      names.join('') || 'No items selected.';
+    panel.querySelector('.event-addon-display').textContent =
+      names.join('\n') || 'No items selected.';
     panel.querySelector('.event-addOnPrice').value = sum;
     updateSummaryUI();
   if (typeof updateInvoiceSummaryUI === 'function') {
@@ -8832,7 +8830,7 @@ function createEventPanel(prefill = {}) {
     const matches = [...raw.matchAll(/\((.*?)\)/g)];
     const list = matches
       .map((m, i) => `<div>${i + 1}. ${m[1].trim()}</div>`)
-      .join('<br>');
+      .join('');
     panel.querySelector('.event-addon-display').innerHTML =
       list ||
       (raw.trim()
@@ -10507,7 +10505,7 @@ function validateEventPanel(panel){
   ) {
     addonDetails = Array.from(addonDisplay.querySelectorAll('div'))
   .map(el => el.textContent.trim())
-  .join('');
+  .join('\n');
   } else if (addonManual && addonManual.value.trim()) {
     addonDetails = addonManual.value.trim();
   }
