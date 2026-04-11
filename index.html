@@ -12515,19 +12515,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- silent token re-acquire if user was signed-in previously ---
   try {
-    const wasSigned = localStorage.getItem('gdrive_signed_in') === '1';
-    if (wasSigned) {
-      if (!tokenClient) initGoogleTokenClient();
-      try {
-        tokenClient.requestAccessToken({ prompt: '' });
-        console.log('Attempting silent token refresh.');
-      } catch (err) {
-        console.warn('Silent token request threw:', err);
-      }
+  const savedToken = localStorage.getItem("gdrive_token");
+  const isSigned   = localStorage.getItem('gdrive_signed_in') === '1';
+
+  if (savedToken && isSigned) {
+    accessToken = savedToken;
+    window.accessToken = savedToken;
+
+    if (window.gapi && gapi.client) {
+      gapi.client.setToken({ access_token: savedToken });
     }
-  } catch (e) {
-    console.warn('Silent refresh check failed:', e);
+
+    console.log("Restored session from localStorage");
+
+    onSignedIn(); // ✅ IMPORTANT
   }
+} catch (e) {
+  console.warn("Session restore failed:", e);
+}
   // ... rest of init ...
    updateProfileIcon();  // keep avatar in sync on first load
 });
