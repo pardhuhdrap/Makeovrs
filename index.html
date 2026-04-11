@@ -8975,7 +8975,10 @@ if (typeof attachAlphaOnlyCapitalize === 'function' && manualLoc) {
     if (prefill.addonDetails) {
       const addonDisplay = panel.querySelector('.event-addon-display');
       const addonManual = panel.querySelector('.event-addon-manual');
-      if (addonDisplay) addonDisplay.textContent = prefill.addonDetails;
+      if (addonDisplay) addonDisplay.innerHTML = prefill.addonDetails
+  .split('\n')
+  .map(line => `<div>${line}</div>`)
+  .join('');
       if (addonManual) addonManual.value = prefill.addonDetails;
     }
 
@@ -10500,7 +10503,9 @@ function validateEventPanel(panel){
     !/Enter \(Text\)/i.test(addonDisplay.textContent) &&
     !/No items selected/i.test(addonDisplay.textContent)
   ) {
-    addonDetails = addonDisplay.textContent.trim();
+    addonDetails = Array.from(addonDisplay.querySelectorAll('div'))
+  .map(el => el.textContent.trim())
+  .join('\n');
   } else if (addonManual && addonManual.value.trim()) {
     addonDetails = addonManual.value.trim();
   }
