@@ -1983,14 +1983,22 @@ window.confirm = function (msg) {
 // ===============================
 function restoreLogin() {
   const userData = localStorage.getItem("gdrive_user");
-  const token = localStorage.getItem("gdrive_token");
+  const isSigned = localStorage.getItem("gdrive_signed_in") === '1';
 
-  if (userData && token) {
+  if (userData && isSigned) {
     try {
       currentUser = JSON.parse(userData);
-      accessToken = token;
+
+      // ✅ DO NOT restore token
+      accessToken = null;
 
       updateDashboardAccess(true);
+
+      // 🔥 Trigger silent login to get fresh token
+      if (tokenClient) {
+        tokenClient.requestAccessToken({ prompt: '' });
+      }
+
     } catch (e) {
       console.warn("Restore login failed", e);
       updateDashboardAccess(false);
@@ -12026,11 +12034,10 @@ function initGoogleTokenClient(){
         return;
       }
       accessToken = resp.access_token;
+      gapi.client.setToken({ access_token: resp.access_token });
       localStorage.setItem("gdrive_user", JSON.stringify({
   email: document.getElementById("gdrive-user")?.textContent || "",
 }));
-
-localStorage.setItem("gdrive_token", accessToken);
       window.accessToken = accessToken;
       onSignedIn();
     }
@@ -12511,23 +12518,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- silent token re-acquire if user was signed-in previously ---
   try {
-  const savedToken = localStorage.getItem("gdrive_token");
-  const isSigned   = localStorage.getItem('gdrive_signed_in') === '1';
+  const isSigned = localStorage.getItem('gdrive_signed_in') === '1';
 
-  if (savedToken && isSigned) {
-    accessToken = savedToken;
-    window.accessToken = savedToken;
+  if (isSigned) {
+    if (!tokenClient) initGoogleTokenClient();
 
-    if (window.gapi && gapi.client) {
-      gapi.client.setToken({ access_token: savedToken });
-    }
+    console.log("Attempting silent login...");
 
-    console.log("Restored session from localStorage");
-
-    onSignedIn(); // ✅ IMPORTANT
+    tokenClient.requestAccessToken({ prompt: '' });
   }
 } catch (e) {
-  console.warn("Session restore failed:", e);
+  console.warn("Silent login failed:", e);
 }
   // ... rest of init ...
    updateProfileIcon();  // keep avatar in sync on first load
