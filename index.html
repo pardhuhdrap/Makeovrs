@@ -12004,7 +12004,7 @@ function initGoogleTokenClient(){
         accessToken = null;
         userProfile = null;
         try {
-          localStorage.removeItem('gdrive_signed_in');
+          localStorage.re/moveItem('gdrive_signed_in');
         } catch (e) {}
 
         // Reset UI similar to signOutFromGoogle
@@ -12037,6 +12037,12 @@ function initGoogleTokenClient(){
       onSignedIn();
     }
   });
+  const isSigned = localStorage.getItem('gdrive_signed_in') === '1';
+
+  if (isSigned) {
+    console.log("Silent login after tokenClient ready");
+    tokenClient.requestAccessToken({ prompt: '' });
+  }
 }
 
 function signInWithGoogle(){
@@ -12513,19 +12519,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // --- silent token re-acquire if user was signed-in previously ---
-  try {
-  const isSigned = localStorage.getItem('gdrive_signed_in') === '1';
-
-  if (isSigned) {
-    if (!tokenClient) initGoogleTokenClient();
-
-    console.log("Attempting silent login...");
-
-    tokenClient.requestAccessToken({ prompt: '' });
-  }
-} catch (e) {
-  console.warn("Silent login failed:", e);
-}
+  
   // ... rest of init ...
    updateProfileIcon();  // keep avatar in sync on first load
 });
