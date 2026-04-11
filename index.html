@@ -3920,7 +3920,7 @@ function collectEventsFromPanelsForSave(){
     ) {
       addonDetails = Array.from(addonDisplay.querySelectorAll('div'))
   .map(el => el.textContent.trim())
-  .join('\n');
+  .join('');
     } else if (addonManual && addonManual.value.trim()) {
       addonDetails = addonManual.value.trim();
     }
@@ -10505,7 +10505,7 @@ function validateEventPanel(panel){
   ) {
     addonDetails = Array.from(addonDisplay.querySelectorAll('div'))
   .map(el => el.textContent.trim())
-  .join('\n');
+  .join('');
   } else if (addonManual && addonManual.value.trim()) {
     addonDetails = addonManual.value.trim();
   }
