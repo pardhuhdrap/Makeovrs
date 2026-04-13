@@ -12023,6 +12023,7 @@ function getFreshToken() {
       console.log("✅ NEW TOKEN RECEIVED");
 
       accessToken = resp.access_token;
+      window.accessToken = accessToken;
 
       // 🔥 VERY IMPORTANT (missing in your case)
       if (window.gapi && gapi.client) {
@@ -12081,6 +12082,10 @@ function initGoogleTokenClient(){
       }
       accessToken = resp.access_token;
       window.accessToken = accessToken;
+
+      if (window.gapi && gapi.client) {
+  gapi.client.setToken({ access_token: accessToken });
+}
 
       localStorage.setItem("gdrive_user", JSON.stringify({
         email: document.getElementById("gdrive-user")?.textContent || "",
@@ -12428,7 +12433,10 @@ async function saveToDrive(){
     try {
       await getFreshToken();
        console.log("Using token:", accessToken);
-       await new Promise(r => setTimeout(r, 300));
+       await new Promise(r => setTimeout(r, 900));
+       if (window.gapi && gapi.client) {
+  gapi.client.setToken({ access_token: accessToken });
+}
       await saveToDrive();     // 🔁 retry SAME save
 
       isRetryingSave = false;
