@@ -9568,6 +9568,7 @@ async function refreshClientRequestsUI() {
       '&callback=' + encodeURIComponent(callbackName);
 
     script.onerror = function (err) {
+      console.warn("Client-requests JSONP failed (ignored):", e);
       delete window[callbackName];
       if (script.parentNode) {
         script.parentNode.removeChild(script);
