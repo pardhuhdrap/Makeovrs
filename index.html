@@ -12009,7 +12009,10 @@ function getFreshToken() {
       tokenClient.callback = originalCallback;
 
       if (resp.error) {
-        reject(resp);
+        console.warn("Silent refresh failed → trying interactive login");
+
+        // 🔥 fallback for mobile/PWA
+        tokenClient.requestAccessToken({ prompt: 'consent' });
         return;
       }
 
