@@ -12000,6 +12000,11 @@ let accessToken = null;
 let userProfile = null;
 let isRetryingSave = false;
 
+function hideErrorUI() {  
+  const bar = document.getElementById("contactDevBar");  
+  if (bar) bar.style.display = "none";  
+}
+
 function getFreshToken() {
   return new Promise((resolve, reject) => {
     const originalCallback = tokenClient.callback;
@@ -12407,6 +12412,7 @@ async function saveToDrive(){
       await saveToDrive();     // 🔁 retry SAME save
 
       isRetryingSave = false;
+      hideErrorUI();
       return;
 
     } catch (err) {
@@ -12425,6 +12431,7 @@ async function saveToDrive(){
 }
 
 let autoSaveTimer = null;
+
 function autoSaveDrive(reason) {
   if (!accessToken) {
     // Not signed in → just keep local changes, nothing to sync.
