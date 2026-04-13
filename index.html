@@ -12008,6 +12008,7 @@ function hideErrorUI() {
 
 function getFreshToken() {
   return new Promise((resolve, reject) => {
+
     const originalCallback = tokenClient.callback;
 
     tokenClient.callback = (resp) => {
@@ -12015,18 +12016,24 @@ function getFreshToken() {
       tokenClient.callback = originalCallback;
 
       if (resp.error) {
-        console.warn("Silent refresh failed → trying interactive login");
-
-        // 🔥 fallback for mobile/PWA
-        tokenClient.requestAccessToken({ prompt: 'consent' });
+        reject(resp);
         return;
       }
 
+      console.log("✅ NEW TOKEN RECEIVED");
+
       accessToken = resp.access_token;
+
+      // 🔥 VERY IMPORTANT (missing in your case)
+      if (window.gapi && gapi.client) {
+        gapi.client.setToken({ access_token: accessToken });
+      }
+
       resolve(accessToken);
     };
 
-    tokenClient.requestAccessToken({ prompt: '' });
+    // 🔥 Force proper refresh on mobile
+    tokenClient.requestAccessToken({ prompt: 'consent' });
   });
 }
 
@@ -12409,7 +12416,7 @@ async function saveToDrive(){
 
     try {
       await getFreshToken();
-       console.log("Retrying save after token refresh...");
+       console.log("Using token:", accessToken);
       await saveToDrive();     // 🔁 retry SAME save
 
       isRetryingSave = false;
