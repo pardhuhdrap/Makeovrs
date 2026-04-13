@@ -12046,7 +12046,6 @@ function initGoogleTokenClient(){
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: (USE_APPDATA ? 'https://www.googleapis.com/auth/drive.appdata' : 'https://www.googleapis.com/auth/drive.file') + ' openid email profile',
-     prompt: "consent",
     callback: (resp) => {
       console.log("TOKEN:", resp);
       if (resp.error) {
@@ -12081,12 +12080,14 @@ function initGoogleTokenClient(){
         return;
       }
       accessToken = resp.access_token;
-      localStorage.setItem("gdrive_user", JSON.stringify({
-  email: document.getElementById("gdrive-user")?.textContent || "",
-}));
-
-localStorage.setItem("gdrive_token", accessToken);
       window.accessToken = accessToken;
+
+      localStorage.setItem("gdrive_user", JSON.stringify({
+        email: document.getElementById("gdrive-user")?.textContent || "",
+      }));
+
+      localStorage.setItem("gdrive_token", accessToken);
+
       onSignedIn();
     }
   });
@@ -12124,7 +12125,9 @@ async function onSignedIn() {
   document.getElementById('gdrive-status').innerText = 'Signed in — fetching profile.';
   try {
     const r = await fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
-      headers: { Authorization: 'Bearer ' + accessToken }
+      headers: {
+  Authorization: `Bearer ${window.accessToken || accessToken}`
+}
     });
     if (r.ok) {
       userProfile = await r.json();
@@ -12250,7 +12253,9 @@ function signOutFromGoogle(){
 async function findFileId(name){
   const q = `name='${name.replace(/'/g,"\\\\'")}' and trashed=false`;
   const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&spaces=${USE_APPDATA ? 'appDataFolder' : 'drive'}&fields=files(id,name)`;
-  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken }});
+  const r = await fetch(url, { headers: {
+  Authorization: `Bearer ${window.accessToken || accessToken}`
+}});
   const j = await r.json();
   return (j.files && j.files[0] && j.files[0].id) || null;
 }
@@ -12262,7 +12267,9 @@ async function findDriveFileIdByName(name){
   const q = `name='${name.replace(/'/g,"\\'")}' and trashed=false`;
   const space = USE_APPDATA ? 'appDataFolder' : 'drive';
   const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&spaces=${space}&fields=files(id,name,mimeType)`;
-  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken }});
+  const r = await fetch(url, { headers: {
+  Authorization: `Bearer ${window.accessToken || accessToken}`
+}});
   const j = await r.json();
   return (j.files && j.files[0]) ? j.files[0] : null;
 }
@@ -12278,7 +12285,9 @@ async function uploadDriveFile(name, fileBlob){
 
   const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
     method: 'POST',
-    headers: { Authorization: 'Bearer ' + accessToken },
+    headers: {
+  Authorization: `Bearer ${window.accessToken || accessToken}`
+},
     body: form
   });
   if (!res.ok) throw new Error('Upload failed: ' + await res.text());
@@ -12291,7 +12300,7 @@ async function updateDriveFileContent(fileId, fileBlob){
   const res = await fetch(url, {
     method: 'PATCH',
     headers: {
-      Authorization: 'Bearer ' + accessToken,
+  Authorization: `Bearer ${window.accessToken || accessToken}`,
       'Content-Type': fileBlob.type || 'application/octet-stream'
     },
     body: fileBlob
@@ -12303,7 +12312,9 @@ async function updateDriveFileContent(fileId, fileBlob){
 // fetch file blob by id
 async function downloadDriveFileBlob(fileId){
   const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-    headers: { Authorization: 'Bearer ' + accessToken }
+    headers: {
+  Authorization: `Bearer ${window.accessToken || accessToken}`
+}
   });
   if (!res.ok) throw new Error('Download failed: ' + await res.text());
   return await res.blob();
@@ -12417,6 +12428,7 @@ async function saveToDrive(){
     try {
       await getFreshToken();
        console.log("Using token:", accessToken);
+       await new Promise(r => setTimeout(r, 300));
       await saveToDrive();     // 🔁 retry SAME save
 
       isRetryingSave = false;
@@ -12466,7 +12478,9 @@ async function loadFromDrive(){
   const fileId = await findFileId(APP_FILENAME);
   if (!fileId) { alert('No saved file found on Drive'); document.getElementById('gdrive-status').innerText = 'No file found'; return; }
   const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-    headers: { Authorization: 'Bearer ' + accessToken }
+    headers: {
+  Authorization: `Bearer ${window.accessToken || accessToken}`
+}
   });
   if (!r.ok) { alert('Download failed: ' + await r.text()); document.getElementById('gdrive-status').innerText = 'Download failed'; return; }
   const payload = await r.json();
@@ -12487,7 +12501,9 @@ async function autoSyncFromDrive() {
 
     const r = await fetch(
       `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
-      { headers: { Authorization: 'Bearer ' + accessToken } }
+      { headers: {
+  Authorization: `Bearer ${window.accessToken || accessToken}`
+} }
     );
 
     if (!r.ok) {
