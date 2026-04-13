@@ -12009,32 +12009,29 @@ function hideErrorUI() {
 function getFreshToken() {
   return new Promise((resolve, reject) => {
 
-    const originalCallback = tokenClient.callback;
+    tokenClient.requestAccessToken({
+      prompt: 'consent',
+      callback: (resp) => {
 
-    tokenClient.callback = (resp) => {
-      // restore original callback
-      tokenClient.callback = originalCallback;
+        if (resp.error) {
+          console.error("Token refresh failed:", resp);
+          reject(resp);
+          return;
+        }
 
-      if (resp.error) {
-        reject(resp);
-        return;
+        console.log("✅ NEW TOKEN RECEIVED");
+
+        accessToken = resp.access_token;
+        window.accessToken = accessToken;
+
+        if (window.gapi && gapi.client) {
+          gapi.client.setToken({ access_token: accessToken });
+        }
+
+        resolve(accessToken);
       }
+    });
 
-      console.log("✅ NEW TOKEN RECEIVED");
-
-      accessToken = resp.access_token;
-      window.accessToken = accessToken;
-
-      // 🔥 VERY IMPORTANT (missing in your case)
-      if (window.gapi && gapi.client) {
-        gapi.client.setToken({ access_token: accessToken });
-      }
-
-      resolve(accessToken);
-    };
-
-    // 🔥 Force proper refresh on mobile
-    tokenClient.requestAccessToken({ prompt: 'consent' });
   });
 }
 
