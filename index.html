@@ -9190,28 +9190,7 @@ async function refreshClientRequestsUI() {
   }
 
   // ===============================
-  // 🟢 TRY FETCH FIRST
-  // ===============================
-  try {
-    const res = await fetch(
-      CLIENT_REQ_API_URL + '?ownerId=' + encodeURIComponent(ownerId),
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
-      }
-    );
-
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.message);
-
-    return renderClientRequests(data.items || []);
-  } catch (fetchErr) {
-    console.warn("Fetch failed → falling back to JSONP", fetchErr);
-  }
-
-  // ===============================
-  // 🔴 FALLBACK TO JSONP
+  // 🔴 JSONP (PRIMARY METHOD)
   // ===============================
   return new Promise((resolve, reject) => {
     const callbackName = 'clientReqCb_' + Date.now();
