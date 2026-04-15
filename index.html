@@ -12339,11 +12339,11 @@ async function saveToDrive(){
     }
   } catch (e) {
   console.error("Drive upload failed:", e);
-
-  if (
-    (e?.message?.includes("401") || e?.message?.includes("403")) &&
-    !isRetryingSave
-  ) {
+  const errText = e?.message || '';  
+ if (
+  (errText.includes("401") || errText.includes("403")) &&
+  !isRetryingSave
+) {
     console.warn("Token expired → refreshing...");
 
     isRetryingSave = true;
@@ -12356,7 +12356,7 @@ async function saveToDrive(){
 
       console.log("Retrying save after token refresh...");
 
-      await saveToDrive();
+      return saveToDrive();
 
       isRetryingSave = false;
       return;
