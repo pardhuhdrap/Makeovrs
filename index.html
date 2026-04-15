@@ -9178,72 +9178,123 @@ async function refreshClientRequestsUI() {
     return;
   }
 
+  // 🔥 Prevent call without token
+  if (!accessToken) {
+    console.warn("Skipping client requests load (no token)");
+    listEl.innerHTML =
+      '<div class="text-[11px] text-gray-400 py-2">Sign in to load data.</div>';
+    if (typeof updateClientReqBadge === 'function') {
+      updateClientReqBadge(0);
+    }
+    return;
+  }
+
+  // ===============================
+  // 🟢 TRY FETCH FIRST
+  // ===============================
   try {
     const res = await fetch(
-      CLIENT_REQ_API_URL + '?ownerId=' + encodeURIComponent(ownerId)
+      CLIENT_REQ_API_URL + '?ownerId=' + encodeURIComponent(ownerId),
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
     );
-    const data = await res.json();
 
+    const data = await res.json();
     if (!data.ok) throw new Error(data.message);
 
-    // 👇 change const → let
-    let items = data.items || [];
+    return renderClientRequests(data.items || []);
+  } catch (fetchErr) {
+    console.warn("Fetch failed → falling back to JSONP", fetchErr);
+  }
 
-    // 🔹 Filter out any requests that are already in System/User recycle as client-request
-    try {
-      const systemList = loadFromLS(RECYCLE_SYSTEM_KEY, []) || [];
-      const userList   = loadFromLS(RECYCLE_USER_KEY, [])   || [];
+  // ===============================
+  // 🔴 FALLBACK TO JSONP
+  // ===============================
+  return new Promise((resolve, reject) => {
+    const callbackName = 'clientReqCb_' + Date.now();
 
-      const removedSet = new Set(
-        [...systemList, ...userList]
-          .filter(
-            (entry) =>
-              entry &&
-              entry.type === 'client-request' &&
-              entry.rowIndex != null
-          )
-          .map((entry) => String(entry.rowIndex))
-      );
+    window[callbackName] = function (data) {
+      try {
+        if (!data || data.ok === false) {
+          throw new Error(data?.message || "JSONP failed");
+        }
 
-      items = items.filter(
-        (row) => !removedSet.has(String(row.rowIndex))
-      );
-    } catch (e) {
-      console.warn(
-        'Client-requests filter by recycle bins failed:',
-        e
-      );
-    }
+        resolve(renderClientRequests(data.items || []));
+      } catch (err) {
+        reject(err);
+      } finally {
+        delete window[callbackName];
+        if (script && script.parentNode) {
+          script.parentNode.removeChild(script);
+        }
+      }
+    };
 
-    // ✅ SORT: latest first (higher rowIndex = newer)
-    items.sort((a, b) => {
-      const ra = Number(a.rowIndex || 0);
-      const rb = Number(b.rowIndex || 0);
-      return rb - ra; // descending
-    });
+    const script = document.createElement('script');
+    script.src =
+      CLIENT_REQ_API_URL +
+      '?ownerId=' + encodeURIComponent(ownerId) +
+      '&callback=' + encodeURIComponent(callbackName);
 
-    listEl.innerHTML = '';
+    script.onerror = function (err) {
+      delete window[callbackName];
+      if (script.parentNode) script.parentNode.removeChild(script);
 
-    if (!items.length) {
-      emptyEl.classList.remove('hidden');
+      console.error('Client-requests JSONP error:', script.src, err);
+
+      listEl.innerHTML =
+        '<div class="text-[11px] text-red-500">Failed to load.</div>';
 
       if (typeof updateClientReqBadge === 'function') {
         updateClientReqBadge(0);
       }
-      return;
+
+      reject(err);
+    };
+
+    document.body.appendChild(script);
+  });
+
+  // ===============================
+  // 🧠 COMMON RENDER FUNCTION
+  // ===============================
+  function renderClientRequests(items) {
+    listEl.innerHTML = '';
+
+    // 🔹 Filter recycle bin
+    try {
+      const systemList = loadFromLS(RECYCLE_SYSTEM_KEY, []) || [];
+      const userList   = loadFromLS(RECYCLE_USER_KEY, []) || [];
+
+      const removedSet = new Set(
+        [...systemList, ...userList]
+          .filter(e => e && e.type === 'client-request' && e.rowIndex != null)
+          .map(e => String(e.rowIndex))
+      );
+
+      items = items.filter(row => !removedSet.has(String(row.rowIndex)));
+    } catch (e) {
+      console.warn('Recycle filter failed:', e);
+    }
+
+    // sort latest first
+    items.sort((a, b) => Number(b.rowIndex || 0) - Number(a.rowIndex || 0));
+
+    if (!items.length) {
+      emptyEl.classList.remove('hidden');
+      updateClientReqBadge?.(0);
+      return [];
     }
 
     items.forEach((row) => {
-      let payload = {};
-      try { payload = JSON.parse(row.payloadJson); } catch {}
-
-      const clientName = payload.clientName || '--';
-      const contact    = payload.clientContact || '';
+      const clientName = row.clientName || '--';
+      const contact    = row.clientContact || '';
 
       const card = document.createElement('div');
       card.className = 'border border-gray-200 rounded-lg p-2 bg-white shadow-sm';
-      card.dataset.payloadJson = row.payloadJson;
-      card.dataset.rowIndex = row.rowIndex || '';
 
       card.innerHTML = `
         <div class="flex justify-between items-start gap-2">
@@ -9251,31 +9302,17 @@ async function refreshClientRequestsUI() {
             <div class="text-[13px] font-semibold text-gray-800">${clientName}</div>
             <div class="text-[11px] text-gray-500">${contact}</div>
           </div>
-          <div class="flex flex-col items-end gap-1">
-            <button
-              class="clientReqViewBtn text-[11px] px-2 py-1 rounded-full border border-gray-200 bg-white hover:bg-gray-50"
-            >
-              View
-            </button>
-          </div>
+          <button class="clientReqViewBtn text-[11px] px-2 py-1 border rounded">
+            View
+          </button>
         </div>
       `;
 
       listEl.appendChild(card);
     });
 
-    const count = items.length;
-    if (typeof updateClientReqBadge === 'function') {
-      updateClientReqBadge(count);
-    }
-
-  } catch (e) {
-    console.error(e);
-    listEl.innerHTML =
-      '<div class="text-[11px] text-red-500">Failed to load.</div>';
-    if (typeof updateClientReqBadge === 'function') {
-      updateClientReqBadge(0);
-    }
+    updateClientReqBadge?.(items.length);
+    return items;
   }
 }
 
@@ -9381,171 +9418,6 @@ async function shareClientRequestSnapshot(payload) {
     console.error('shareClientRequestSnapshot failed', err);
     alert('Sharing failed. Please try again.');
   }
-}
-
-
-// === Mark a client request as imported & move it to System recycle ===
-// === Mark a client request as imported & move it to System recycle ===
-async function refreshClientRequestsUI() {
-  const listEl  = document.getElementById('clientReqList');
-  const emptyEl = document.getElementById('clientReqEmpty');
-  if (!listEl || !emptyEl) return;
-
-  listEl.innerHTML =
-    '<div class="text-[11px] text-gray-400 py-2">Loading…</div>';
-  emptyEl.classList.add('hidden');
-
-  const ownerId = getClientReqOwnerId();
-  if (!ownerId) {
-    listEl.innerHTML =
-      '<div class="text-[11px] text-red-500 py-2">Please sign in first.</div>';
-    if (typeof updateClientReqBadge === 'function') {
-      updateClientReqBadge(0);
-    }
-    return;
-  }
-
-  // ✅ Use JSONP instead of fetch (to avoid CORS)
-  return new Promise((resolve, reject) => {
-    const callbackName = 'clientReqCb_' + Date.now();
-
-    // Define global callback – called by Apps Script
-    window[callbackName] = function (data) {
-      try {
-        if (!data || data.ok === false) {
-          console.error('Client-requests error:', data && data.message);
-          listEl.innerHTML =
-            '<div class="text-[11px] text-red-500">Failed to load.</div>';
-          if (typeof updateClientReqBadge === 'function') {
-            updateClientReqBadge(0);
-          }
-          reject(data);
-          return;
-        }
-
-        // 👇 same logic as before, just using data from JSONP
-        let items = data.items || [];
-
-        // 🔹 Filter: remove items already in recycle bins
-        try {
-          const systemList = loadFromLS(RECYCLE_SYSTEM_KEY, []) || [];
-          const userList   = loadFromLS(RECYCLE_USER_KEY, [])   || [];
-
-          const removedSet = new Set(
-            [...systemList, ...userList]
-              .filter(
-                (entry) =>
-                  entry &&
-                  entry.type === 'client-request' &&
-                  entry.rowIndex != null
-              )
-              .map((entry) => String(entry.rowIndex))
-          );
-
-          items = items.filter(
-            (row) => !removedSet.has(String(row.rowIndex))
-          );
-        } catch (e) {
-          console.warn(
-            'Client-requests filter by recycle bins failed:',
-            e
-          );
-        }
-
-        // ✅ SORT: latest first (higher rowIndex = newer)
-        items.sort((a, b) => {
-          const ra = Number(a.rowIndex || 0);
-          const rb = Number(b.rowIndex || 0);
-          return rb - ra; // descending
-        });
-
-        listEl.innerHTML = '';
-
-        if (!items.length) {
-          emptyEl.classList.remove('hidden');
-          if (typeof updateClientReqBadge === 'function') {
-            updateClientReqBadge(0);
-          }
-          resolve([]);
-          return;
-        }
-
-        items.forEach((row) => {
-          // We already got parsed data from backend
-          const clientName = row.clientName || '--';
-          const contact    = row.clientContact || '';
-
-          // Keep payloadJson for your existing "View" popup logic
-          const payloadJson =
-            row.payloadJson ||
-            JSON.stringify({
-              clientName: row.clientName || '',
-              clientContact: row.clientContact || '',
-              events: row.events || []
-            });
-
-          const card = document.createElement('div');
-          card.className = 'border border-gray-200 rounded-lg p-2 bg-white shadow-sm';
-          card.dataset.payloadJson = payloadJson;
-          card.dataset.rowIndex = row.rowIndex || '';
-
-          card.innerHTML = `
-            <div class="flex justify-between items-start gap-2">
-              <div>
-                <div class="text-[13px] font-semibold text-gray-800">${clientName}</div>
-                <div class="text-[11px] text-gray-500">${contact}</div>
-              </div>
-              <div class="flex flex-col items-end gap-1">
-                <button
-                  class="clientReqViewBtn text-[11px] px-2 py-1 rounded-full border border-gray-200 bg-white hover:bg-gray-50"
-                >
-                  View
-                </button>
-              </div>
-            </div>
-          `;
-
-          listEl.appendChild(card);
-        });
-
-        const count = items.length;
-        if (typeof updateClientReqBadge === 'function') {
-          updateClientReqBadge(count);
-        }
-
-        resolve(items);
-      } finally {
-        // Cleanup: remove callback + script tag
-        delete window[callbackName];
-        if (script && script.parentNode) {
-          script.parentNode.removeChild(script);
-        }
-      }
-    };
-
-    // Create <script> tag for JSONP call
-    const script = document.createElement('script');
-    script.src =
-      CLIENT_REQ_API_URL +
-      '?ownerId=' + encodeURIComponent(ownerId) +
-      '&callback=' + encodeURIComponent(callbackName);
-
-    script.onerror = function (err) {
-      delete window[callbackName];
-      if (script.parentNode) {
-        script.parentNode.removeChild(script);
-      }
-      console.error('Client-requests JSONP error:', err);
-      listEl.innerHTML =
-        '<div class="text-[11px] text-red-500">Failed to load.</div>';
-      if (typeof updateClientReqBadge === 'function') {
-        updateClientReqBadge(0);
-      }
-      reject(err);
-    };
-
-    document.body.appendChild(script);
-  });
 }
 
 
@@ -11996,6 +11868,7 @@ function initGoogleTokenClient(){
       }
       accessToken = resp.access_token;
       window.accessToken = accessToken;
+      loadFromDrive();
       onSignedIn();
     }
   });
@@ -12345,7 +12218,10 @@ function autoSaveDrive(reason) {
 
 
 async function loadFromDrive(){
-  if (!accessToken) { alert('Please sign in first'); return; }
+  if (!accessToken) {
+  console.warn("No access token, skipping Drive load");
+  return;
+}
   document.getElementById('gdrive-status').innerText = 'Downloading...';
   const fileId = await findFileId(APP_FILENAME);
   if (!fileId) { alert('No saved file found on Drive'); document.getElementById('gdrive-status').innerText = 'No file found'; return; }
