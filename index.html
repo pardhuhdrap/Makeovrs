@@ -1978,28 +1978,6 @@ window.confirm = function (msg) {
   return false; // fallback if someone uses confirm synchronously
 };
 
-// ===============================
-// 🔐 RESTORE LOGIN (ADD HERE)
-// ===============================
-function restoreLogin() {
-  const userData = localStorage.getItem("gdrive_user");
-  const token = localStorage.getItem("gdrive_token");
-
-  if (userData && token) {
-    try {
-      currentUser = JSON.parse(userData);
-      accessToken = token;
-
-      updateDashboardAccess(true);
-    } catch (e) {
-      console.warn("Restore login failed", e);
-      updateDashboardAccess(false);
-    }
-  } else {
-    updateDashboardAccess(false);
-  }
-}
-
 function navigate(id, opts = {}) {
 
  // 🔒 GLOBAL LOGIN GUARD
@@ -3918,11 +3896,9 @@ function collectEventsFromPanelsForSave(){
       !/Enter \(Text\)/i.test(addonDisplay.textContent) &&
       !/No items selected/i.test(addonDisplay.textContent)
     ) {
-      addonDetails = Array.from(addonDisplay.querySelectorAll('div'))
-  .map(el => el.textContent.trim())
-  .join(' || ');
+      addonDetails = addonDisplay.textContent.trim();
     } else if (addonManual && addonManual.value.trim()) {
-      addonDetails = panel.querySelector('.event-addon-display')?.innerText.trim();
+      addonDetails = addonManual.value.trim();
     }
 
     // --- location + transport ---
@@ -8763,16 +8739,10 @@ function createEventPanel(prefill = {}) {
   }
 });
 
-const toggleEl = panel.querySelector('.eventFetchAddOn');
-console.log("Toggle element:", toggleEl);
+
   // addons toggle
   panel.querySelector('.eventFetchAddOn')?.addEventListener('change', (ev) => {
-
-    console.log("Toggle ON:", ev.target.checked);
-  console.log("masterAddOns:", masterAddOns);
-
     const masterContainer = panel.querySelector('.event-addon-master');
-     console.log("masterContainer:", masterContainer);
     const manualTextarea = panel.querySelector('.event-addon-manual');
     const displayPre = panel.querySelector('.event-addon-display');
     const applyBtn = panel.querySelector('.event-apply-addon-master');
@@ -8835,9 +8805,9 @@ console.log("Toggle element:", toggleEl);
     const raw = panel.querySelector('.event-addon-manual').value || '';
     const matches = [...raw.matchAll(/\((.*?)\)/g)];
     const list = matches
-      .map((m, i) => `<div>${i + 1}. ${m[1].trim()}</div>`)
-      .join(' || ');
-    panel.querySelector('.event-addon-display').innerHTML =
+      .map((m, i) => `${i + 1}. ${m[1].trim()}`)
+      .join('\n');
+    panel.querySelector('.event-addon-display').textContent =
       list ||
       (raw.trim()
         ? 'No items found in (brackets).'
@@ -8981,10 +8951,7 @@ if (typeof attachAlphaOnlyCapitalize === 'function' && manualLoc) {
     if (prefill.addonDetails) {
       const addonDisplay = panel.querySelector('.event-addon-display');
       const addonManual = panel.querySelector('.event-addon-manual');
-      if (addonDisplay) addonDisplay.innerHTML = prefill.addonDetails
-  .split('\n')
-  .map(line => `<div>${line}</div>`)
-  .join(' || ');
+      if (addonDisplay) addonDisplay.textContent = prefill.addonDetails;
       if (addonManual) addonManual.value = prefill.addonDetails;
     }
 
@@ -9215,13 +9182,9 @@ async function refreshClientRequestsUI() {
     const res = await fetch(
       CLIENT_REQ_API_URL + '?ownerId=' + encodeURIComponent(ownerId)
     );
+    const data = await res.json();
 
-    if (!res.ok) {
-  const errText = await res.text();
-  throw new Error(`HTTP ${res.status} — ${errText}`);
-}
-
-const data = await res.json();
+    if (!data.ok) throw new Error(data.message);
 
     // 👇 change const → let
     let items = data.items || [];
@@ -9568,7 +9531,6 @@ async function refreshClientRequestsUI() {
       '&callback=' + encodeURIComponent(callbackName);
 
     script.onerror = function (err) {
-      console.warn("Client-requests JSONP failed (ignored):", e);
       delete window[callbackName];
       if (script.parentNode) {
         script.parentNode.removeChild(script);
@@ -10514,11 +10476,9 @@ function validateEventPanel(panel){
     !/Enter \(Text\)/i.test(addonDisplay.textContent) &&
     !/No items selected/i.test(addonDisplay.textContent)
   ) {
-    addonDetails = Array.from(addonDisplay.querySelectorAll('div'))
-  .map(el => el.textContent.trim())
-  .join('\n');
+    addonDetails = addonDisplay.textContent.trim();
   } else if (addonManual && addonManual.value.trim()) {
-    addonDetails = panel.querySelector('.event-addon-display')?.innerText.trim();
+    addonDetails = addonManual.value.trim();
   }
 
   const addonPriceInput = panel.querySelector('.event-addOnPrice');
@@ -10983,7 +10943,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   migrateEventIds(); persistMissingEventIds();
   applySettings();
   loadMasterData();
-  restoreLogin();
 
   document.getElementById('generateQuotationButton')?.addEventListener('click', saveQuotationMultiEvent);
   document.getElementById('quotationDiscount')?.addEventListener('input', updateSummaryUI);
@@ -11294,12 +11253,6 @@ document.getElementById("removeInvoiceLayoutBtn")?.addEventListener("click", () 
 });
 
 
-// 🔄 FIX PWA RESUME LOGOUT
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible") {
-    restoreLogin();
-  }
-});
 
   // Files search
   document.getElementById('filesSearch')?.addEventListener('input', renderFilesList);
@@ -11631,7 +11584,7 @@ const events = panels.map(panel => {
   ) {
     addonDetails = addonDisplay.textContent.trim();
   } else if (addonManual && addonManual.value.trim()) {
-    addonDetails = panel.querySelector('.event-addon-display')?.innerText.trim();
+    addonDetails = addonManual.value.trim();
   }
 
   const addOnPrice = parseFloat(panel.querySelector('.event-addOnPrice')?.value || 0) || 0;
@@ -11999,41 +11952,6 @@ const APP_FILENAME = 'myapp-data.json';
 let tokenClient = null;
 let accessToken = null;
 let userProfile = null;
-let isRetryingSave = false;
-
-function hideErrorUI() {  
-  const bar = document.getElementById("contactDevBar");  
-  if (bar) bar.style.display = "none";  
-}
-
-function getFreshToken() {
-  return new Promise((resolve, reject) => {
-
-    tokenClient.requestAccessToken({
-      prompt: 'consent',
-      callback: (resp) => {
-
-        if (resp.error) {
-          console.error("Token refresh failed:", resp);
-          reject(resp);
-          return;
-        }
-
-        console.log("✅ NEW TOKEN RECEIVED");
-
-        accessToken = resp.access_token;
-        window.accessToken = accessToken;
-
-        if (window.gapi && gapi.client) {
-          gapi.client.setToken({ access_token: accessToken });
-        }
-
-        resolve(accessToken);
-      }
-    });
-
-  });
-}
 
 function initGoogleTokenClient(){
   if (!window.google || !google.accounts || !google.accounts.oauth2) {
@@ -12045,7 +11963,6 @@ function initGoogleTokenClient(){
     client_id: CLIENT_ID,
     scope: (USE_APPDATA ? 'https://www.googleapis.com/auth/drive.appdata' : 'https://www.googleapis.com/auth/drive.file') + ' openid email profile',
     callback: (resp) => {
-      console.log("TOKEN:", resp);
       if (resp.error) {
         console.error('Token error', resp);
         document.getElementById('gdrive-status').innerText = 'Sign-in required';
@@ -12079,17 +11996,6 @@ function initGoogleTokenClient(){
       }
       accessToken = resp.access_token;
       window.accessToken = accessToken;
-
-      if (window.gapi && gapi.client) {
-  gapi.client.setToken({ access_token: accessToken });
-}
-
-      localStorage.setItem("gdrive_user", JSON.stringify({
-        email: document.getElementById("gdrive-user")?.textContent || "",
-      }));
-
-      localStorage.setItem("gdrive_token", accessToken);
-
       onSignedIn();
     }
   });
@@ -12127,9 +12033,7 @@ async function onSignedIn() {
   document.getElementById('gdrive-status').innerText = 'Signed in — fetching profile.';
   try {
     const r = await fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
-      headers: {
-  Authorization: `Bearer ${window.accessToken || accessToken}`
-}
+      headers: { Authorization: 'Bearer ' + accessToken }
     });
     if (r.ok) {
       userProfile = await r.json();
@@ -12255,9 +12159,7 @@ function signOutFromGoogle(){
 async function findFileId(name){
   const q = `name='${name.replace(/'/g,"\\\\'")}' and trashed=false`;
   const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&spaces=${USE_APPDATA ? 'appDataFolder' : 'drive'}&fields=files(id,name)`;
-  const r = await fetch(url, { headers: {
-  Authorization: `Bearer ${window.accessToken || accessToken}`
-}});
+  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken }});
   const j = await r.json();
   return (j.files && j.files[0] && j.files[0].id) || null;
 }
@@ -12269,9 +12171,7 @@ async function findDriveFileIdByName(name){
   const q = `name='${name.replace(/'/g,"\\'")}' and trashed=false`;
   const space = USE_APPDATA ? 'appDataFolder' : 'drive';
   const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&spaces=${space}&fields=files(id,name,mimeType)`;
-  const r = await fetch(url, { headers: {
-  Authorization: `Bearer ${window.accessToken || accessToken}`
-}});
+  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken }});
   const j = await r.json();
   return (j.files && j.files[0]) ? j.files[0] : null;
 }
@@ -12287,9 +12187,7 @@ async function uploadDriveFile(name, fileBlob){
 
   const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
     method: 'POST',
-    headers: {
-  Authorization: `Bearer ${window.accessToken || accessToken}`
-},
+    headers: { Authorization: 'Bearer ' + accessToken },
     body: form
   });
   if (!res.ok) throw new Error('Upload failed: ' + await res.text());
@@ -12302,7 +12200,7 @@ async function updateDriveFileContent(fileId, fileBlob){
   const res = await fetch(url, {
     method: 'PATCH',
     headers: {
-  Authorization: `Bearer ${window.accessToken || accessToken}`,
+      Authorization: 'Bearer ' + accessToken,
       'Content-Type': fileBlob.type || 'application/octet-stream'
     },
     body: fileBlob
@@ -12314,9 +12212,7 @@ async function updateDriveFileContent(fileId, fileBlob){
 // fetch file blob by id
 async function downloadDriveFileBlob(fileId){
   const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-    headers: {
-  Authorization: `Bearer ${window.accessToken || accessToken}`
-}
+    headers: { Authorization: 'Bearer ' + accessToken }
   });
   if (!res.ok) throw new Error('Download failed: ' + await res.text());
   return await res.blob();
@@ -12398,7 +12294,6 @@ async function updateJsonFile(fileId, jsonObj){
 }
 
 async function saveToDrive(){
-
   if (!accessToken) { alert('Please sign in first'); return; }
   document.getElementById('gdrive-status').innerText = 'Preparing data...';
   const data = {};
@@ -12420,43 +12315,15 @@ async function saveToDrive(){
   } catch (e) {
   console.error("Drive upload failed:", e);
 
-  // 🔥 detect expired token
-  if ((e?.message?.includes("401") || e?.message?.includes("403")) &&
-    !isRetryingSave ) {
-    console.warn("Token expired → refreshing...");
-
-     isRetryingSave = true;
-
-    try {
-      await getFreshToken();
-       console.log("Using token:", accessToken);
-       await new Promise(r => setTimeout(r, 900));
-       if (window.gapi && gapi.client) {
-  gapi.client.setToken({ access_token: accessToken });
-}
-      await saveToDrive();     // 🔁 retry SAME save
-
-      isRetryingSave = false;
-      hideErrorUI();
-      return;
-
-    } catch (err) {
-      isRetryingSave = false;
-      showMessage("Session expired. Please sign in again.", "error");
-      return;
-    }
-  }
-
-  // Normal error
   showMessage("Upload failed! Please try again.", "error");
 
+  // Show the Contact Admin error bar
   const bar = document.getElementById("contactDevBar");
   if (bar) bar.style.display = "block";
-}
+ }
 }
 
 let autoSaveTimer = null;
-
 function autoSaveDrive(reason) {
   if (!accessToken) {
     // Not signed in → just keep local changes, nothing to sync.
@@ -12483,9 +12350,7 @@ async function loadFromDrive(){
   const fileId = await findFileId(APP_FILENAME);
   if (!fileId) { alert('No saved file found on Drive'); document.getElementById('gdrive-status').innerText = 'No file found'; return; }
   const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-    headers: {
-  Authorization: `Bearer ${window.accessToken || accessToken}`
-}
+    headers: { Authorization: 'Bearer ' + accessToken }
   });
   if (!r.ok) { alert('Download failed: ' + await r.text()); document.getElementById('gdrive-status').innerText = 'Download failed'; return; }
   const payload = await r.json();
@@ -12506,9 +12371,7 @@ async function autoSyncFromDrive() {
 
     const r = await fetch(
       `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
-      { headers: {
-  Authorization: `Bearer ${window.accessToken || accessToken}`
-} }
+      { headers: { Authorization: 'Bearer ' + accessToken } }
     );
 
     if (!r.ok) {
