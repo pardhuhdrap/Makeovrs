@@ -12106,31 +12106,36 @@ async function onSignedIn() {
       updateProfileIcon();
 
       // === AUTO-LOAD FROM DRIVE ON SIGN-IN ===
-      document.getElementById('gdrive-status').innerText =
-        'Signed in — loading saved data...';
-
       try {
-        if (isTokenRefreshFlow) {
-  console.log("Skip loadFromDrive (token refresh)");
-  isTokenRefreshFlow = false; // reset
-} else {
-        await loadFromDrive();   // merges data into localStorage
+  if (isTokenRefreshFlow) {
+    console.log("Skip loadFromDrive (token refresh)");
+    isTokenRefreshFlow = false;
 
-        // Re-apply UI immediately so images/letterheads show
-        if (typeof applySettings === 'function') applySettings();
-        if (typeof renderFilesList === 'function') renderFilesList();
-        if (typeof renderCalendar === 'function') renderCalendar();
-        if (typeof updateSummaryUI === 'function') updateSummaryUI();
-        if (typeof updateInvoiceSummaryUI === 'function') updateInvoiceSummaryUI();
-        try { updateDashboardUpcomingEvents(); } catch (e) {}
+    // ✅ better message
+    document.getElementById('gdrive-status').innerText =
+      'Session refreshed';
+
+  } else {
+    document.getElementById('gdrive-status').innerText =
+      'Signed in — loading saved data...';
+
+    await loadFromDrive();
+
+    if (typeof applySettings === 'function') applySettings();
+    if (typeof renderFilesList === 'function') renderFilesList();
+    if (typeof renderCalendar === 'function') renderCalendar();
+    if (typeof updateSummaryUI === 'function') updateSummaryUI();
+    if (typeof updateInvoiceSummaryUI === 'function') updateInvoiceSummaryUI();
+    try { updateDashboardUpcomingEvents(); } catch (e) {}
+
+    document.getElementById('gdrive-status').innerText = 'Loaded saved data';
+  }
+
+} catch (e) {
+  console.warn('Auto-load failed', e);
+  document.getElementById('gdrive-status').innerText =
+    'Signed in (no saved data)';
 }
-
-        document.getElementById('gdrive-status').innerText = 'Loaded saved data';
-      } catch (e) {
-        console.warn('Auto-load failed', e);
-        document.getElementById('gdrive-status').innerText =
-          'Signed in (no saved data)';
-      }
       // === END AUTO-LOAD SECTION ===
     } else {
       document.getElementById('gdrive-status').innerText =
