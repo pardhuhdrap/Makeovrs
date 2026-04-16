@@ -11964,9 +11964,11 @@ let isRetryingSave = false;
 function getFreshToken() {
   return new Promise((resolve, reject) => {
 
-    tokenClient.requestAccessToken({
-      prompt: 'consent', // 🔥 IMPORTANT for mobile stability
-      callback: (resp) => {
+  const originalCallback = tokenClient.callback;
+
+    tokenClient.callback = (resp) => {
+      // restore original callback
+      tokenClient.callback = originalCallback;
 
         if (resp.error) {
           reject(resp);
