@@ -11992,22 +11992,25 @@ let isRetryingSave = false;
 
 function getFreshToken() {
   return new Promise((resolve, reject) => {
-    const originalCallback = tokenClient.callback;
 
-    tokenClient.callback = (resp) => {
-      // restore original callback
-      tokenClient.callback = originalCallback;
+    tokenClient.requestAccessToken({
+      prompt: 'consent', // 🔥 IMPORTANT for mobile stability
+      callback: (resp) => {
 
-      if (resp.error) {
-        reject(resp);
-        return;
+        if (resp.error) {
+          reject(resp);
+          return;
+        }
+
+        console.log("✅ NEW TOKEN RECEIVED");
+
+        accessToken = resp.access_token;
+        window.accessToken = accessToken;
+
+        resolve(accessToken);
       }
+    });
 
-      accessToken = resp.access_token;
-      resolve(accessToken);
-    };
-
-    tokenClient.requestAccessToken({ prompt: '' });
   });
 }
 
@@ -12020,7 +12023,7 @@ function initGoogleTokenClient(){
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: (USE_APPDATA ? 'https://www.googleapis.com/auth/drive.appdata' : 'https://www.googleapis.com/auth/drive.file') + ' openid email profile',
-     prompt: "consent",
+     
     callback: (resp) => {
       console.log("TOKEN:", resp);
       if (resp.error) {
@@ -12055,11 +12058,6 @@ function initGoogleTokenClient(){
         return;
       }
       accessToken = resp.access_token;
-      localStorage.setItem("gdrive_user", JSON.stringify({
-  email: document.getElementById("gdrive-user")?.textContent || "",
-}));
-
-localStorage.setItem("gdrive_token", accessToken);
       window.accessToken = accessToken;
       onSignedIn();
     }
@@ -12381,17 +12379,21 @@ async function saveToDrive(){
   } catch (e) {
   console.error("Drive upload failed:", e);
 
-  // 🔥 detect expired token
-  if ((e?.message?.includes("401") || e?.message?.includes("403")) &&
-    !isRetryingSave ) {
+   const errText = e?.message || '';  
+ if (
+  (errText.includes("401") || errText.includes("403")) &&
+  !isRetryingSave
+) {
     console.warn("Token expired → refreshing...");
 
      isRetryingSave = true;
 
     try {
       await getFreshToken();
+      // 🔥 IMPORTANT for mobile
+      await new Promise(r => setTimeout(r, 500));
        console.log("Retrying save after token refresh...");
-      await saveToDrive();     // 🔁 retry SAME save
+      return saveToDrive();     // 🔁 retry SAME save
 
       isRetryingSave = false;
       return;
