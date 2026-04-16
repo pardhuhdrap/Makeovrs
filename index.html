@@ -1978,27 +1978,6 @@ window.confirm = function (msg) {
   return false; // fallback if someone uses confirm synchronously
 };
 
-// ===============================
-// 🔐 RESTORE LOGIN (ADD HERE)
-// ===============================
-function restoreLogin() {
-  const userData = localStorage.getItem("gdrive_user");
-  const token = localStorage.getItem("gdrive_token");
-
-  if (userData && token) {
-    try {
-      currentUser = JSON.parse(userData);
-      accessToken = token;
-
-      updateDashboardAccess(true);
-    } catch (e) {
-      console.warn("Restore login failed", e);
-      updateDashboardAccess(false);
-    }
-  } else {
-    updateDashboardAccess(false);
-  }
-}
 
 function navigate(id, opts = {}) {
 
@@ -10972,7 +10951,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   migrateEventIds(); persistMissingEventIds();
   applySettings();
   loadMasterData();
-  restoreLogin();
 
   document.getElementById('generateQuotationButton')?.addEventListener('click', saveQuotationMultiEvent);
   document.getElementById('quotationDiscount')?.addEventListener('input', updateSummaryUI);
@@ -11282,13 +11260,6 @@ document.getElementById("removeInvoiceLayoutBtn")?.addEventListener("click", () 
   });
 });
 
-
-// 🔄 FIX PWA RESUME LOGOUT
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible") {
-    restoreLogin();
-  }
-});
 
   // Files search
   document.getElementById('filesSearch')?.addEventListener('input', renderFilesList);
