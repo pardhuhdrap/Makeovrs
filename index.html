@@ -12419,19 +12419,51 @@ function autoSaveDrive(reason) {
 
 
 async function loadFromDrive(){
-  if (!accessToken) { alert('Please sign in first'); return; }
+  if (!accessToken) {
+    alert('Please sign in first');
+    return;
+  }
+
   document.getElementById('gdrive-status').innerText = 'Downloading...';
+
   const fileId = await findFileId(APP_FILENAME);
-  if (!fileId) { alert('No saved file found on Drive'); document.getElementById('gdrive-status').innerText = 'No file found'; return; }
-  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-    headers: { Authorization: 'Bearer ' + accessToken }
-  });
-  if (!r.ok) { alert('Download failed: ' + await r.text()); document.getElementById('gdrive-status').innerText = 'Download failed'; return; }
+
+  if (!fileId) {
+    alert('No saved file found on Drive');
+    document.getElementById('gdrive-status').innerText = 'No file found';
+    return;
+  }
+
+  const r = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+    {
+      headers: { Authorization: 'Bearer ' + accessToken }
+    }
+  );
+
+  if (!r.ok) {
+    alert('Download failed: ' + await r.text());
+    document.getElementById('gdrive-status').innerText = 'Download failed';
+    return;
+  }
+
   const payload = await r.json();
-if (!payload || !payload.data) {
-  alert('Drive file has no data.');
-  return;
-}
+
+  if (!payload || !payload.data) {
+    alert('Drive file has no data.');
+    return;
+  }
+
+  // ✅ APPLY DATA BACK TO LOCAL STORAGE
+  Object.entries(payload.data).forEach(([k, v]) => {
+    try {
+      localStorage.setItem(k, JSON.stringify(v));
+    } catch (e) {
+      console.warn('Failed to restore key:', k, e);
+    }
+  });
+
+  document.getElementById('gdrive-status').innerText = 'Data loaded';
 }
 
 async function autoSyncFromDrive() {
