@@ -11964,26 +11964,22 @@ let isRetryingSave = false;
 function getFreshToken() {
   return new Promise((resolve, reject) => {
 
-  const originalCallback = tokenClient.callback;
+   const originalCallback = tokenClient.callback;
 
     tokenClient.callback = (resp) => {
       // restore original callback
       tokenClient.callback = originalCallback;
 
-        if (resp.error) {
-          reject(resp);
-          return;
-        }
-
-        console.log("✅ NEW TOKEN RECEIVED");
-
-        accessToken = resp.access_token;
-        window.accessToken = accessToken;
-
-        resolve(accessToken);
+      if (resp.error) {
+        reject(resp);
+        return;
       }
-    });
 
+      accessToken = resp.access_token;
+      resolve(accessToken);
+    };
+
+    tokenClient.requestAccessToken({ prompt: '' });
   });
 }
 
