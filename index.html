@@ -1978,6 +1978,28 @@ window.confirm = function (msg) {
   return false; // fallback if someone uses confirm synchronously
 };
 
+// ===============================
+// 🔐 RESTORE LOGIN (ADD HERE)
+// ===============================
+function restoreLogin() {
+  const userData = localStorage.getItem("gdrive_user");
+  const token = localStorage.getItem("gdrive_token");
+
+  if (userData && token) {
+    try {
+      currentUser = JSON.parse(userData);
+      accessToken = token;
+
+      updateDashboardAccess(true);
+    } catch (e) {
+      console.warn("Restore login failed", e);
+      updateDashboardAccess(false);
+    }
+  } else {
+    updateDashboardAccess(false);
+  }
+}
+
 function navigate(id, opts = {}) {
 
  // 🔒 GLOBAL LOGIN GUARD
@@ -3896,7 +3918,9 @@ function collectEventsFromPanelsForSave(){
       !/Enter \(Text\)/i.test(addonDisplay.textContent) &&
       !/No items selected/i.test(addonDisplay.textContent)
     ) {
-      addonDetails = addonDisplay.textContent.trim();
+      addonDetails = Array.from(addonDisplay.querySelectorAll('div'))
+  .map(el => el.textContent.trim())
+  .join('\n');
     } else if (addonManual && addonManual.value.trim()) {
       addonDetails = addonManual.value.trim();
     }
@@ -8805,9 +8829,9 @@ function createEventPanel(prefill = {}) {
     const raw = panel.querySelector('.event-addon-manual').value || '';
     const matches = [...raw.matchAll(/\((.*?)\)/g)];
     const list = matches
-      .map((m, i) => `${i + 1}. ${m[1].trim()}`)
-      .join('\n');
-    panel.querySelector('.event-addon-display').textContent =
+      .map((m, i) => `<div>${i + 1}. ${m[1].trim()}</div>`)
+      .join('||');
+    panel.querySelector('.event-addon-display').innerHTML =
       list ||
       (raw.trim()
         ? 'No items found in (brackets).'
@@ -8951,7 +8975,10 @@ if (typeof attachAlphaOnlyCapitalize === 'function' && manualLoc) {
     if (prefill.addonDetails) {
       const addonDisplay = panel.querySelector('.event-addon-display');
       const addonManual = panel.querySelector('.event-addon-manual');
-      if (addonDisplay) addonDisplay.textContent = prefill.addonDetails;
+      if (addonDisplay) addonDisplay.innerHTML = prefill.addonDetails
+  .split('\n')
+  .map(line => `<div>${line}</div>`)
+  .join('');
       if (addonManual) addonManual.value = prefill.addonDetails;
     }
 
@@ -10476,7 +10503,9 @@ function validateEventPanel(panel){
     !/Enter \(Text\)/i.test(addonDisplay.textContent) &&
     !/No items selected/i.test(addonDisplay.textContent)
   ) {
-    addonDetails = addonDisplay.textContent.trim();
+    addonDetails = Array.from(addonDisplay.querySelectorAll('div'))
+  .map(el => el.textContent.trim())
+  .join('\n');
   } else if (addonManual && addonManual.value.trim()) {
     addonDetails = addonManual.value.trim();
   }
@@ -10943,6 +10972,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   migrateEventIds(); persistMissingEventIds();
   applySettings();
   loadMasterData();
+  restoreLogin();
 
   document.getElementById('generateQuotationButton')?.addEventListener('click', saveQuotationMultiEvent);
   document.getElementById('quotationDiscount')?.addEventListener('input', updateSummaryUI);
@@ -11253,6 +11283,12 @@ document.getElementById("removeInvoiceLayoutBtn")?.addEventListener("click", () 
 });
 
 
+// 🔄 FIX PWA RESUME LOGOUT
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    restoreLogin();
+  }
+});
 
   // Files search
   document.getElementById('filesSearch')?.addEventListener('input', renderFilesList);
@@ -11956,25 +11992,22 @@ let isRetryingSave = false;
 
 function getFreshToken() {
   return new Promise((resolve, reject) => {
+    const originalCallback = tokenClient.callback;
 
-    tokenClient.requestAccessToken({
-      prompt: 'consent', // 🔥 IMPORTANT for mobile stability
-      callback: (resp) => {
+    tokenClient.callback = (resp) => {
+      // restore original callback
+      tokenClient.callback = originalCallback;
 
-        if (resp.error) {
-          reject(resp);
-          return;
-        }
-
-        console.log("✅ NEW TOKEN RECEIVED");
-
-        accessToken = resp.access_token;
-        window.accessToken = accessToken;
-
-        resolve(accessToken);
+      if (resp.error) {
+        reject(resp);
+        return;
       }
-    });
 
+      accessToken = resp.access_token;
+      resolve(accessToken);
+    };
+
+    tokenClient.requestAccessToken({ prompt: '' });
   });
 }
 
@@ -11987,7 +12020,9 @@ function initGoogleTokenClient(){
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: (USE_APPDATA ? 'https://www.googleapis.com/auth/drive.appdata' : 'https://www.googleapis.com/auth/drive.file') + ' openid email profile',
+     prompt: "consent",
     callback: (resp) => {
+      console.log("TOKEN:", resp);
       if (resp.error) {
         console.error('Token error', resp);
         document.getElementById('gdrive-status').innerText = 'Sign-in required';
@@ -12020,6 +12055,11 @@ function initGoogleTokenClient(){
         return;
       }
       accessToken = resp.access_token;
+      localStorage.setItem("gdrive_user", JSON.stringify({
+  email: document.getElementById("gdrive-user")?.textContent || "",
+}));
+
+localStorage.setItem("gdrive_token", accessToken);
       window.accessToken = accessToken;
       onSignedIn();
     }
@@ -12106,40 +12146,27 @@ async function onSignedIn() {
       updateProfileIcon();
 
       // === AUTO-LOAD FROM DRIVE ON SIGN-IN ===
-try {
+      document.getElementById('gdrive-status').innerText =
+        'Signed in — loading saved data...';
 
-  if (isTokenRefreshFlow) {
-    console.log("Skip loadFromDrive (token refresh)");
-    isTokenRefreshFlow = false;
+      try {
+        await loadFromDrive();   // merges data into localStorage
 
-    document.getElementById('gdrive-status').innerText =
-      'Session refreshed';
+        // Re-apply UI immediately so images/letterheads show
+        if (typeof applySettings === 'function') applySettings();
+        if (typeof renderFilesList === 'function') renderFilesList();
+        if (typeof renderCalendar === 'function') renderCalendar();
+        if (typeof updateSummaryUI === 'function') updateSummaryUI();
+        if (typeof updateInvoiceSummaryUI === 'function') updateInvoiceSummaryUI();
+        try { updateDashboardUpcomingEvents(); } catch (e) {}
 
-  } else {
-    document.getElementById('gdrive-status').innerText =
-      'Signed in — loading saved data...';
-
-    await loadFromDrive();
-
-    if (typeof applySettings === 'function') applySettings();
-    if (typeof renderFilesList === 'function') renderFilesList();
-    if (typeof renderCalendar === 'function') renderCalendar();
-    if (typeof updateSummaryUI === 'function') updateSummaryUI();
-    if (typeof updateInvoiceSummaryUI === 'function') updateInvoiceSummaryUI();
-
-    try { updateDashboardUpcomingEvents(); } catch (e) {}
-
-    document.getElementById('gdrive-status').innerText =
-      'Loaded saved data';
-  }
-
-} catch (e) {
-  console.warn('Auto-load failed', e);
-
-  document.getElementById('gdrive-status').innerText =
-    'Signed in (no saved data)';
-}
-// === END AUTO-LOAD SECTION ===
+        document.getElementById('gdrive-status').innerText = 'Loaded saved data';
+      } catch (e) {
+        console.warn('Auto-load failed', e);
+        document.getElementById('gdrive-status').innerText =
+          'Signed in (no saved data)';
+      }
+      // === END AUTO-LOAD SECTION ===
     } else {
       document.getElementById('gdrive-status').innerText =
         'Failed to fetch profile';
@@ -12332,6 +12359,7 @@ async function updateJsonFile(fileId, jsonObj){
 }
 
 async function saveToDrive(){
+
   if (!accessToken) { alert('Please sign in first'); return; }
   document.getElementById('gdrive-status').innerText = 'Preparing data...';
   const data = {};
@@ -12353,33 +12381,20 @@ async function saveToDrive(){
   } catch (e) {
   console.error("Drive upload failed:", e);
 
-  const errText = e?.message || '';
-
-  if (
-    (errText.includes("401") || errText.includes("403")) &&
-    !isRetryingSave
-  ) {
+  // 🔥 detect expired token
+  if ((e?.message?.includes("401") || e?.message?.includes("403")) &&
+    !isRetryingSave ) {
     console.warn("Token expired → refreshing...");
 
-    isRetryingSave = true;
+     isRetryingSave = true;
 
     try {
       await getFreshToken();
+       console.log("Retrying save after token refresh...");
+      await saveToDrive();     // 🔁 retry SAME save
 
-      await new Promise(r => setTimeout(r, 500));
-
-      console.log("Retrying save after token refresh...");
-
-      const result = await saveToDrive(); // 🔥 retry
-
-      // ✅ CLEANUP AFTER SUCCESS
       isRetryingSave = false;
-
-      // 🔥 hide error UI if previously shown
-      const bar = document.getElementById("contactDevBar");
-      if (bar) bar.style.display = "none";
-
-      return result;
+      return;
 
     } catch (err) {
       isRetryingSave = false;
@@ -12388,13 +12403,12 @@ async function saveToDrive(){
     }
   }
 
-  // ❗ ONLY show error if NOT retry case
-  if (!isRetryingSave) {
-    showMessage("Upload failed! Please try again.", "error");
+  // Normal error
+  showMessage("Upload failed! Please try again.", "error");
 
-    const bar = document.getElementById("contactDevBar");
-    if (bar) bar.style.display = "block";
-  }
+  const bar = document.getElementById("contactDevBar");
+  if (bar) bar.style.display = "block";
+}
 }
 
 let autoSaveTimer = null;
@@ -12419,51 +12433,18 @@ function autoSaveDrive(reason) {
 
 
 async function loadFromDrive(){
-  if (!accessToken) {
-    alert('Please sign in first');
-    return;
-  }
-
+  if (!accessToken) { alert('Please sign in first'); return; }
   document.getElementById('gdrive-status').innerText = 'Downloading...';
-
   const fileId = await findFileId(APP_FILENAME);
-
-  if (!fileId) {
-    alert('No saved file found on Drive');
-    document.getElementById('gdrive-status').innerText = 'No file found';
-    return;
-  }
-
-  const r = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
-    {
-      headers: { Authorization: 'Bearer ' + accessToken }
-    }
-  );
-
-  if (!r.ok) {
-    alert('Download failed: ' + await r.text());
-    document.getElementById('gdrive-status').innerText = 'Download failed';
-    return;
-  }
-
-  const payload = await r.json();
-
-  if (!payload || !payload.data) {
-    alert('Drive file has no data.');
-    return;
-  }
-
-  // ✅ APPLY DATA BACK TO LOCAL STORAGE
-  Object.entries(payload.data).forEach(([k, v]) => {
-    try {
-      localStorage.setItem(k, JSON.stringify(v));
-    } catch (e) {
-      console.warn('Failed to restore key:', k, e);
-    }
+  if (!fileId) { alert('No saved file found on Drive'); document.getElementById('gdrive-status').innerText = 'No file found'; return; }
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+    headers: { Authorization: 'Bearer ' + accessToken }
   });
-
-  document.getElementById('gdrive-status').innerText = 'Data loaded';
+  if (!r.ok) { alert('Download failed: ' + await r.text()); document.getElementById('gdrive-status').innerText = 'Download failed'; return; }
+  const payload = await r.json();
+if (!payload || !payload.data) {
+  alert('Drive file has no data.');
+  return;
 }
 
 async function autoSyncFromDrive() {
