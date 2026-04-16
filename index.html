@@ -8830,7 +8830,7 @@ function createEventPanel(prefill = {}) {
     const matches = [...raw.matchAll(/\((.*?)\)/g)];
     const list = matches
       .map((m, i) => `<div>${i + 1}. ${m[1].trim()}</div>`)
-      .join('||');
+      .join('');
     panel.querySelector('.event-addon-display').innerHTML =
       list ||
       (raw.trim()
