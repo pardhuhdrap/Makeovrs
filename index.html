@@ -12110,6 +12110,10 @@ async function onSignedIn() {
         'Signed in — loading saved data...';
 
       try {
+        if (isTokenRefreshFlow) {
+  console.log("Skip loadFromDrive (token refresh)");
+  isTokenRefreshFlow = false; // reset
+} else {
         await loadFromDrive();   // merges data into localStorage
 
         // Re-apply UI immediately so images/letterheads show
@@ -12119,6 +12123,7 @@ async function onSignedIn() {
         if (typeof updateSummaryUI === 'function') updateSummaryUI();
         if (typeof updateInvoiceSummaryUI === 'function') updateInvoiceSummaryUI();
         try { updateDashboardUpcomingEvents(); } catch (e) {}
+}
 
         document.getElementById('gdrive-status').innerText = 'Loaded saved data';
       } catch (e) {
