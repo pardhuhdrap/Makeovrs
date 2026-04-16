@@ -12339,11 +12339,13 @@ async function saveToDrive(){
     }
   } catch (e) {
   console.error("Drive upload failed:", e);
-  const errText = e?.message || '';  
- if (
-  (errText.includes("401") || errText.includes("403")) &&
-  !isRetryingSave
-) {
+
+  const errText = e?.message || '';
+
+  if (
+    (errText.includes("401") || errText.includes("403")) &&
+    !isRetryingSave
+  ) {
     console.warn("Token expired → refreshing...");
 
     isRetryingSave = true;
@@ -12351,15 +12353,20 @@ async function saveToDrive(){
     try {
       await getFreshToken();
 
-      // 🔥 IMPORTANT for mobile
       await new Promise(r => setTimeout(r, 500));
 
       console.log("Retrying save after token refresh...");
 
-      return saveToDrive();
+      const result = await saveToDrive(); // 🔥 retry
 
+      // ✅ CLEANUP AFTER SUCCESS
       isRetryingSave = false;
-      return;
+
+      // 🔥 hide error UI if previously shown
+      const bar = document.getElementById("contactDevBar");
+      if (bar) bar.style.display = "none";
+
+      return result;
 
     } catch (err) {
       isRetryingSave = false;
@@ -12368,12 +12375,13 @@ async function saveToDrive(){
     }
   }
 
-  // Normal error
-  showMessage("Upload failed! Please try again.", "error");
+  // ❗ ONLY show error if NOT retry case
+  if (!isRetryingSave) {
+    showMessage("Upload failed! Please try again.", "error");
 
-  const bar = document.getElementById("contactDevBar");
-  if (bar) bar.style.display = "block";
-}
+    const bar = document.getElementById("contactDevBar");
+    if (bar) bar.style.display = "block";
+  }
 }
 
 let autoSaveTimer = null;
