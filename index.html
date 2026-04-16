@@ -12106,12 +12106,12 @@ async function onSignedIn() {
       updateProfileIcon();
 
       // === AUTO-LOAD FROM DRIVE ON SIGN-IN ===
-      try {
+try {
+
   if (isTokenRefreshFlow) {
     console.log("Skip loadFromDrive (token refresh)");
     isTokenRefreshFlow = false;
 
-    // ✅ better message
     document.getElementById('gdrive-status').innerText =
       'Session refreshed';
 
@@ -12126,17 +12126,20 @@ async function onSignedIn() {
     if (typeof renderCalendar === 'function') renderCalendar();
     if (typeof updateSummaryUI === 'function') updateSummaryUI();
     if (typeof updateInvoiceSummaryUI === 'function') updateInvoiceSummaryUI();
+
     try { updateDashboardUpcomingEvents(); } catch (e) {}
 
-    document.getElementById('gdrive-status').innerText = 'Loaded saved data';
+    document.getElementById('gdrive-status').innerText =
+      'Loaded saved data';
   }
 
 } catch (e) {
   console.warn('Auto-load failed', e);
+
   document.getElementById('gdrive-status').innerText =
     'Signed in (no saved data)';
 }
-      // === END AUTO-LOAD SECTION ===
+// === END AUTO-LOAD SECTION ===
     } else {
       document.getElementById('gdrive-status').innerText =
         'Failed to fetch profile';
@@ -12428,6 +12431,7 @@ async function loadFromDrive(){
 if (!payload || !payload.data) {
   alert('Drive file has no data.');
   return;
+}
 }
 
 async function autoSyncFromDrive() {
