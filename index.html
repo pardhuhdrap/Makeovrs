@@ -12383,6 +12383,8 @@ async function saveToDrive(){
       document.getElementById('gdrive-status').innerText = 'Saved to Drive';
       alert('Data saved to Drive.');
     }
+    const bar = document.getElementById("contactDevBar");
+if (bar) bar.style.display = "none";
  } catch (e) {
   console.error("Drive upload failed:", e);
 
