@@ -11967,7 +11967,11 @@ function getFreshToken() {
   return new Promise((resolve, reject) => {
 
     tokenClient.requestAccessToken({
-      prompt: 'consent', // 🔥 IMPORTANT (silent refresh)
+      prompt: 'consent',
+      scope: (USE_APPDATA
+        ? 'https://www.googleapis.com/auth/drive.appdata'
+        : 'https://www.googleapis.com/auth/drive.file'
+      ) + ' openid email profile',
       callback: (resp) => {
 
         if (resp.error) {
