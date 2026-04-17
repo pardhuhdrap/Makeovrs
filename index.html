@@ -12029,7 +12029,7 @@ function initGoogleTokenClient(){
 
         return;
       }
-      
+
       accessToken = resp.access_token;
 window.accessToken = accessToken;
 
@@ -12366,23 +12366,6 @@ async function saveToDrive(){
 
   if (!accessToken) { alert('Please sign in first'); return; }
   document.getElementById('gdrive-status').innerText = 'Preparing data...';
-  
-  // ✅ 👉 scope check
-  const requiredScope = 'https://www.googleapis.com/auth/drive.appdata';
-
-  if (
-    !lastTokenResponse ||
-    !google.accounts.oauth2.hasGrantedAllScopes(lastTokenResponse, requiredScope)
-  ) {
-    console.warn("Missing Drive scope → requesting proper token");
-
-    pendingSaveAfterRefresh = true;
-    isTokenRefreshFlow = true;
-
-    await getFreshToken();
-
-    return;
-  }
 
   const data = {};
   for (let i=0;i<localStorage.length;i++){
@@ -12405,8 +12388,18 @@ async function saveToDrive(){
 
   const errText = e?.message || '';
 
+  // ✅ HANDLE 403 FIRST
+  if (errText.includes("403")) {
+    console.error("Permission issue — token missing scope");
+
+    showMessage("Permission required. Please sign in again.", "error");
+
+    return;
+  }
+
+  // ✅ HANDLE ONLY 401 FOR REFRESH
   if (
-    (errText.includes("401") || errText.includes("403")) &&
+    errText.includes("401") &&
     !isRetryingSave
   ) {
     console.warn("Token expired → refreshing...");
@@ -12414,12 +12407,12 @@ async function saveToDrive(){
     isRetryingSave = true;
 
     try {
-      pendingSaveAfterRefresh = true;   // 🔥 ADD
+      pendingSaveAfterRefresh = true;
       isTokenRefreshFlow = true;
 
       await getFreshToken();
 
-      return; // 🔥 IMPORTANT (stop here)
+      return;
 
     } catch (err) {
       isRetryingSave = false;
@@ -12428,6 +12421,7 @@ async function saveToDrive(){
     }
   }
 
+  // ❌ NORMAL ERROR
   showMessage("Upload failed! Please try again.", "error");
 
   const bar = document.getElementById("contactDevBar");
