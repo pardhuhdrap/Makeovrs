@@ -11968,10 +11968,15 @@ function getFreshToken() {
 
     tokenClient.requestAccessToken({
       prompt: 'consent',
-      scope: (USE_APPDATA
-        ? 'https://www.googleapis.com/auth/drive.appdata'
-        : 'https://www.googleapis.com/auth/drive.file'
-      ) + ' openid email profile',
+      include_granted_scopes: false, // 🔥 ADD THIS
+
+  scope: [
+    'https://www.googleapis.com/auth/drive.appdata',
+    'https://www.googleapis.com/auth/drive.file',
+    'openid',
+    'email',
+    'profile'
+  ].join(' '),
       callback: (resp) => {
 
         if (resp.error) {
@@ -12006,6 +12011,7 @@ function initGoogleTokenClient(){
     'email',
     'profile'
   ].join(' '),
+  include_granted_scopes: false,
     callback: (resp) => {
       if (resp.error) {
         console.error('Token error', resp);
