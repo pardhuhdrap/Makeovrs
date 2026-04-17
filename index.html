@@ -11968,7 +11968,7 @@ function getFreshToken() {
   return new Promise((resolve, reject) => {
 
     tokenClient.requestAccessToken({
-      prompt: 'select_account consent', // 🔥 IMPORTANT (silent refresh)
+      prompt: '', // 🔥 IMPORTANT (silent refresh)
       callback: (resp) => {
 
         if (resp.error) {
