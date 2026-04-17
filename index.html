@@ -11967,7 +11967,7 @@ function getFreshToken() {
   return new Promise((resolve, reject) => {
 
     tokenClient.requestAccessToken({
-      prompt: '', // 🔥 IMPORTANT (silent refresh)
+      prompt: 'consent', // 🔥 IMPORTANT (silent refresh)
       callback: (resp) => {
 
         if (resp.error) {
@@ -12038,9 +12038,13 @@ if (pendingSaveAfterRefresh) {
   pendingSaveAfterRefresh = false;
   isRetryingSave = false;
 
-  setTimeout(() => {
-    saveToDrive();
-  }, 300); // mobile safe
+  setTimeout(async () => {
+  console.log("Using token:", accessToken);
+
+  await new Promise(r => setTimeout(r, 300)); // 🔥 EXTRA STABILIZATION
+
+  saveToDrive();
+}, 300);
 
   return; // 🚨 skip onSignedIn
 }
