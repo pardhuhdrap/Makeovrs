@@ -11999,7 +11999,13 @@ function initGoogleTokenClient(){
   if (tokenClient) return;
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
-    scope: (USE_APPDATA ? 'https://www.googleapis.com/auth/drive.appdata' : 'https://www.googleapis.com/auth/drive.file') + ' openid email profile',
+     scope: [
+    'https://www.googleapis.com/auth/drive.appdata',
+    'https://www.googleapis.com/auth/drive.file',
+    'openid',
+    'email',
+    'profile'
+  ].join(' '),
     callback: (resp) => {
       if (resp.error) {
         console.error('Token error', resp);
