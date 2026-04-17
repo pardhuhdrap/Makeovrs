@@ -11962,6 +11962,7 @@ let userProfile = null;
 let isRetryingSave = false;
 let isTokenRefreshFlow = false;
 let pendingSaveAfterRefresh = false;
+let lastTokenResponse = null;
 
 function getFreshToken() {
   return new Promise((resolve, reject) => {
@@ -11979,7 +11980,7 @@ function getFreshToken() {
 
         accessToken = resp.access_token;
         window.accessToken = accessToken;
-
+        lastTokenResponse = resp;
         resolve(accessToken);
       }
     });
@@ -12028,6 +12029,7 @@ function initGoogleTokenClient(){
 
         return;
       }
+      
       accessToken = resp.access_token;
 window.accessToken = accessToken;
 
@@ -12364,6 +12366,24 @@ async function saveToDrive(){
 
   if (!accessToken) { alert('Please sign in first'); return; }
   document.getElementById('gdrive-status').innerText = 'Preparing data...';
+  
+  // ✅ 👉 scope check
+  const requiredScope = 'https://www.googleapis.com/auth/drive.appdata';
+
+  if (
+    !lastTokenResponse ||
+    !google.accounts.oauth2.hasGrantedAllScopes(lastTokenResponse, requiredScope)
+  ) {
+    console.warn("Missing Drive scope → requesting proper token");
+
+    pendingSaveAfterRefresh = true;
+    isTokenRefreshFlow = true;
+
+    await getFreshToken();
+
+    return;
+  }
+
   const data = {};
   for (let i=0;i<localStorage.length;i++){
     const k = localStorage.key(i);
